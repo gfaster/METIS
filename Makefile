@@ -85,25 +85,25 @@ endef
 lib: $(BUILDDIR)/libmetis.a
 	@echo "complete"
 
-test: $(BUILDDIR)/mtest
-	$(BUILDDIR)/mtest
-	
+$(BUILDDIR)/libmacros.so: rust/macros/target/debug/libmacros.so
+	cp $< $@
 
-$(BUILDDIR)/mtest: lib $(wildcard test/*.c) $(wildcard test/*.h)
-	gcc -g -o $@ -Ilibmetis -I$(filter %.h,$^) -I$(BUILDDIR)/include/ -I$(gklib_path)/include $(filter %.c,$^) -lmetis
+rust/macros/target/debug/libmacros.so: $(wildcard rust/macros/src/*) rust/macros/Cargo.toml rust/macros/Cargo.lock
+	cd rust/macros; cargo build
 
+$(BUILDDIR)/libbindings.rlib: rust/bindings/bindings.rs $(BUILDDIR)/libmacros.so
+	rustc -g --crate-type lib \
+	    --crate-name bindings \
+	    --extern macros=$(BUILDDIR)/libmacros.so \
+	    --out-dir $(BUILDDIR) \
+	    $<
 
-
-# all clean install:
-# 	@if [ ! -f $(BUILDDIR)/Makefile ]; then \
-# 		more BUILD.txt; \
-# 	else \
-# 	  	make -C $(BUILDDIR) $@ $(MAKEFLAGS); \
-# 	fi
-
-$(RUSTOBJ):  $(BUILDDIR)/%.o: libmetis/%.rs
-	rustc -g --emit obj $<
-	mv $@ $(BUILDDIR)
+$(RUSTOBJ):  $(BUILDDIR)/%.o: libmetis/%.rs $(BUILDDIR)/libmacros.so $(BUILDDIR)/libbindings.rlib
+	rustc -g --emit obj $< \
+	    --crate-type lib \
+	    --extern macros=$(BUILDDIR)/libmacros.so \
+	    --extern bindings=$(BUILDDIR)/libbindings.rlib \
+	    --out-dir $(BUILDDIR)
 
 $(COBJ): $(BUILDDIR)/%.o: libmetis/%.c $(BUILDDIR)/include/metis.h
 	@echo "$^"

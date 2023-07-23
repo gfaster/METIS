@@ -42,6 +42,7 @@
 *.su
 *.idb
 *.pdb
+tags
 
 # Kernel Module Compile Results
 *.mod*
@@ -63,3 +64,4 @@ GKlib
 
 # Rust things
 metis_test/target/*
+rust/*/target
