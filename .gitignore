@@ -21,6 +21,7 @@
 *.a
 *.la
 *.lo
+*.rlib
 
 # Shared objects (inc. Windows DLLs)
 *.dll
@@ -60,3 +61,5 @@ graphs/*.npart.*
 GKlib
 .svn/
 
+# Rust things
+metis_test/target/*

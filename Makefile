@@ -10,8 +10,8 @@ valgrind   = not-set
 openmp     = not-set
 shared     = not-set
 cc         = not-set
-prefix     = ~/local
-gklib_path = ~/local
+prefix     = ./install
+gklib_path = ./GKlib/build/install
 
 
 # Basically proxies everything to the builddir cmake.
@@ -63,6 +63,12 @@ ifneq ($(cc), not-set)
     CONFIG_FLAGS += -DCMAKE_C_COMPILER=$(cc)
 endif
 
+RUSTSRC = $(wildcard libmetis/*.rs)
+RUSTOBJ = $(addprefix $(BUILDDIR)/,$(notdir $(RUSTSRC:.rs=.o)))
+CSRC = $(wildcard libmetis/*.c)
+COBJ = $(addprefix $(BUILDDIR)/,$(notdir $(CSRC:.c=.o)))
+ALLOBJ = $(COBJ) $(RUSTOBJ)
+
 VERNUM=5.1.0
 PKGNAME=metis-$(VERNUM)
 
@@ -76,26 +82,44 @@ cp include/CMakeLists.txt $(BUILDDIR)/xinclude
 cd $(BUILDDIR) && cmake $(CURDIR) $(CONFIG_FLAGS)
 endef
 
-all clean install:
-	@if [ ! -f $(BUILDDIR)/Makefile ]; then \
-		more BUILD.txt; \
-	else \
-	  	make -C $(BUILDDIR) $@ $(MAKEFLAGS); \
-	fi
+lib: $(BUILDDIR)/libmetis.a
+	@echo "complete"
 
-uninstall:
-	xargs rm < $(BUILDDIR)/install_manifest.txt
+test: $(BUILDDIR)/mtest
+	$(BUILDDIR)/mtest
+	
 
-config: distclean
-	$(run-config)
+$(BUILDDIR)/mtest: lib $(wildcard test/*.c) $(wildcard test/*.h)
+	gcc -g -o $@ -Ilibmetis -I$(filter %.h,$^) -I$(BUILDDIR)/include/ -I$(gklib_path)/include $(filter %.c,$^) -lmetis
 
-distclean:
-	rm -rf $(BUILDDIR)
 
-remake:
-	find . -name CMakeLists.txt -exec touch {} ';'
 
-dist:
-	utils/mkdist.sh $(PKGNAME)
+# all clean install:
+# 	@if [ ! -f $(BUILDDIR)/Makefile ]; then \
+# 		more BUILD.txt; \
+# 	else \
+# 	  	make -C $(BUILDDIR) $@ $(MAKEFLAGS); \
+# 	fi
 
-.PHONY: config distclean all clean install uninstall remake dist
+$(RUSTOBJ):  $(BUILDDIR)/%.o: libmetis/%.rs
+	rustc -g --emit obj $<
+	mv $@ $(BUILDDIR)
+
+$(COBJ): $(BUILDDIR)/%.o: libmetis/%.c $(BUILDDIR)/include/metis.h
+	@echo "$^"
+	gcc -g -c -o $@ -I$(gklib_path)/include -I$(BUILDDIR)/include $<
+
+$(BUILDDIR)/libmetis.a: $(ALLOBJ)
+	ar -r $@ $?
+
+$(BUILDDIR)/include/metis.h: include/metis.h
+	mkdir -p $(BUILDDIR)/include
+	echo $(IDXWIDTH) > $(BUILDDIR)/include/metis.h
+	echo $(REALWIDTH) >> $(BUILDDIR)/include/metis.h
+	cat include/metis.h >> $(BUILDDIR)/include/metis.h
+
+clean:
+	rm -r $(BUILDDIR)
+
+
+.PHONY: config distclean all clean install uninstall remake dist rustbuild
