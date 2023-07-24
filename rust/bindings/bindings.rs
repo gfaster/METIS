@@ -1,7 +1,10 @@
 #![allow(bad_style)]
 
-#[macro_use]
+#[cfg(not(bindings_module))]
 extern crate macros;
+
+use macros::*;
+
 
 
 
@@ -18,8 +21,8 @@ pub const METIS_VER_MAJOR: u32 = 5;
 pub const METIS_VER_MINOR: u32 = 1;
 pub const METIS_VER_SUBMINOR: u32 = 0;
 pub const METIS_NOPTIONS: u32 = 40;
-pub type idx_t = i64;
-pub type real_t = f64;
+pub type idx_t = i32;
+pub type real_t = f32;
 
 // these don't need metis_decl attrib since they are the public API
 extern "C" {

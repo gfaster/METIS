@@ -64,4 +64,5 @@ GKlib
 
 # Rust things
 metis_test/target/*
+metis_test/src/bindings.rs
 rust/*/target

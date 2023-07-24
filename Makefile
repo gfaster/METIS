@@ -85,6 +85,12 @@ endef
 lib: $(BUILDDIR)/libmetis.a
 	@echo "complete"
 
+test: $(wildcard metis_test/src/*) $(wildcard metis_test/Cargo.*) metis_test/build.rs rust/bindings/bindings.rs $(BUILDDIR)/libmetis.a $(BUILDDIR)/libbindings.rlib
+	chmod 700 metis_test/src/bindings.rs
+	cp rust/bindings/bindings.rs metis_test/src/
+	chmod 400 metis_test/src/bindings.rs
+	cd metis_test; cargo test
+
 $(BUILDDIR)/libmacros.so: rust/macros/target/debug/libmacros.so
 	cp $< $@
 
@@ -105,11 +111,11 @@ $(RUSTOBJ):  $(BUILDDIR)/%.o: libmetis/%.rs $(BUILDDIR)/libmacros.so $(BUILDDIR)
 	    --extern bindings=$(BUILDDIR)/libbindings.rlib \
 	    --out-dir $(BUILDDIR)
 
-$(COBJ): $(BUILDDIR)/%.o: libmetis/%.c $(BUILDDIR)/include/metis.h
+$(COBJ): $(BUILDDIR)/%.o: libmetis/%.c $(BUILDDIR)/include/metis.h 
 	@echo "$^"
 	gcc -g -c -o $@ -I$(gklib_path)/include -I$(BUILDDIR)/include $<
 
-$(BUILDDIR)/libmetis.a: $(ALLOBJ)
+$(BUILDDIR)/libmetis.a: $(ALLOBJ) $(gklib_path)/lib/libGKlib.a
 	ar -r $@ $?
 
 $(BUILDDIR)/include/metis.h: include/metis.h

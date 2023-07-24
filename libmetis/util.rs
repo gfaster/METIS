@@ -33,20 +33,13 @@ extern "C" fn InitRandom(seed: idx_t) -> c_void {
 /// index of heighest weight of x[i] * y[i]
 #[metis_func]
 extern "C" fn iargmax_nrm(n: usize, x: *const idx_t, y: *const real_t) -> idx_t {
-  let x_slice;
-  let y_slice;
-  unsafe {
-    x_slice = std::slice::from_raw_parts(x, n);
-    y_slice = std::slice::from_raw_parts(y, n);
-  }
+  let x = unsafe { std::slice::from_raw_parts(x, n) };
+  let y = unsafe { std::slice::from_raw_parts(y, n) };
 
   let mut max = 0;
-  let mut max_val = 0.0;
-  for i in 0..n {
-    let product = x_slice[i] as real_t * y_slice[i];
-    if product > max_val {
+  for i in 1..n {
+    if x[i] as real_t * y[i] > x[max] as real_t * y[max] {
       max = i;
-      max_val = product;
     }
   }
 
@@ -58,19 +51,20 @@ extern "C" fn iargmax_nrm(n: usize, x: *const idx_t, y: *const real_t) -> idx_t 
 #[metis_func]
 extern "C" fn iargmax_strd(n: usize, x: *const idx_t, incx: idx_t) -> idx_t {
   let incx = incx as usize;
-  let n = n * incx as usize;
+  let n = n * incx;
   let x = unsafe { std::slice::from_raw_parts(x, n) };
+
   let mut max = 0;
   for i in (incx..n).step_by(incx) {
-    if x[i as usize] > x[max] {
-      max = i as usize;
+    if x[i] > x[max] {
+      max = i;
     }
   }
-  max as idx_t
+  (max / incx) as idx_t
 }
 
 
-/// return the index of the almost max value in a vector
+/// return the index of the almost max element in a vector
 #[metis_func]
 extern "C" fn rargmax2(n: usize, x: *const real_t) -> idx_t {
   let x = unsafe { std::slice::from_raw_parts(x, n) };
@@ -116,7 +110,7 @@ extern "C" fn iargmax2_nrm(n: usize, x: *const idx_t, y: *const real_t) -> idx_t
   }
 
   for i in 2..n {
-    if x[i] as real_t > x[max1] as real_t * y[max1] {
+    if x[i] as real_t * y[i] > x[max1] as real_t * y[max1] {
       max2 = max1;
       max1 = i;
     } else if x[i] as real_t * y[i] > x[max2] as real_t * y[max2] {
