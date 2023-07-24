@@ -18,48 +18,43 @@ To build METIS you can follow the instructions below:
 
 ### Dependencies
 
-General dependencies for building METIS are: gcc, cmake, build-essential. 
-In Ubuntu systems these can be obtained from the apt package manager (e.g., apt-get install cmake, etc) 
+General dependencies for building this METIS refactor are: gcc, GNUmake, cmake, build-essential, Rust, and Cargo. 
+In Ubuntu systems these can be obtained from the apt package manager (e.g., apt-get install make, etc) 
 
 ```
 sudo apt-get install build-essential
+sudo apt-get install make
 sudo apt-get install cmake
 ```
 
-In addition, you need to download and install
-[GKlib](https://github.com/KarypisLab/GKlib) by following the instructions there. 
+Rust and Cargo should be installed via [`rustup`](https://rustup.rs/)
 
+In addition, you need to clone [GKlib](https://github.com/KarypisLab/GKlib) as a subdirectory of METIS.
 
-### Building and installing METIS  
+### Building
 
-METIS is primarily configured by passing options to make config. For example:
+1. Clone Gklib
+    - Should be as a subdirectory in this repo: `METIS/GKlib`
+2. in the newly cloned `METIS/GKlib/Makefile`, set `prefix` to `../install`
+3. `cd` to `METIS/GKlib` and run `make config` and then `make install`
+4. return to the parent directory (`METIS`)
+5. run `make lib` and then `make test`
 
-```
-make config shared=1 cc=gcc prefix=~/local
+full commands, assuming `gcc`, `cmake`, `build-essential`, `rustc`, and `cargo` are already installed:
+```sh
+git clone https://github.com/gfaster/METIS
+cd METIS
+git clone https://github.com/KarypisLab/GKlib
+cd GKlib
+
+# should be changed properly, but this still works
+make config prefix=../install 
+
 make install
+cd ..
+make lib
+make test
 ```
-
-will configure METIS to be built as a shared library using GCC and then install the binaries, header files, and libraries at 
-
-```
-~/local/bin
-~/local/include
-~/local/lib
-```
-
-directories, respectively.
-
-### Common configuration options are:
-
-    cc=[compiler]     - The C compiler to use [default is determined by CMake]
-    shared=1          - Build a shared library instead of a static one [off by default]
-    prefix=[PATH]     - Set the installation prefix [~/local by default]
-    gklib_path=[PATH] - Set the prefix path where GKlib has been installed. You can skip
-                        this if GKlib's installation prefix is the same as that of METIS.
-    i64=1             - Sets to 64 bits the width of the datatype that will store information
-                        about the vertices and their adjacency lists. 
-    r64=1             - Sets to 64 bits the width of the datatype that will store information 
-                        about floating point numbers.
 
 ### Advanced debugging related options:
 
