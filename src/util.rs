@@ -12,11 +12,9 @@
  * $Id: util.c 10495 2011-07-06 16:04:45Z karypis $
  */
 
-#[macro_use]
-extern crate macros;
 
-extern crate bindings;
-use bindings::*;
+use super::macros::*;
+use super::bindings::*;
 use std::ffi::{c_void};
 
 

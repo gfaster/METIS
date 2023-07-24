@@ -1,9 +1,7 @@
 #![allow(unused_mut, nonstandard_style)]
 
-extern crate macros;
 
-mod bindings;
-pub use bindings::*;
+use crate::bindings::*;
 
 
 

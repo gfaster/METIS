@@ -63,6 +63,7 @@ GKlib
 .svn/
 
 # Rust things
-metis_test/target/*
-metis_test/src/bindings.rs
-rust/*/target
+/target
+/Cargo.lock
+/macros/target
+/macros/Cargo.lock

@@ -1,6 +1,5 @@
 #![allow(bad_style)]
 
-#[cfg(not(bindings_module))]
 extern crate macros;
 
 use macros::*;
