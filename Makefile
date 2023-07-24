@@ -91,6 +91,9 @@ test: $(wildcard metis_test/src/*) $(wildcard metis_test/Cargo.*) metis_test/bui
 	chmod 400 metis_test/src/bindings.rs
 	cd metis_test; cargo test
 
+tags:
+	ctags $$(fd -I -ec -eh -E "rename.h")
+
 $(BUILDDIR)/libmacros.so: rust/macros/target/debug/libmacros.so
 	cp $< $@
 
