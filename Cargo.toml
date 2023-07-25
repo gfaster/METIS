@@ -8,14 +8,22 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+dual_link = []
+
+# comment this line out to just use rust implementations
+# with dual_link enabled, we can run both implementations and compare the outputs
+default = ["dual_link"]
+
 [lib]
 name = "metis"
 path = "src/lib.rs"
+
 # crate-type = ["staticlib"]
 
-[[bin]]
-name = "playground"
-path = "src/playground.rs"
+# [[bin]]
+# name = "playground"
+# path = "src/playground.rs"
 
 [dependencies]
 macros = {path = "./macros"}
