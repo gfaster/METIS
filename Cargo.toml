@@ -27,6 +27,7 @@ path = "src/lib.rs"
 
 [dependencies]
 macros = {path = "./macros"}
+libc = "0.2"
 
 [build-dependencies]
 cc = "1.0"

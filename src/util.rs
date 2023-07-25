@@ -122,6 +122,46 @@ pub extern "C" fn metis_rcode(sigrval: std::ffi::c_int) -> std::ffi::c_int {
     }
 }
 
+/*
+* ====================================================
+* below here is my additional functions
+* ====================================================
+*/
+
+/// Equivalent of MAKECSR in gk_macros.h
+///
+/// n is the length of the slice, but it's often used shorter in METIS
+#[inline(always)]
+pub fn make_csr(n: usize, a: &mut [idx_t]) {
+    assert!(n <= a.len() - 1, "making a csr indexes up to n");
+    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, than we can remove n as an argument");
+    if n == 0 {
+        return;
+    }
+
+    for i in 1..n {
+        a[i] += a[i - 1];
+    }
+    for i in (1..=n).rev() {
+        a[i] = a[i - 1];
+    }
+    a[0] = 0;
+}
+
+/// Equivalent of SHIFTCSR in gk_macros.h
+#[inline(always)]
+pub fn shift_csr(n: usize, a: &mut [idx_t]) {
+    assert!(n <= a.len() - 1, "making a csr indexes up to n");
+    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, than we can remove n as an argument");
+
+    if n == 0 {
+        return;
+    }
+    for i in (1..=n).rev() {
+        a[i] = a[i - 1];
+    }
+    a[0] = 0;
+}
 
 #[cfg(test)]
 mod test {

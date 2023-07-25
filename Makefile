@@ -92,7 +92,7 @@ test: $(wildcard metis_test/src/*) $(wildcard metis_test/Cargo.*) metis_test/bui
 	cd metis_test; cargo test
 
 tags:
-	ctags $$(fd -I -ec -eh -E "rename.h")
+	ctags $$(fdfind --no-ignore -ec -eh -E "rename.h" -E "gklib_rename.h" "" src include GKlib/build/install/include GKlib)
 
 $(BUILDDIR)/libmacros.so: rust/macros/target/debug/libmacros.so
 	cp $< $@
@@ -131,4 +131,4 @@ clean:
 	rm -r $(BUILDDIR)
 
 
-.PHONY: config distclean all clean install uninstall remake dist rustbuild
+.PHONY: config distclean all clean install uninstall remake dist rustbuild tags

@@ -24,7 +24,10 @@ fn main() {
         .collect();
 
     for file in &files {
-        println!("cargo:rerun-if-changed={}", file.to_str().expect("files are valid utf-8"));
+        println!(
+            "cargo:rerun-if-changed={}",
+            file.to_str().expect("files are valid utf-8")
+        );
     }
 
     println!("cargo:rerun-if-changed=src/ported");
@@ -46,6 +49,7 @@ fn main() {
         .include("src")
         .define("IDXTYPEWIDTH", "32")
         .define("REALTYPEWIDTH", "32")
+        .define("DMALLOC", "")
         // .define("ASSERT", "1")
         // .define("ASSERT2", "1")
         .warnings(false)

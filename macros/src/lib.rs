@@ -179,7 +179,8 @@ pub fn ab_test_eq(input: TokenStream, annotated_item: TokenStream) -> TokenStrea
     let mut rust_fn_decl = item.sig.clone();
     rust_fn_decl.ident = syn::Ident::new("rust", fn_span);
 
-    item.attrs.push(syn::parse_quote!(#[cfg_attr(not(feature = "dual_link"), ignore)]));
+    item.attrs
+        .push(syn::parse_quote!(#[cfg_attr(not(feature = "dual_link"), ignore)]));
     item.attrs.push(syn::parse_quote!(#[test]));
     item.sig.output = syn::ReturnType::Default;
     item.block.stmts = syn::parse_quote! {
