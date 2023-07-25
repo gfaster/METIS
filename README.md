@@ -9,7 +9,7 @@ partitioning schemes developed in our lab.
 
 You can download METIS by simply cloning it using the command:
 ```
-git clone https://github.com/KarypisLab/METIS.git
+git clone https://github.com/gfaster/METIS.git
 ```
 
 ## Building standalone METIS binaries and library
@@ -38,7 +38,7 @@ In addition, you need to clone [GKlib](https://github.com/KarypisLab/GKlib) as a
 2. in the newly cloned `METIS/GKlib/Makefile`, set `prefix` to `../install`
 3. `cd` to `METIS/GKlib` and run `make config` and then `make install`
 4. return to the parent directory (`METIS`)
-5. run `make lib` and then `make test`
+5. run `cargo build` and/or `cargo test`
 
 full commands, assuming `gcc`, `cmake`, `build-essential`, `rustc`, and `cargo` are already installed:
 ```sh
@@ -52,27 +52,9 @@ make config prefix=../install
 
 make install
 cd ..
-make lib
-make test
+cargo test
+
 ```
-
-### Advanced debugging related options:
-
-    gdb=1           - Build with support for GDB [off by default]
-    debug=1         - Enable debugging support [off by default]
-    assert=1        - Enable asserts [off by default]
-    assert2=1       - Enable very expensive asserts [off by default]
-
-### Other make commands
-
-    make uninstall
-         Removes all files installed by 'make install'.
-
-    make clean
-         Removes all object files but retains the configuration options.
-
-    make distclean
-         Performs clean and completely removes the build directory.
 
 
 ## Copyright & License Notice
