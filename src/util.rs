@@ -125,8 +125,10 @@ pub extern "C" fn metis_rcode(sigrval: std::ffi::c_int) -> std::ffi::c_int {
 
 #[cfg(test)]
 mod test {
+    use crate::idx_t;
+
     #[ab_test_eq(super::iargmax_nrm)]
-    fn iargmax_nrm() -> i32 {
+    fn iargmax_nrm() -> idx_t {
         let x = &[1, 3, 2, 4];
         let y = &[5.0, 3.0, 3.0, 1.0];
         let n = x.len();
@@ -137,7 +139,7 @@ mod test {
     }
 
     #[ab_test_eq(super::iargmax_nrm)]
-    fn iargmax_nrm_same() -> i32 {
+    fn iargmax_nrm_same() -> idx_t {
         let x = &[1, 2, 3, 4, 6];
         let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
         let n = x.len();
@@ -148,7 +150,7 @@ mod test {
     }
 
     #[ab_test_eq(super::iargmax2_nrm)]
-    fn iargmax2_nrm() -> i32 {
+    fn iargmax2_nrm() -> idx_t {
         let x = &[1, 3, 2, 4];
         let y = &[5.0, 3.0, 3.0, 1.0];
         let n = x.len();
@@ -159,7 +161,7 @@ mod test {
     }
 
     #[ab_test_eq(super::iargmax2_nrm)]
-    fn iargmax2_nrm_same() -> i32 {
+    fn iargmax2_nrm_same() -> idx_t {
         let x = &[1, 2, 3, 4, 6];
         let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
         let n = x.len();
@@ -203,5 +205,13 @@ mod test {
         let incx = 2;
         assert!((n * incx as usize) <= x.len());
         assert_eq!(unsafe { iargmax_strd(n, x.as_ptr(), incx) }, 3);
+    }
+
+    #[ab_test_eq(super::rargmax2)]
+    fn rargmax2() -> idx_t {
+        let x = &[12.0, 6.0, 4.0, 3.0, 2.0];
+        let n = x.len();
+
+        unsafe { rargmax2(n, x.as_ptr()) }
     }
 }
