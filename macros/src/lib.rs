@@ -129,8 +129,11 @@ pub fn ab_test_basic(input: TokenStream, annotated_item: TokenStream) -> TokenSt
             #[cfg_attr(not(feature = "dual_link"), ignore)]
             #[test]
             #original_fn_decl {
-                use super::#c_target as #target_name;
-                #(#body_c)*
+                #[cfg(feature = "dual_link")]
+                {
+                    use super::#c_target as #target_name;
+                    #(#body_c)*
+                }
             }
             #[test]
             #rust_fn_decl {
@@ -176,19 +179,23 @@ pub fn ab_test_eq(input: TokenStream, annotated_item: TokenStream) -> TokenStrea
     let mut rust_fn_decl = item.sig.clone();
     rust_fn_decl.ident = syn::Ident::new("rust", fn_span);
 
+    item.attrs.push(syn::parse_quote!(#[cfg_attr(not(feature = "dual_link"), ignore)]));
     item.attrs.push(syn::parse_quote!(#[test]));
     item.sig.output = syn::ReturnType::Default;
     item.block.stmts = syn::parse_quote! {
-        #original_fn_decl {
-            let #target_name = #c_target;
-            #(#body_c)*
-        }
-        #rust_fn_decl {
-            let #target_name = #rust_target;
-            #(#body_rust)*
-        }
+        #[cfg(feature = "dual_link")]
+        {
+            #original_fn_decl {
+                let #target_name = #c_target;
+                #(#body_c)*
+            }
+            #rust_fn_decl {
+                let #target_name = #rust_target;
+                #(#body_rust)*
+            }
 
-        assert_eq!(rust(), original());
+            assert_eq!(rust(), original());
+        }
     };
 
     let output = quote::quote! {
