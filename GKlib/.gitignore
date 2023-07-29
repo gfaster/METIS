@@ -21,7 +21,6 @@
 *.a
 *.la
 *.lo
-*.rlib
 
 # Shared objects (inc. Windows DLLs)
 *.dll
@@ -42,7 +41,6 @@
 *.su
 *.idb
 *.pdb
-tags
 
 # Kernel Module Compile Results
 *.mod*
@@ -55,15 +53,5 @@ dkms.conf
 
 # GK things
 build/
-graphs/*.part.*
-graphs/*.iperm
-graphs/*.epart.*
-graphs/*.npart.*
-GKlib/build
+lib/
 .svn/
-
-# Rust things
-/target
-/Cargo.lock
-/macros/target
-/macros/Cargo.lock
