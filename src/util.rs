@@ -12,7 +12,9 @@
  */
 
 use super::bindings::*;
-use std::ffi::c_void;
+use std::io::BufRead;
+use std::ptr;
+use std::{error::Error, ffi::c_void};
 
 /// Initialize the random number generator
 #[metis_func]
@@ -122,11 +124,49 @@ pub extern "C" fn metis_rcode(sigrval: std::ffi::c_int) -> std::ffi::c_int {
     }
 }
 
+/// returns the max element in slice by stride incx
+///
+/// eventually will be metis_func, but need to port everything from the gk_mkblas at once
+///
+/// In the original, iargmax takes an `n` parameter which is the number of steps that will be
+/// taken. This is implied by the length of the slice
+///
+/// ```
+/// # use metis::util::iargmax;
+/// let vals = &[2, 3, 4, 3, 1];
+/// assert_eq!(iargmax(vals, 1), 2);
+/// assert_eq!(iargmax(vals, 2), 1);
+/// assert_eq!(iargmax(vals, 3), 1);
+/// assert_eq!(iargmax(vals, 4), 0);
+/// ```
+#[inline(always)]
+pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
+    let mut max = 0;
+
+    for j in (incx..x.len()).step_by(incx) {
+        if x[j] > x[max] {
+            max = j;
+        }
+    }
+    max / incx
+}
+
 /*
 * ====================================================
 * below here is my additional functions
 * ====================================================
 */
+
+#[macro_export]
+macro_rules! options_arr {
+    ($objtype:ident $iptype:ident) => {{
+        let mut options = [-1; METIS_NOPTIONS as usize];
+        options[crate::METIS_OPTION_PTYPE as usize] = crate::Objtype::$objtype as idx_t;
+        options[crate::METIS_OPTION_IPTYPE as usize] = crate::Iptype::$iptype as idx_t;
+
+        options
+    }};
+}
 
 /// Equivalent of MAKECSR in gk_macros.h
 ///
@@ -161,6 +201,181 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
         a[i] = a[i - 1];
     }
     a[0] = 0;
+}
+
+/// read a graph from a file in a simplified version of the format specified in the manual
+///
+/// returns (xadj, adjncy)
+pub fn read_graph(f: &mut impl BufRead) -> Result<(Vec<idx_t>, Vec<idx_t>), Box<dyn Error>> {
+    let mut buf = String::with_capacity(80);
+
+    f.read_line(&mut buf)?;
+
+    let mut xadj = Vec::<idx_t>::new();
+    let mut adjncy = Vec::<idx_t>::new();
+
+    let mut x = 0;
+    buf.clear();
+    while 0 != f.read_line(&mut buf)? {
+        if buf.trim_start().starts_with('#') || buf.trim().len() == 0 {
+            continue;
+        }
+
+        xadj.push(x);
+
+        let mut split = buf.split_whitespace();
+        while let Some(a) = split.next() {
+            adjncy.push(a.parse()?);
+            x += 1;
+        }
+
+        buf.clear();
+    }
+    xadj.push(x);
+
+    for (i, (start, end)) in xadj.windows(2).map(|w| (w[0], w[1])).enumerate() {
+        assert!((start as usize) < adjncy.len());
+        assert!((end as usize) <= adjncy.len());
+        assert!(start < end);
+        for j in &adjncy[(start as usize)..(end as usize)] {
+            assert!(j >= &0, "no negatives");
+            assert_ne!(i, *j as usize, "no self loops");
+            assert!(*j < xadj.len() as idx_t - 1, "adj in bounds");
+        }
+    }
+
+    Ok((xadj, adjncy))
+}
+
+/// adapted from mtest.c: VerifyPart
+pub fn verify_part(
+    xadj: &[idx_t],
+    adjncy: &[idx_t],
+    vwgt: Option<&[idx_t]>,
+    adjwgt: Option<&[idx_t]>,
+    objval: idx_t,
+    part: &[idx_t],
+    nparts: idx_t,
+) {
+    assert!(nparts > 0);
+    assert_eq!(
+        xadj.len() - 1,
+        part.len(),
+        "part is the partition that each vertex goes to"
+    );
+
+    let nvtxs = xadj.len() - 1;
+    let mut pwgts = vec![0; nparts as usize];
+
+    assert_eq!(
+        *part.iter().max().unwrap_or(&0),
+        nparts - 1,
+        "total number of partitions eq to nparts"
+    );
+
+    let mut cut = 0;
+    for i in 0..nvtxs {
+        pwgts[part[i] as usize] += vwgt.map(|v| v[i]).unwrap_or(1);
+        for j in xadj[i]..xadj[i + 1] {
+            if part[i] != part[adjncy[j as usize] as usize] {
+                cut += adjwgt.map(|v| v[j as usize]).unwrap_or(1);
+            }
+        }
+    }
+
+    assert_eq!(
+        cut,
+        2 * objval,
+        "objval should be edgecut, and the calculated cut should be double it"
+    );
+    assert!(
+        (nparts * pwgts.iter().max().unwrap()) as f64 <= 1.10 * pwgts.iter().sum::<idx_t>() as f64
+    );
+}
+
+/// creates a set of dummy weights for partition testing (vwgt, adjwgt)
+#[cfg(debug_assertions)]
+pub fn create_dummy_weights(
+    ncon: usize,
+    xadj: &[idx_t],
+    adjncy: &[idx_t],
+) -> (Vec<idx_t>, Vec<idx_t>) {
+    let mut rng = fastrand::Rng::new();
+    let nvtxs = xadj.len() - 1;
+
+    let vwgt = Vec::from_iter((0..(nvtxs * ncon)).map(|_| rng.i32(0..10)));
+
+    let mut adjwgt = vec![0; adjncy.len()];
+    for i in 0..nvtxs {
+        for j in xadj[i]..xadj[i + 1] {
+            let k = adjncy[j as usize] as usize;
+            if i < k {
+                adjwgt[j as usize] = rng.i32(1..=5);
+                for jj in xadj[k]..xadj[k + 1] {
+                    if adjncy[jj as usize] as usize == i {
+                        adjwgt[jj as usize] = adjwgt[j as usize];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    (vwgt, adjwgt)
+}
+
+/// wrapper for [`ctrl_t`] that frees it properly on drop
+pub struct Ctrl {
+    pub inner: *mut ctrl_t,
+}
+
+impl Ctrl {
+    /// calls [`SetupCtrl`] to create
+    pub fn new(
+        optype: Optype,
+        options: &mut [idx_t; METIS_NOPTIONS as usize],
+        ncon: idx_t,
+        nparts: idx_t,
+        tpwgts: Option<&[real_t]>,
+        ubvec: Option<&[real_t]>,
+    ) -> Self {
+        let tpwgts = tpwgts.map_or(ptr::null(), |x| x.as_ptr());
+        let ubvec = ubvec.map_or(ptr::null(), |x| x.as_ptr());
+
+        let inner = unsafe {
+            SetupCtrl(
+                optype as u32,
+                options.as_mut_ptr(),
+                ncon,
+                nparts,
+                tpwgts,
+                ubvec,
+            )
+        };
+        if inner.is_null() {
+            panic!("setup ctrl failed")
+        }
+        Ctrl { inner }
+    }
+
+    pub fn new_kmetis_basic() -> Self {
+        let mut options = options_arr!(Cut Grow);
+        let ncon = 1;
+        let nparts = 2;
+        let tpwgts = None;
+        let ubvec = None;
+        let optype = Optype::Kmetis;
+        Self::new(optype, &mut options, ncon, nparts, tpwgts, ubvec)
+    }
+}
+
+impl Drop for Ctrl {
+    fn drop(&mut self) {
+        if self.inner.is_null() {
+            panic!("dropped null ctrl")
+        } else {
+            unsafe { FreeCtrl(&mut self.inner as *mut _) };
+        }
+    }
 }
 
 #[cfg(test)]

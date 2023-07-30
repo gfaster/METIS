@@ -13,9 +13,14 @@
 
 use crate::*;
 
+/// # Description
 /// This function uses simple counting sort to return a permutation array
 /// corresponding to the sorted order. The keys are arsumed to start from
 /// 0 and they are positive.  This sorting is used during matching.
+///
+/// # Notes
+/// I'm really not sure about the semantics of this function. It's not super complicated, I just
+/// don't get it.
 #[metis_func]
 pub extern "C" fn BucketSortKeysInc(
     _ctrl: *const ctrl_t,
@@ -38,8 +43,39 @@ pub extern "C" fn BucketSortKeysInc(
     util::make_csr(max as usize + 1, &mut counts);
 
     for i in tperm {
-        let new_cnt = &mut counts[keys[*i as usize] as usize];
-        perm[*new_cnt as usize] = *i;
-        *new_cnt += 1;
+        let cnt = &mut counts[keys[*i as usize] as usize];
+        perm[*cnt as usize] = *i;
+        *cnt += 1;
+    }
+}
+
+mod test {
+    #![allow(unused_imports)]
+    use crate::*;
+
+    #[ab_test_eq(super::BucketSortKeysInc)]
+    fn bucket_sort_keys_inc() -> Vec<idx_t> {
+        let n = 10;
+        let mut perm = vec![-1; 10];
+        let tperm = vec![0, 9, 3, 2, 1, 8, 4, 5, 6, 7];
+        let keys = vec![0, 5, 3, 2, 0, 8, 5, 2, 8, 7];
+        let ctrl = util::Ctrl::new_kmetis_basic();
+        let max = 9;
+
+        assert_eq!(perm.len(), n);
+        assert_eq!(tperm.len(), n);
+        assert_eq!(keys.len(), n);
+
+        unsafe {
+            BucketSortKeysInc(
+                ctrl.inner,
+                n as i32,
+                max,
+                keys.as_ptr(),
+                tperm.as_ptr(),
+                perm.as_mut_ptr(),
+            )
+        };
+        perm
     }
 }

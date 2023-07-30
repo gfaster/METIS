@@ -9,7 +9,7 @@ pub fn metis_func(_input: TokenStream, annotated_item: TokenStream) -> TokenStre
 
     let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {
         attrs: item_fn.attrs.clone(),
-        vis: syn::parse_quote!(pub(crate)),
+        vis: syn::parse_quote!(pub),
         sig: item_fn.sig.clone(),
         semi_token: Token![;](proc_macro2::Span::call_site()),
     };
@@ -187,10 +187,12 @@ pub fn ab_test_eq(input: TokenStream, annotated_item: TokenStream) -> TokenStrea
         #[cfg(feature = "dual_link")]
         {
             #original_fn_decl {
+                #[allow(non_snake_case)]
                 let #target_name = #c_target;
                 #(#body_c)*
             }
             #rust_fn_decl {
+                #[allow(non_snake_case)]
                 let #target_name = #rust_target;
                 #(#body_rust)*
             }
