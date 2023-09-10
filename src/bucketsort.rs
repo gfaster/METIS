@@ -54,12 +54,13 @@ mod test {
     use crate::*;
 
     #[ab_test_eq(super::BucketSortKeysInc)]
-    fn bucket_sort_keys_inc() -> Vec<idx_t> {
+    fn bucketsort_keys_inc() -> Vec<idx_t> {
         let n = 10;
         let mut perm = vec![-1; 10];
         let tperm = vec![0, 9, 3, 2, 1, 8, 4, 5, 6, 7];
         let keys = vec![0, 5, 3, 2, 0, 8, 5, 2, 8, 7];
-        let ctrl = util::Ctrl::new_kmetis_basic();
+        let mut ctrl = util::Ctrl::new_kmetis_basic();
+        ctrl.init_dummy_graph(20);
         let max = 9;
 
         assert_eq!(perm.len(), n);

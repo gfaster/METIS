@@ -15,7 +15,7 @@ extern "C" {
 
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
 
-    pub fn AllocateWorkspace(graph: *mut graph_t, ctrl: *mut ctrl_t) -> std::ffi::c_void;
+    pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
     pub fn SetupGraph(
         ctrl: *mut ctrl_t,
@@ -35,6 +35,13 @@ pub const METIS_VER_SUBMINOR: u32 = 0;
 pub const METIS_NOPTIONS: u32 = 40;
 pub type idx_t = i32;
 pub type real_t = f32;
+
+// gklib functions are not renamed
+extern "C" {
+    /// initialize malloc used by most METIS functions
+    /// it sets a thread-local variable for the core, so it should be fine to use in tests
+    pub fn gk_malloc_init() -> std::ffi::c_int;
+}
 
 // these don't need metis_decl attrib since they are the public API
 extern "C" {

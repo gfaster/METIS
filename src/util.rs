@@ -12,7 +12,9 @@
  */
 
 use super::bindings::*;
+use std::any::Any;
 use std::io::BufRead;
+use std::pin::Pin;
 use std::ptr;
 use std::{error::Error, ffi::c_void};
 
@@ -323,9 +325,29 @@ pub fn create_dummy_weights(
     (vwgt, adjwgt)
 }
 
+/// returns (xadj, adjncy)
+pub fn create_dummy_graph(nvtxs: idx_t) -> (Vec<idx_t>, Vec<idx_t>) {
+    let mut xadj = Vec::with_capacity(nvtxs as usize + 1);
+    let mut adjncy = Vec::with_capacity(nvtxs as usize * 2);
+    for x in 0..nvtxs {
+        xadj.push(adjncy.len() as idx_t);
+        adjncy.push((x + 1) % nvtxs);
+        adjncy.push((x + nvtxs - 1) % nvtxs);
+    }
+    xadj.push(adjncy.len() as idx_t);
+
+    (xadj, adjncy)
+}
+
 /// wrapper for [`ctrl_t`] that frees it properly on drop
 pub struct Ctrl {
     pub inner: *mut ctrl_t,
+
+    /// for testing purposes, we often need to initialize a [`graph_t`] associated with ctrl. This
+    /// is because all allocation that METIS does relies on the memory arena created for a specific
+    /// graph. For convienence purposes (for now), I want to be able to dump those structures in
+    /// along with [`Ctrl`] so they can be freed properly.
+    graph_parts: Vec<Box<dyn std::any::Any>>,
 }
 
 impl Ctrl {
@@ -338,6 +360,10 @@ impl Ctrl {
         tpwgts: Option<&[real_t]>,
         ubvec: Option<&[real_t]>,
     ) -> Self {
+        if unsafe { gk_malloc_init() } == 0 {
+            panic!("gk_malloc_init failed")
+        }
+
         let tpwgts = tpwgts.map_or(ptr::null(), |x| x.as_ptr());
         let ubvec = ubvec.map_or(ptr::null(), |x| x.as_ptr());
 
@@ -354,7 +380,10 @@ impl Ctrl {
         if inner.is_null() {
             panic!("setup ctrl failed")
         }
-        Ctrl { inner }
+        Ctrl {
+            inner,
+            graph_parts: Vec::new(),
+        }
     }
 
     pub fn new_kmetis_basic() -> Self {
@@ -366,10 +395,31 @@ impl Ctrl {
         let optype = Optype::Kmetis;
         Self::new(optype, &mut options, ncon, nparts, tpwgts, ubvec)
     }
+
+    pub fn init_dummy_graph(&mut self, nvtxs: idx_t) {
+        let (mut xadj, mut adjncy) = create_dummy_graph(nvtxs);
+        let graph = unsafe {
+            SetupGraph(
+                self.inner,
+                nvtxs,
+                1,
+                xadj.as_mut_ptr(),
+                adjncy.as_mut_ptr(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+            )
+        };
+        self.graph_parts.push(Box::new(adjncy));
+        self.graph_parts.push(Box::new(xadj));
+        unsafe { AllocateWorkSpace(self.inner, graph) };
+    }
 }
 
 impl Drop for Ctrl {
     fn drop(&mut self) {
+        // core (worksapce) is freed if it has been set: noop on null
+
         if self.inner.is_null() {
             panic!("dropped null ctrl")
         } else {
