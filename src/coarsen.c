@@ -8,6 +8,12 @@
 \version\verbatim $Id: coarsen.c 20398 2016-11-22 17:17:12Z karypis $ \endverbatim
 */
 
+/*
+ * Gavin: This helped me understand what's going on here:
+ * https://andreasloukas.blog/2018/05/26/demystifying-graph-coarsening/
+ * https://ieeexplore.ieee.org/document/6816682 <= has quite a bit of detail on METIS
+ */
+
 
 #include "metislib.h"
 

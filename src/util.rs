@@ -12,9 +12,7 @@
  */
 
 use super::bindings::*;
-use std::any::Any;
 use std::io::BufRead;
-use std::pin::Pin;
 use std::ptr;
 use std::{error::Error, ffi::c_void};
 
