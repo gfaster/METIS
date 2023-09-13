@@ -226,8 +226,11 @@ macro_rules! BNDDelete {
 
 #[macro_export]
 macro_rules! mkslice {
-    ($var: ident, $struct:ident, $len:expr) => {
+    ($struct:ident->$var:ident, $len:expr) => {
         let $var: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
+    };
+    ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
+        let $newvar: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
     };
 }
 

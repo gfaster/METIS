@@ -171,7 +171,7 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> c_void
                 (*graph).nvtxs * sizeof(ckrinfo_t),
                 "AllocateKWayPartitionMemory: ckrinfo",
             )
-        }
+        },
 
         METIS_OBJTYPE_VOL => {
             (*graph).vkrinfo = gk_malloc(
@@ -182,7 +182,7 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> c_void
             /* This is to let the cut-based -minconn and -contig large-scale graph
             changes to go through */
             (*graph).ckrinfo = (*graph).vkrinfo;
-        }
+        },
 
         _ => gk_errexit(SIGERR, "Unknown objtype of %d\n", (*ctrl).objtype),
     }
@@ -217,7 +217,7 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
 
     // xadj = (*graph).xadj;
     // let xadj: &mut[idx_t] = slice::from_raw_parts_mut((*graph).xadj, nvtxs as usize + 1);
-    mkslice!(xadj, graph, nvtxs + 1);
+    mkslice!(graph->xadj, nvtxs + 1);
 
     // adjwgt = (*graph).adjwgt;
     let adjwgt: &mut[idx_t] = slice::from_raw_parts_mut((*graph).adjwgt, xadj[xadj.len() - 1] as usize);
@@ -420,8 +420,6 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     let nparts: idx_t;
     let me: idx_t;
     let other: idx_t;
-    let istart: idx_t;
-    let iend: idx_t;
     let tid: idx_t;
     let ted: idx_t;
 
@@ -443,7 +441,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     nparts = (*ctrl).nparts;
 
     cgraph = (*graph).coarser;
-    cwhere = (*cgraph).where_;
+    // TODO: I think this may be should be cgraph.nvtxs
+    mkslice!(cwhere: cgraph->where_, nvtxs as usize);
 
     if (*ctrl).objtype == METIS_OBJTYPE_CUT {
         assert!(CheckBnd2(cgraph) != 0);
@@ -455,52 +454,55 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     FreeSData(cgraph);
 
     nvtxs = (*graph).nvtxs;
-    cmap = (*graph).cmap;
-    xadj = (*graph).xadj;
-    adjncy = (*graph).adjncy;
-    adjwgt = (*graph).adjwgt;
+    mkslice!(graph->cmap, nvtxs);
+    mkslice!(graph->xadj, nvtxs + 1);
+    mkslice!(graph->adjncy, xadj[nvtxs as usize]);
+    mkslice!(graph->adjwgt, xadj[nvtxs as usize]);
 
     AllocateKWayPartitionMemory(ctrl, graph);
 
-    where_ = (*graph).where_;
-    bndind = (*graph).bndind;
-
-    // bndptr = iset(nvtxs, -1, (*graph).bndptr);
-    mkslice!(bndptr, graph, nvtxs);
+    mkslice!(graph->where_, nvtxs);
+    mkslice!(graph->bndind, nvtxs); // this is prolly wrong? it may be different length
+    mkslice!(graph->bndptr, nvtxs);
     bndptr.fill(-1);
 
-    htable = iset(nparts, -1, iwspacemalloc(ctrl, nparts));
+    let htable: Vec<idx_t> = vec![-1; nparts as usize];
 
     /* Compute the required info for refinement */
-    match ((*ctrl).objtype) {
+    match (*ctrl).objtype {
         METIS_OBJTYPE_CUT => {
-            ckrinfo_t * myrinfo;
-            cnbr_t * mynbrs;
+            let myrinfo: &mut ckrinfo_t;
+            let mynbrs: &mut cnbr_t;
 
             /* go through and project partition and compute id/ed for the nodes */
-            for i in 0..nvtxs {
-                k = cmap[i];
+            for i in 0..(nvtxs as usize) {
+                let k = cmap[i] as usize;
                 where_[i] = cwhere[k];
                 cmap[i] = if dropedges != 0 {
                     1
                 } else {
-                    c(*graph).ckrinfo[k].ed
+                    (*(*cgraph).ckrinfo.add(k)).ed
                 }; /* For optimization */
             }
 
-            memset((*graph).ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
+            {
+                // memset((*graph).ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
+                mkslice!(graph->ckrinfo, nvtxs);
+                ckrinfo.fill_with(std::default::Default::default);
+            }
+
             cnbrpoolReset(ctrl);
 
             nbnd = 0;
-            for i in 0..nvtxs {
-                istart = xadj[i];
-                iend = xadj[i + 1];
+            for i in 0..(nvtxs as usize) {
+                let istart = xadj[i] as usize;
+                let iend = xadj[i + 1] as usize;
 
-                myrinfo = (*graph).ckrinfo + i;
+                myrinfo = (*graph).ckrinfo.add(i).as_mut().unwrap();
 
-                if (cmap[i] == 0) {
+                if cmap[i] == 0 {
                     /* Interior node. Note that cmap[i] = crinfo[cmap[i]].ed */
-                    tid = 0;
+                    let mut tid = 0;
                     for j in istart..iend {
                         tid += adjwgt[j];
                     }
@@ -509,24 +511,27 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                     myrinfo.inbr = -1;
                 } else {
                     /* Potentially an interface node */
-                    myrinfo.inbr = cnbrpoolGetNext(ctrl, iend - istart);
-                    mynbrs = (*ctrl).cnbrpool + myrinfo.inbr;
+                    myrinfo.inbr = cnbrpoolGetNext(ctrl, iend as idx_t - istart as idx_t);
+                    mynbrs = (*ctrl).cnbrpool.add(myrinfo.inbr as usize).as_mut().unwrap();
 
-                    me = where_[i];
+                    let me = where_[i] as usize;
                     tid = 0;
                     ted = 0;
+                    let mut k;
                     for j in istart..iend {
-                        other = where_[adjncy[j]];
-                        if (me == other) {
+                        let other = where_[adjncy[j] as usize] as usize;
+                        if me == other {
                             tid += adjwgt[j];
                         } else {
                             ted += adjwgt[j];
-                            if ((k = htable[other]) == -1) {
+                            k = htable[other];
+                            if k == -1 {
                                 htable[other] = myrinfo.nnbrs;
-                                mynbrs[myrinfo.nnbrs].pid = other;
-                                mynbrs[myrinfo.nnbrs += 1].ed = adjwgt[j];
+                                (*(mynbrs as *mut cnbr_t).add(myrinfo.nnbrs as usize)).pid = other as idx_t;
+                                myrinfo.nnbrs += 1;
+                                (*(mynbrs as *mut cnbr_t).add(myrinfo.nnbrs as usize)).ed = adjwgt[j];
                             } else {
-                                mynbrs[k].ed += adjwgt[j];
+                                (*(mynbrs as *mut cnbr_t).add(k as usize)).ed += adjwgt[j];
                             }
                         }
                     }
@@ -534,73 +539,83 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                     myrinfo.ed = ted;
 
                     /* Remove space for edegrees if it was interior */
-                    if (ted == 0) {
-                        (*ctrl).nbrpoolcpos -= gk_min(nparts, iend - istart);
+                    if ted == 0 {
+                        (*ctrl).nbrpoolcpos -= (nparts as usize).min(iend - istart);
                         myrinfo.inbr = -1;
                     } else {
-                        if (ted - tid >= 0) {
-                            BNDInsert(nbnd, bndind, bndptr, i);
+                        if ted - tid >= 0 {
+                            // I expect this to panic - bndind is prolly wrong length
+                            BNDInsert!(nbnd, bndind, bndptr, i);
                         }
 
                         for j in 0..myrinfo.nnbrs {
-                            htable[mynbrs[j].pid] = -1;
+                            htable[(*(mynbrs as *mut cnbr_t).add(j as usize)).pid as usize] = -1;
                         }
                     }
                 }
             }
 
             (*graph).nbnd = nbnd;
-            assert!(CheckBnd2(graph));
+            assert!(CheckBnd2(graph) != 0);
         }
 
         METIS_OBJTYPE_VOL => {
-            let myrinfo: *mut vkrinfo_t;
+            let myrinfo: &mut vkrinfo_t;
             let mynbrs: *mut vnbr_t;
 
             /* go through and project partition and compute id/ed for the nodes */
-            for i in 0..nvtxs {
+            let mut k;
+            for i in 0..(nvtxs as usize) {
                 k = cmap[i];
-                where_[i] = cwhere[k];
+                where_[i] = cwhere[k as usize];
                 cmap[i] = if dropedges != 0 {
                     1
                 } else {
-                    c(*graph).vkrinfo[k].ned
+                    (*(*cgraph).vkrinfo.add(k as usize)).ned
                 }; /* For optimization */
             }
 
-            memset((*graph).vkrinfo, 0, sizeof(vkrinfo_t) * nvtxs);
+            {
+                // memset((*graph).vkrinfo, 0, sizeof(vkrinfo_t) * nvtxs);
+                mkslice!(graph->vkrinfo, nvtxs);
+                vkrinfo.fill_with(std::default::Default::default);
+            }
             vnbrpoolReset(ctrl);
 
-            for i in 0..nvtxs {
-                istart = xadj[i];
-                iend = xadj[i + 1];
-                myrinfo = (*graph).vkrinfo + i;
+            for i in 0..(nvtxs as usize) {
+                let istart = xadj[i] as usize;
+                let iend = xadj[i + 1] as usize;
+                myrinfo = (*graph).vkrinfo.add(i).as_mut().unwrap();
 
-                if (cmap[i] == 0) {
+                if cmap[i] == 0 {
                     /* Note that cmap[i] = crinfo[cmap[i]].ed */
-                    myrinfo.nid = iend - istart;
+                    myrinfo.nid = (iend - istart) as idx_t;
                     myrinfo.inbr = -1;
                 } else {
                     /* Potentially an interface node */
-                    myrinfo.inbr = vnbrpoolGetNext(ctrl, iend - istart);
-                    mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
+                    myrinfo.inbr = vnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
+                    // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
+                    let mynbrs = slice::from_raw_parts_mut((*ctrl).vnbrpool.add(myrinfo.inbr as usize), nvtxs
+                        as usize - myrinfo.inbr as usize);
 
                     me = where_[i];
                     tid = 0;
                     ted = 0;
                     for j in istart..iend {
-                        other = where_[adjncy[j]];
-                        if (me == other) {
+                        other = where_[adjncy[j] as usize];
+                        if me == other {
                             tid += 1;
                         } else {
                             ted += 1;
-                            if ((k = htable[other]) == -1) {
-                                htable[other] = myrinfo.nnbrs;
-                                mynbrs[myrinfo.nnbrs].gv = 0;
-                                mynbrs[myrinfo.nnbrs].pid = other;
-                                mynbrs[myrinfo.nnbrs += 1].ned = 1;
+                            k = htable[other as usize];
+                            if k == -1 {
+                                htable[other as usize] = myrinfo.nnbrs;
+                                mynbrs[myrinfo.nnbrs as usize].gv = 0;
+                                mynbrs[myrinfo.nnbrs as usize].pid = other;
+                                myrinfo.nnbrs += 1;
+                                mynbrs[myrinfo.nnbrs as usize].ned = 1;
                             } else {
-                                mynbrs[k].ned += 1;
+                                mynbrs[k as usize].ned += 1;
                             }
                         }
                     }
@@ -608,12 +623,12 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                     myrinfo.ned = ted;
 
                     /* Remove space for edegrees if it was interior */
-                    if (ted == 0) {
-                        (*ctrl).nbrpoolcpos -= gk_min(nparts, iend - istart);
+                    if ted == 0 {
+                        (*ctrl).nbrpoolcpos -= (nparts as usize).min(iend - istart);
                         myrinfo.inbr = -1;
                     } else {
                         for j in 0..myrinfo.nnbrs {
-                            htable[mynbrs[j].pid] = -1;
+                            htable[mynbrs[j as usize].pid as usize] = -1;
                         }
                     }
                 }
@@ -624,15 +639,15 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
             assert!((*graph).minvol == ComputeVolume(graph, (*graph).where_));
         }
 
-        _ => gk_errexit(SIGERR, "Unknown objtype of %d\n", (*ctrl).objtype),
+        _ => panic!("Unknown objtype of {}", (*ctrl).objtype)
     }
 
-    (*graph).mincut = if dropedges {
-        ComputeCut(graph, where_)
+    (*graph).mincut = if dropedges != 0 {
+        ComputeCut(graph, where_.as_mut_ptr())
     } else {
-        c(*graph).mincut
+        (*cgraph).mincut
     };
-    icopy(nparts * (*graph).ncon, c(*graph).pwgts, (*graph).pwgts);
+    icopy(nparts * (*graph).ncon, (*cgraph).pwgts, (*graph).pwgts);
 
     FreeGraph(&(*graph).coarser);
 }

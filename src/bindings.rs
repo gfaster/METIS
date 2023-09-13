@@ -513,6 +513,8 @@ pub struct graph_t {
     pub free_adjwgt: std::ffi::c_int,
 
     /// The contraction/coarsening map
+    ///  
+    /// idk the order but it's probably cmap[i] = coarser[i] and so cmap[i] < coarser.nvtxs
     pub cmap: *mut idx_t,
 
     /// The labels of the vertices for recursive bisection (pmetis/ometis)
