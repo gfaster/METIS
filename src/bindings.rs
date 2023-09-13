@@ -27,6 +27,15 @@ extern "C" {
         vsize: *mut idx_t,
         adjwgt: *mut idx_t,
     ) -> *mut graph_t;
+
+    pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
+    pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
+    pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
+    pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
+    pub fn ComputeVolume(graph: *mut graph_t, where_: * mut idx_t) -> idx_t;
+    pub fn ComputeCut(graph: *mut graph_t, where_: * mut idx_t) -> idx_t;
+    pub fn CheckBnd2(graph: *mut graph_t) -> idx_t;
+    pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
 }
 
 pub const METIS_VER_MAJOR: u32 = 5;
@@ -286,333 +295,337 @@ pub type gk_mcore_t = std::os::raw::c_void;
 #[repr(C)]
 pub struct ctrl_t {
     /// Type of operation
-    optype: moptype_et,
+    pub optype: moptype_et,
 
     /// Type of refinement objective
-    objtype: mobjtype_et,
+    pub objtype: mobjtype_et,
 
     /// Controls the debugging output of the program
-    dbglvl: mdbglvl_et,
+    pub dbglvl: mdbglvl_et,
 
     /// The type of coarsening
-    ctype: mctype_et,
+    pub ctype: mctype_et,
 
     /// The type of initial partitioning
-    iptype: miptype_et,
+    pub iptype: miptype_et,
 
     /// The type of refinement
-    rtype: mrtype_et,
+    pub rtype: mrtype_et,
 
     /// The # of vertices in the coarsest graph
-    CoarsenTo: idx_t,
+    pub CoarsenTo: idx_t,
 
     /// The number of initial partitions to compute
-    nIparts: idx_t,
+    pub nIparts: idx_t,
 
     /// Indicates if 2-hop matching will be used
-    no2hop: idx_t,
+    pub no2hop: idx_t,
 
     /// Indicates out-of-core execution
-    ondisk: idx_t,
+    pub ondisk: idx_t,
 
     /// Indicates if the subdomain connectivity will be minimized
-    minconn: idx_t,
+    pub minconn: idx_t,
 
     /// Indicates if contiguous partitions are required
-    contig: idx_t,
+    pub contig: idx_t,
 
     /// The number of separators to be found during multiple bisections
-    nseps: idx_t,
+    pub nseps: idx_t,
 
     /// The user-supplied load imbalance factor
-    ufactor: idx_t,
+    pub ufactor: idx_t,
 
     /// If the graph will be compressed prior to ordering
-    compress: idx_t,
+    pub compress: idx_t,
 
     /// If connected components will be ordered separately
-    ccorder: idx_t,
+    pub ccorder: idx_t,
 
     /// The seed for the random number generator
-    seed: idx_t,
+    pub seed: idx_t,
 
     /// The number of different partitionings to compute
-    ncuts: idx_t,
+    pub ncuts: idx_t,
 
     /// The number of iterations during each refinement
-    niter: idx_t,
+    pub niter: idx_t,
 
     /// The user-supplied numflag for the graph
-    numflag: idx_t,
+    pub numflag: idx_t,
 
     /// Indicates if edges will be randomly dropped during coarsening
-    dropedges: idx_t,
+    pub dropedges: idx_t,
 
     /// The maximum allowed weight for a vertex
-    maxvwgt: *mut idx_t,
+    pub maxvwgt: *mut idx_t,
 
     /// The number of balancing constraints
-    ncon: idx_t,
+    pub ncon: idx_t,
 
     /// The number of partitions
-    nparts: idx_t,
+    pub nparts: idx_t,
 
     /// .1*(user-supplied prunning factor)
-    pfactor: real_t,
+    pub pfactor: real_t,
 
     /// The per-constraint ubfactors
-    ubfactors: *mut real_t,
+    pub ubfactors: *mut real_t,
 
     /// The target partition weights
-    tpwgts: *mut real_t,
+    pub tpwgts: *mut real_t,
 
     ///  The nparts*ncon multiplies for the ith partition and jth constraint for obtaining the balance
-    pijbm: *mut real_t,
+    pub pijbm: *mut real_t,
 
     /// The achieved compression factor
-    cfactor: real_t,
+    pub cfactor: real_t,
 
     /* Various Timers */
-    TotalTmr: f64,
-    InitPartTmr: f64,
-    MatchTmr: f64,
-    ContractTmr: f64,
-    CoarsenTmr: f64,
-    UncoarsenTmr: f64,
-    RefTmr: f64,
-    ProjectTmr: f64,
-    SplitTmr: f64,
-    Aux1Tmr: f64,
-    Aux2Tmr: f64,
-    Aux3Tmr: f64,
+    pub TotalTmr: f64,
+    pub InitPartTmr: f64,
+    pub MatchTmr: f64,
+    pub ContractTmr: f64,
+    pub CoarsenTmr: f64,
+    pub UncoarsenTmr: f64,
+    pub RefTmr: f64,
+    pub ProjectTmr: f64,
+    pub SplitTmr: f64,
+    pub Aux1Tmr: f64,
+    pub Aux2Tmr: f64,
+    pub Aux3Tmr: f64,
 
     /// Workspace Information:
     ///
     /// The persistent memory core for within function mallocs/frees
-    mcore: *mut gk_mcore_t,
+    pub mcore: *mut gk_mcore_t,
 
     /// For use by the k-way refinement routines
     ///
     /// The maximum number of {c,v}nbr_t entries that will ever be allocated
-    nbrpoolsize_max: usize,
+    pub nbrpoolsize_max: usize,
 
     /// For use by the k-way refinement routines
     ///
     /// The number of {c,v}nbr_t entries that have been allocated
-    nbrpoolsize: usize,
+    pub nbrpoolsize: usize,
 
     /// For use by the k-way refinement routines
     ///
     /// The position of the first free entry in the array
-    nbrpoolcpos: usize,
+    pub nbrpoolcpos: usize,
 
     /// For use by the k-way refinement routines
     ///
     /// The number of times the pool was resized
-    nbrpoolreallocs: usize,
+    pub nbrpoolreallocs: usize,
 
     /// The pool of cnbr_t entries to be used during refinement. The size and current position of the pool is controlled by nnbrs & cnbrs
-    cnbrpool: *mut cnbr_t,
+    pub cnbrpool: *mut cnbr_t,
 
     /// The pool of vnbr_t entries to be used during refinement. The size and current position of the pool is controlled by nnbrs & cnbrs
-    vnbrpool: *mut vnbr_t,
+    pub vnbrpool: *mut vnbr_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// The maximum allocated number of adjacent domains
-    maxnads: *mut idx_t,
+    pub maxnads: *mut idx_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// The number of adjacent domains
-    nads: *mut idx_t,
+    pub nads: *mut idx_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// The IDs of the adjacent domains
-    adids: *mut *mut idx_t,
+    pub adids: *mut *mut idx_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// The edge-weight to the adjacent domains
-    adwgts: *mut *mut idx_t,
+    pub adwgts: *mut *mut idx_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// Auxiliary nparts-size vectors for efficiency
-    pvec1: *mut idx_t,
+    pub pvec1: *mut idx_t,
 
     /// Components of the subdomain graph, in sparse format:
     ///
     /// Auxiliary nparts-size vectors for efficiency
-    pvec2: *mut idx_t,
+    pub pvec2: *mut idx_t,
 
     /// ondisk related info
-    pid: libc::pid_t,
+    pub pid: libc::pid_t,
 }
 
 #[repr(C)]
 pub struct graph_t {
     /// The # of vertices and edges in the graph
-    nvtxs: idx_t,
+    pub nvtxs: idx_t,
 
     /// The # of vertices and edges in the graph
-    nedges: idx_t,
+    pub nedges: idx_t,
 
     /// The # of constrains
-    ncon: idx_t,
+    pub ncon: idx_t,
 
     /// Pointers to the locally stored vertices
-    xadj: *mut idx_t,
+    pub xadj: *mut idx_t,
 
     /// Vertex weights
-    vwgt: *mut idx_t,
+    pub vwgt: *mut idx_t,
 
     /// Vertex sizes for min-volume formulation
-    vsize: *mut idx_t,
+    pub vsize: *mut idx_t,
 
     /// Array that stores the adjacency lists of nvtxs
-    adjncy: *mut idx_t,
+    pub adjncy: *mut idx_t,
 
     /// Array that stores the weights of the adjacency lists
-    adjwgt: *mut idx_t,
+    pub adjwgt: *mut idx_t,
 
     /// The sum of the vertex weights in the graph
-    tvwgt: *mut idx_t,
+    pub tvwgt: *mut idx_t,
 
     /// The inverse of the sum of the vertex weights in the graph
-    invtvwgt: *mut real_t,
+    pub invtvwgt: *mut real_t,
 
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
-    free_xadj: std::ffi::c_int,
+    pub free_xadj: std::ffi::c_int,
 
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
-    free_vwgt: std::ffi::c_int,
+    pub free_vwgt: std::ffi::c_int,
 
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
-    free_vsize: std::ffi::c_int,
+    pub free_vsize: std::ffi::c_int,
 
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
-    free_adjncy: std::ffi::c_int,
+    pub free_adjncy: std::ffi::c_int,
 
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
-    free_adjwgt: std::ffi::c_int,
+    pub free_adjwgt: std::ffi::c_int,
 
     /// The contraction/coarsening map
-    cmap: *mut idx_t,
+    pub cmap: *mut idx_t,
 
     /// The labels of the vertices for recursive bisection (pmetis/ometis)
-    label: *mut idx_t,
+    pub label: *mut idx_t,
 
     /// Partition parameters
-    mincut: idx_t,
+    pub mincut: idx_t,
 
     /// Partition parameters
-    minvol: idx_t,
+    pub minvol: idx_t,
 
     /// Partition parameters
-    where_: *mut idx_t,
+    pub where_: *mut idx_t,
 
     /// Partition parameters
-    pwgts: *mut idx_t,
+    /// Gavin: Partition weights?
+    pub pwgts: *mut idx_t,
 
     /// Partition parameters
-    nbnd: idx_t,
+    pub nbnd: idx_t,
 
     /// Partition parameters
-    bndptr: *mut idx_t,
+    pub bndptr: *mut idx_t,
 
     /// Partition parameters
-    bndind: *mut idx_t,
+    pub bndind: *mut idx_t,
 
     /* Bisection refinement parameters */
-    id: *mut idx_t,
-    ed: *mut idx_t,
+    pub id: *mut idx_t,
+    pub ed: *mut idx_t,
 
     /// K-way refinement parameter:
     ///
     /// The per-vertex cut-based refinement info
-    ckrinfo: *mut ckrinfo_t,
+    pub ckrinfo: *mut ckrinfo_t,
     /// K-way refinement parameter:
     ///
     /// The per-vertex volume-based refinement info
-    vkrinfo: *mut vkrinfo_t,
+    pub vkrinfo: *mut vkrinfo_t,
 
     /// Node refinement information
-    nrinfo: *mut nrinfo_t,
+    pub nrinfo: *mut nrinfo_t,
 
     /// various fields for out-of-core processing
-    gID: std::ffi::c_int,
+    pub gID: std::ffi::c_int,
     /// various fields for out-of-core processing
-    ondisk: std::ffi::c_int,
+    pub ondisk: std::ffi::c_int,
 
     /// keep track of the dropped edgewgt
-    droppedewgt: idx_t,
+    pub droppedewgt: idx_t,
 
     /// the linked-list structure of the sequence of graphs
-    coarser: *mut graph_t,
+    pub coarser: *mut graph_t,
     /// the linked-list structure of the sequence of graphs
-    finer: *mut graph_t,
+    pub finer: *mut graph_t,
 }
 
 /// The following data structure holds information on degrees for k-way vol-based partition
 #[repr(C)]
-struct vkrinfo_t {
+#[derive(Default)]
+pub struct vkrinfo_t {
     /// The internal degree of a vertex (count of edges)
-    nid: idx_t,
+ pub nid: idx_t,
 
-    /// The total external degree of a vertex (count of edges)
-    ned: idx_t,
+ /// The total external degree of a vertex (count of edges)
+ pub ned: idx_t,
 
-    /// The volume gain of moving that vertex
-    gv: idx_t,
+ /// The volume gain of moving that vertex
+ pub gv: idx_t,
 
-    /// The number of neighboring subdomains
-    nnbrs: idx_t,
+ /// The number of neighboring subdomains
+ pub nnbrs: idx_t,
 
-    /// The index in the vnbr_t array where the nnbrs list of neighbors is stored
-    inbr: idx_t,
+ /// The index in the vnbr_t array where the nnbrs list of neighbors is stored
+ pub inbr: idx_t,
 }
 
 /// The following data structure stores holds information on degrees for k-way partition
 #[repr(C)]
+#[derive(Default)]
 pub struct ckrinfo_t {
     /// The internal degree of a vertex (sum of weights)
-    id: idx_t,
+    pub id: idx_t,
 
     /// The total external degree of a vertex
-    ed: idx_t,
+    pub ed: idx_t,
 
     /// The number of neighboring subdomains
-    nnbrs: idx_t,
+    pub nnbrs: idx_t,
 
     /// The index in the cnbr_t array where the nnbrs list of neighbors is stored
-    inbr: idx_t,
+    pub inbr: idx_t,
 }
 
 /// The following data structure holds information on degrees for k-way partition
 #[repr(C)]
 pub struct nrinfo_t {
-    edegrees: [idx_t; 2],
+    pub edegrees: [idx_t; 2],
 }
+
 
 /// This data structure stores volume-based k-way refinement info about an
 /// adjacent subdomain for a given vertex.
 #[repr(C)]
 pub struct vnbr_t {
     /// The partition ID
-    pid: idx_t,
+    pub pid: idx_t,
 
     /// The number of the adjacent edges that are incident on pid
-    ned: idx_t,
+    pub ned: idx_t,
 
     /// The gain in volume achieved by moving the vertex to pid
-    gv: idx_t,
+    pub gv: idx_t,
 }
 
 /// This data structure stores cut-based k-way refinement info about an
@@ -620,8 +633,8 @@ pub struct vnbr_t {
 #[repr(C)]
 pub struct cnbr_t {
     /// The partition ID
-    pid: idx_t,
+    pub pid: idx_t,
 
     /// The sum of the weights of the adjacent edges
-    ed: idx_t,
+    pub ed: idx_t,
 }

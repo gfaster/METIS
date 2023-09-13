@@ -203,12 +203,39 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
     a[0] = 0;
 }
 
+#[macro_export]
+macro_rules! BNDInsert {
+    ($n:ident, $lind:ident, $lptr:ident, $i:expr) => {
+        assert_eq!($lptr[$i], -1);
+        $lind[$n as usize] = $i as _;
+        $n += 1;
+        $lptr[$i as usize] = $n as _;
+    };
+}
+
+#[macro_export]
+macro_rules! BNDDelete {
+    ($n:ident, $lind:ident, $lptr:ident, $i:expr) => {
+        assert_ne!($lptr[$i], -1);
+        $n -= 1;
+        $lind[$lptr[$i]] = $lind[$n];
+        $lptr[$lind[$n]] = $lptr[$i];
+        $lptr[$i] = -1;
+    };
+}
+
+#[macro_export]
+macro_rules! mkslice {
+    ($var: ident, $struct:ident, $len:expr) => {
+        let $var: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
+    };
+}
+
 /// read a graph from a file in a simplified version of the format specified in the manual
 ///
 /// returns (xadj, adjncy)
 pub fn read_graph(f: &mut impl BufRead) -> Result<(Vec<idx_t>, Vec<idx_t>), Box<dyn Error>> {
     let mut buf = String::with_capacity(80);
-
     f.read_line(&mut buf)?;
 
     let mut xadj = Vec::<idx_t>::new();
