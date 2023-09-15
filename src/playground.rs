@@ -1,8 +1,7 @@
 #[allow(unused_imports)]
 use crate::util::verify_part;
-use metis::util::create_dummy_weights;
+// use metis::util::create_dummy_weights;
 use metis::*;
-use std::ptr;
 
 macro_rules! options_arr {
     ($objtype:ident $iptype:ident) => {{

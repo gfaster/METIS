@@ -609,7 +609,7 @@ pub struct graph_t {
 
 /// The following data structure holds information on degrees for k-way vol-based partition
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct vkrinfo_t {
     /// The internal degree of a vertex (count of edges)
     pub nid: idx_t,
