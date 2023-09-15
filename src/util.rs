@@ -205,7 +205,7 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
 
 #[macro_export]
 macro_rules! BNDInsert {
-    ($n:ident, $lind:ident, $lptr:ident, $i:expr) => {
+    ($n:expr, $lind:expr, $lptr:expr, $i:expr) => {
         assert_eq!($lptr[$i], -1);
         $lind[$n as usize] = $i as _;
         $n += 1;
@@ -231,6 +231,17 @@ macro_rules! mkslice {
     };
     ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
         let $newvar: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
+    };
+    ($newvar:ident: $struct:ident->$var:ident?, $len:expr) => {
+        let $newvar: Option<&mut [_]>;
+        if (*$struct).$var.is_null() {
+            $newvar = None;
+        } else {
+            $newvar = Some(std::slice::from_raw_parts_mut(
+                (*$struct).$var,
+                $len as usize,
+            ));
+        }
     };
 }
 

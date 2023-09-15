@@ -32,10 +32,37 @@ extern "C" {
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
-    pub fn ComputeVolume(graph: *mut graph_t, where_: * mut idx_t) -> idx_t;
-    pub fn ComputeCut(graph: *mut graph_t, where_: * mut idx_t) -> idx_t;
+    pub fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
+    pub fn ComputeCut(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
     pub fn CheckBnd2(graph: *mut graph_t) -> idx_t;
     pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
+
+    pub fn ComputeLoadImbalanceDiff(
+        graph: *mut graph_t,
+        nparts: idx_t,
+        pijbm: *mut real_t,
+        ubvec: *mut real_t,
+    ) -> real_t;
+    pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn FindPartitionInducedComponents(
+        graph: *mut graph_t,
+        where_: *mut idx_t,
+        cptr: *mut idx_t,
+        cind: *mut idx_t,
+    ) -> idx_t;
+    pub fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn Greedy_KWayOptimize(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        niter: idx_t,
+        ffactor: real_t,
+        omode: idx_t,
+    ) -> std::ffi::c_void;
+    pub fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+
+    pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+
 }
 
 pub const METIS_VER_MAJOR: u32 = 5;
@@ -50,6 +77,7 @@ extern "C" {
     /// initialize malloc used by most METIS functions
     /// it sets a thread-local variable for the core, so it should be fine to use in tests
     pub fn gk_malloc_init() -> std::ffi::c_int;
+    pub fn gk_malloc(size: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
 }
 
 // these don't need metis_decl attrib since they are the public API
@@ -268,6 +296,12 @@ pub const METIS_OBJTYPE_CUT: mobjtype_et = 0;
 pub const METIS_OBJTYPE_VOL: mobjtype_et = 1;
 pub const METIS_OBJTYPE_NODE: mobjtype_et = 2;
 pub type mobjtype_et = ::std::os::raw::c_uint;
+
+pub const BNDTYPE_REFINE: std::ffi::c_int = 1;
+pub const BNDTYPE_BALANCE: std::ffi::c_int = 2;
+
+pub const OMODE_REFINE: std::ffi::c_int = 1;
+pub const OMODE_BALANCE: std::ffi::c_int = 2;
 
 #[repr(u32)]
 pub enum Optype {
@@ -514,7 +548,7 @@ pub struct graph_t {
 
     /// The contraction/coarsening map
     ///  
-    /// idk the order but it's probably cmap[i] = coarser[i] and so cmap[i] < coarser.nvtxs
+    /// Gavin: idk the order but it's probably cmap[i] = coarser[i] and so cmap[i] < coarser.nvtxs
     pub cmap: *mut idx_t,
 
     /// The labels of the vertices for recursive bisection (pmetis/ometis)
@@ -530,6 +564,7 @@ pub struct graph_t {
     pub where_: *mut idx_t,
 
     /// Partition parameters
+    ///
     /// Gavin: Partition weights?
     pub pwgts: *mut idx_t,
 
@@ -577,19 +612,19 @@ pub struct graph_t {
 #[derive(Default)]
 pub struct vkrinfo_t {
     /// The internal degree of a vertex (count of edges)
- pub nid: idx_t,
+    pub nid: idx_t,
 
- /// The total external degree of a vertex (count of edges)
- pub ned: idx_t,
+    /// The total external degree of a vertex (count of edges)
+    pub ned: idx_t,
 
- /// The volume gain of moving that vertex
- pub gv: idx_t,
+    /// The volume gain of moving that vertex
+    pub gv: idx_t,
 
- /// The number of neighboring subdomains
- pub nnbrs: idx_t,
+    /// The number of neighboring subdomains
+    pub nnbrs: idx_t,
 
- /// The index in the vnbr_t array where the nnbrs list of neighbors is stored
- pub inbr: idx_t,
+    /// The index in the vnbr_t array where the nnbrs list of neighbors is stored
+    pub inbr: idx_t,
 }
 
 /// The following data structure stores holds information on degrees for k-way partition
@@ -615,9 +650,10 @@ pub struct nrinfo_t {
     pub edegrees: [idx_t; 2],
 }
 
-
 /// This data structure stores volume-based k-way refinement info about an
 /// adjacent subdomain for a given vertex.
+///
+/// Gavin: I believe it stands for volume neighborhood
 #[repr(C)]
 pub struct vnbr_t {
     /// The partition ID
