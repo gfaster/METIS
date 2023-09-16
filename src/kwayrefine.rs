@@ -681,11 +681,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                 } else {
                     /* Potentially an interface node */
                     myrinfo.inbr = cnbrpoolGetNext(ctrl, iend as idx_t - istart as idx_t);
-                    let mynbrs = (*ctrl)
-                        .cnbrpool
-                        .add(myrinfo.inbr as usize)
-                        .as_mut()
-                        .unwrap();
+                    let mut mynbrs = slice::from_raw_parts_mut(ctrl.cnbrpool.add(myrinfo.inbr as usize), myrinfo.nnbrs as usize + 1);
 
                     let me = where_[i] as usize;
                     let mut tid = 0;
@@ -700,13 +696,12 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                             k = htable[other];
                             if k == -1 {
                                 htable[other] = myrinfo.nnbrs;
-                                (*(mynbrs as *mut cnbr_t).add(myrinfo.nnbrs as usize)).pid =
-                                    other as idx_t;
+                                mynbrs[myrinfo.nnbrs as usize].pid = other as idx_t;
+                                mynbrs[myrinfo.nnbrs as usize].ed = adjwgt[j];
                                 myrinfo.nnbrs += 1;
-                                (*(mynbrs as *mut cnbr_t).add(myrinfo.nnbrs as usize)).ed =
-                                    adjwgt[j];
+                                mynbrs = slice::from_raw_parts_mut(mynbrs.as_mut_ptr(), myrinfo.nnbrs as usize + 1);
                             } else {
-                                (*(mynbrs as *mut cnbr_t).add(k as usize)).ed += adjwgt[j];
+                                mynbrs[k as usize].ed += adjwgt[j];
                             }
                         }
                     }
@@ -723,7 +718,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                         }
 
                         for j in 0..myrinfo.nnbrs {
-                            htable[(*(mynbrs as *mut cnbr_t).add(j as usize)).pid as usize] = -1;
+                            htable[mynbrs[j as usize].pid as usize] = -1;
                         }
                     }
                 }
