@@ -26,11 +26,12 @@ pub fn metis_func(_input: TokenStream, annotated_item: TokenStream) -> TokenStre
     let output: TokenStream = quote::quote! {
         #[cfg(feature = "dual_link")]
         extern "C" {
+            #[allow(clippy::too_many_arguments)]
             #foreign
         }
 
         #[cfg_attr(not(feature = "dual_link"), export_name = #link_func)]
-        #[allow(non_snake_case)]
+        #[allow(non_snake_case, clippy::too_many_arguments)]
         #item_fn
     }
     .into();

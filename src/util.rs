@@ -196,18 +196,14 @@ macro_rules! slice_len {
     ($ctrl:expr, $graph:expr, xadj) => {
         $graph.nvtxs + 1
     };
-    ($ctrl:expr, $graph:expr, adjncy) => {
-        {
-            let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
-            xadj[xadj.len() - 1]
-        }
-    };
-    ($ctrl:expr, $graph:expr, adjwgt) => {
-        {
-            let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
-            xadj[xadj.len() - 1]
-        }
-    };
+    ($ctrl:expr, $graph:expr, adjncy) => {{
+        let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
+        xadj[xadj.len() - 1]
+    }};
+    ($ctrl:expr, $graph:expr, adjwgt) => {{
+        let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
+        xadj[xadj.len() - 1]
+    }};
     ($ctrl:expr, $graph:expr, vwgt) => {
         $graph.nvtxs * $graph.ncon
     };
@@ -239,7 +235,6 @@ macro_rules! slice_len {
         $graph.nvtxs
     };
 }
-
 
 #[macro_export]
 macro_rules! get_graph_slices_mut {

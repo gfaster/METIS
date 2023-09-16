@@ -226,3 +226,30 @@ part_test! {
     vwgt: false,
     adjwgt: true,
 }
+
+part_test! {
+    name: large_kway_vol_basic,
+    options: make_options!(Vol Grow),
+    nparts: 20,
+    ncon: 1,
+    vwgt: false,
+    adjwgt: false,
+}
+
+part_test! {
+    name: large_kway_vol_vwgt,
+    options: make_options!(Vol Grow),
+    nparts: 20,
+    ncon: 1,
+    vwgt: true,
+    adjwgt: false,
+}
+
+part_test! {
+    name: large_kway_vol_2con_vwgt,
+    options: make_options!(Vol Grow),
+    nparts: 20,
+    ncon: 2,
+    vwgt: true,
+    adjwgt: false,
+}
