@@ -155,7 +155,8 @@ idx_t CheckBnd(graph_t *graph)
 /*! This function checks whether or not the boundary information is correct 
  */
 /*************************************************************************/
-idx_t CheckBnd2(graph_t *graph) 
+idx_t __attribute__((weak))
+CheckBnd2(graph_t *graph) 
 {
   idx_t i, j, nvtxs, nbnd, id, ed;
   idx_t *xadj, *adjncy, *where, *bndptr, *bndind;

@@ -166,7 +166,7 @@ macro_rules! part_test {
 
 part_test! {
     name: large_kway_1con_vwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 1,
     vwgt: true,
@@ -175,7 +175,7 @@ part_test! {
 
 part_test! {
     name: large_kway_2con_vwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 2,
     vwgt: true,
@@ -184,7 +184,7 @@ part_test! {
 
 part_test! {
     name: large_kway_1con_vwgt_adjwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 1,
     vwgt: true,
@@ -193,7 +193,7 @@ part_test! {
 
 part_test! {
     name: large_kway_2con_vwgt_adjwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 2,
     vwgt: true,
@@ -202,7 +202,7 @@ part_test! {
 
 part_test! {
     name: large_kway_halve,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 2,
     ncon: 1,
     vwgt: false,
@@ -211,7 +211,7 @@ part_test! {
 
 part_test! {
     name: large_kway_1con_adjwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 1,
     vwgt: false,
@@ -220,7 +220,7 @@ part_test! {
 
 part_test! {
     name: large_kway_2con_adjwgt,
-    options: options_arr!(Cut Grow),
+    options: make_options!(Cut Grow),
     nparts: 20,
     ncon: 2,
     vwgt: false,

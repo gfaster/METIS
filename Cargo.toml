@@ -13,7 +13,7 @@ dual_link = []
 
 # comment this line out to just use rust implementations
 # with dual_link enabled, we can run both implementations and compare the outputs
-default = ["dual_link"]
+# default = ["dual_link"]
 
 [lib]
 name = "metis"

@@ -222,6 +222,7 @@ impl<'a> KWayGraphVol<'a> {
 /*************************************************************************/
 #[metis_func]
 pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) -> () {
+    eprintln!("Called RefineKWay");
     let mut nlevels;
     let contig = (*ctrl).contig;
     let mut ptr: *mut graph_t;
@@ -371,9 +372,18 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
         ((*ctrl).nparts * (*graph).ncon) as usize,
         "AllocateKWayPartitionMemory: pwgts".as_ptr(),
     ) as _;
-    (*graph).where_ = imalloc((*graph).nvtxs as usize, "AllocateKWayPartitionMemory: where".as_ptr()) as _;
-    (*graph).bndptr = imalloc((*graph).nvtxs as usize, "AllocateKWayPartitionMemory: bndptr".as_ptr()) as _;
-    (*graph).bndind = imalloc((*graph).nvtxs as usize, "AllocateKWayPartitionMemory: bndind".as_ptr()) as _;
+    (*graph).where_ = imalloc(
+        (*graph).nvtxs as usize,
+        "AllocateKWayPartitionMemory: where".as_ptr(),
+    ) as _;
+    (*graph).bndptr = imalloc(
+        (*graph).nvtxs as usize,
+        "AllocateKWayPartitionMemory: bndptr".as_ptr(),
+    ) as _;
+    (*graph).bndind = imalloc(
+        (*graph).nvtxs as usize,
+        "AllocateKWayPartitionMemory: bndind".as_ptr(),
+    ) as _;
 
     match (*ctrl).objtype {
         METIS_OBJTYPE_CUT => {
@@ -397,8 +407,8 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
         }
 
         _ => {
-            panic!( "Unknown objtype of {}", (*ctrl).objtype);
-        },
+            panic!("Unknown objtype of {}", (*ctrl).objtype);
+        }
     };
 }
 
@@ -407,6 +417,9 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
 /*************************************************************************/
 #[metis_func]
 extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
+    eprintln!("Called ComputeKWayPartitionParams");
+    let ctrl = ctrl.as_mut().unwrap();
+    let graph = graph.as_mut().unwrap();
     let nvtxs: idx_t;
     let ncon: idx_t;
     let nparts: idx_t;
@@ -418,34 +431,9 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
     nvtxs = (*graph).nvtxs;
     ncon = (*graph).ncon;
 
-    // xadj = (*graph).xadj;
-    // let xadj: &mut[idx_t] = slice::from_raw_parts_mut((*graph).xadj, nvtxs as usize + 1);
-    mkslice!(graph->xadj, nvtxs + 1);
-
-    // adjwgt = (*graph).adjwgt;
-    let adjwgt: &mut [idx_t] =
-        slice::from_raw_parts_mut((*graph).adjwgt, xadj[xadj.len() - 1] as usize);
-
-    // adjncy = (*graph).adjncy;
-    let adjncy: &mut [idx_t] =
-        slice::from_raw_parts_mut((*graph).adjncy, xadj[xadj.len() - 1] as usize);
-
-    // vwgt = (*graph).vwgt;
-    let vwgt: &mut [idx_t] = slice::from_raw_parts_mut((*graph).vwgt, (nparts * ncon) as usize);
-
-    // where_ = (*graph).where_;
-    let where_: &mut [idx_t] = slice::from_raw_parts_mut((*graph).where_, nvtxs as usize);
-
-    // pwgts = iset(nparts * ncon, 0, (*graph).pwgts);
-    let pwgts: &mut [idx_t] = slice::from_raw_parts_mut((*graph).pwgts, (nparts * ncon) as usize);
+    get_graph_slices!(ctrl, graph => xadj adjncy vwgt where_ adjwgt);
+    get_graph_slices_mut!(ctrl, graph => pwgts bndptr bndind ckrinfo);
     pwgts.fill(0);
-
-    // see imallocs in allocate kway
-    // bndind = (*graph).bndind;
-    let bndind: &mut [idx_t] = slice::from_raw_parts_mut((*graph).bndind, nvtxs as usize);
-
-    // bndptr = iset(nvtxs, -1, (*graph).bndptr);
-    let bndptr: &mut [idx_t] = slice::from_raw_parts_mut((*graph).bndptr, nvtxs as usize);
     bndptr.fill(-1);
 
     nbnd = 0;
@@ -467,15 +455,11 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
     }
 
     /* Compute the required info for refinement */
-    match (*ctrl).objtype {
+    match ctrl.objtype {
         METIS_OBJTYPE_CUT => {
-            let rsgraph = KWayGraphCut::from_graph(graph.as_mut().unwrap(), ctrl.as_ref().unwrap());
-            {
-                // cnbrpool operations may realloc, so we can't leave this be
-                let amyrinfo: &mut [ckrinfo_t] =
-                    slice::from_raw_parts_mut((*graph).ckrinfo, nvtxs as usize);
-                amyrinfo.fill_with(std::default::Default::default);
-            }
+            // cnbrpool operations may realloc, so we need to be careful
+            ckrinfo.fill_with(std::default::Default::default);
+
             // memset(rsgraph.ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
             // ckrinfo_t * myrinfo;
             // let myrinfo: &mut ckrinfo_t;
@@ -488,7 +472,7 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
             for i in 0..(nvtxs as usize) {
                 let me = where_[i];
                 // myrinfo = rsgraph.ckrinfo + i;
-                let myrinfo = &mut rsgraph.ckrinfo[i];
+                let myrinfo = &mut ckrinfo[i];
 
                 for j in (xadj[i] as usize)..(xadj[i + 1] as usize) {
                     if me == where_[adjncy[j] as usize] {
@@ -503,14 +487,14 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
                     mincut += myrinfo.ed;
 
                     myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-                    let mynbrs = slice::from_raw_parts_mut(
-                        (*ctrl).cnbrpool.add(myrinfo.inbr as usize),
-                        myrinfo.nnbrs as usize,
-                    );
 
                     for j in xadj[i]..xadj[i + 1] {
                         let j = j as usize;
                         let other = where_[adjncy[j] as usize];
+                        let mynbrs = slice::from_raw_parts_mut(
+                            (*ctrl).cnbrpool.add(myrinfo.inbr as usize),
+                            myrinfo.nnbrs as usize + 1,
+                        );
                         if me != other {
                             let mut k = 0;
                             while k < myrinfo.nnbrs as usize {
@@ -539,10 +523,10 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
                 }
             }
 
-            *rsgraph.mincut = mincut / 2;
-            *rsgraph.nbnd = nbnd;
+            graph.mincut = mincut / 2;
+            graph.nbnd = nbnd;
 
-            assert!(CheckBnd2(graph) != 0);
+            assert!(debug::CheckBnd2(graph) != 0);
         }
 
         METIS_OBJTYPE_VOL => {
@@ -616,13 +600,12 @@ extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t)
     }
 }
 
-/*************************************************************************/
-/* This function projects a partition, and at the same time computes the
-parameters for refinement. */
-/*************************************************************************/
-
+/// This function projects a partition, and at the same time computes the parameters for refinement.
 #[metis_func]
 pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+    eprintln!("Called ProjectKWayPartition");
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     let nvtxs: idx_t;
     let mut nbnd: idx_t;
     let nparts: idx_t;
@@ -639,7 +622,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     mkslice!(cwhere: cgraph->where_, (*graph).nvtxs as usize);
 
     if (*ctrl).objtype == METIS_OBJTYPE_CUT {
-        assert!(CheckBnd2(cgraph) != 0);
+        assert!(debug::CheckBnd2(cgraph) != 0);
     } else {
         assert!((*cgraph).minvol == ComputeVolume(cgraph, (*cgraph).where_));
     }
@@ -648,16 +631,11 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     FreeSData(cgraph);
 
     nvtxs = (*graph).nvtxs;
-    mkslice!(graph->cmap, nvtxs);
-    mkslice!(graph->xadj, nvtxs + 1);
-    mkslice!(graph->adjncy, xadj[nvtxs as usize]);
-    mkslice!(graph->adjwgt, xadj[nvtxs as usize]);
 
     AllocateKWayPartitionMemory(ctrl, graph);
 
-    mkslice!(graph->where_, nvtxs);
-    mkslice!(graph->bndind, nvtxs); // this is prolly wrong? it may be different length
-    mkslice!(graph->bndptr, nvtxs);
+    get_graph_slices!(ctrl, *graph => xadj adjncy adjwgt);
+    get_graph_slices_mut!(ctrl, *graph => cmap bndind bndptr where_);
     bndptr.fill(-1);
 
     let mut htable: Vec<idx_t> = vec![-1; nparts as usize];
@@ -741,7 +719,6 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                         myrinfo.inbr = -1;
                     } else {
                         if ted - tid >= 0 {
-                            // I expect this to panic - bndind is prolly wrong length
                             BNDInsert!(nbnd, bndind, bndptr, i);
                         }
 
@@ -753,7 +730,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
             }
 
             (*graph).nbnd = nbnd;
-            assert!(CheckBnd2(graph) != 0);
+            assert!(debug::CheckBnd2(graph) != 0);
         }
 
         METIS_OBJTYPE_VOL => {
@@ -858,6 +835,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
 /*************************************************************************/
 #[metis_func]
 pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bndtype: idx_t) {
+    eprintln!("Called ComputeKWayBoundary");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     let nvtxs;
@@ -923,6 +901,7 @@ pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bn
 /*************************************************************************/
 #[metis_func]
 pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
+    eprintln!("Called ComputeKWayVolGains");
     let ctrl: &mut ctrl_t = ctrl.as_mut().unwrap();
     let graphc = graph.as_mut().unwrap();
     let graph = KWayGraphVol::from_graph(graphc, ctrl);

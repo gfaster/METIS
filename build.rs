@@ -31,6 +31,7 @@ fn main() {
     }
 
     println!("cargo:rerun-if-changed=src/ported");
+    println!("cargo:rerun-if-changed=build.rs");
 
     if do_dual_link != 0 {
         files.extend(dbg!(ported_files));

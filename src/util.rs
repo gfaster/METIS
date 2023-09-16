@@ -157,15 +157,116 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
 * ====================================================
 */
 
-#[macro_export]
-macro_rules! options_arr {
-    ($objtype:ident $iptype:ident) => {{
-        let mut options = [-1; METIS_NOPTIONS as usize];
-        options[crate::METIS_OPTION_PTYPE as usize] = crate::Objtype::$objtype as idx_t;
-        options[crate::METIS_OPTION_IPTYPE as usize] = crate::Iptype::$iptype as idx_t;
+macro_rules! options_match {
+    ($options:ident, Cut) => {
+        $options[$crate::METIS_OPTION_PTYPE as usize] = $crate::Objtype::Cut as idx_t;
+        $options[$crate::METIS_OPTION_NCUTS as usize] = 1;
+    };
+    ($options:ident, Vol) => {
+        $options[$crate::METIS_OPTION_PTYPE as usize] = $crate::Objtype::Vol as idx_t;
+    };
+    ($options:ident, Node) => {
+        $options[$crate::METIS_OPTION_PTYPE as usize] = $crate::Objtype::Node as idx_t;
+    };
+    ($options:ident, Grow) => {
+        $options[$crate::METIS_OPTION_IPTYPE as usize] = $crate::Iptype::Grow as idx_t;
+    };
+    ($options:ident, Random) => {
+        $options[$crate::METIS_OPTION_IPTYPE as usize] = $crate::Iptype::Random as idx_t;
+    };
+}
 
+#[macro_export]
+macro_rules! make_options {
+    ($($val:ident)*) => {{
+        let mut options = [-1; METIS_NOPTIONS as usize];
+        options[$crate::METIS_OPTION_SEED as usize] = 0;
+        $(
+            options_match!(options, $val);
+        )*
         options
     }};
+}
+
+#[macro_export]
+macro_rules! slice_len {
+    ($ctrl:expr, $graph:expr, where_) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, xadj) => {
+        $graph.nvtxs + 1
+    };
+    ($ctrl:expr, $graph:expr, adjncy) => {
+        {
+            let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
+            xadj[xadj.len() - 1]
+        }
+    };
+    ($ctrl:expr, $graph:expr, adjwgt) => {
+        {
+            let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
+            xadj[xadj.len() - 1]
+        }
+    };
+    ($ctrl:expr, $graph:expr, vwgt) => {
+        $graph.nvtxs * $graph.ncon
+    };
+    ($ctrl:expr, $graph:expr, pwgts) => {
+        $ctrl.nparts * $graph.ncon
+    };
+    ($ctrl:expr, $graph:expr, cmap) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, id) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, ed) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, vsize) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, vkrinfo) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, ckrinfo) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, bndptr) => {
+        $graph.nvtxs
+    };
+    ($ctrl:expr, $graph:expr, bndind) => {
+        $graph.nvtxs
+    };
+}
+
+
+#[macro_export]
+macro_rules! get_graph_slices_mut {
+    ($ctrl:expr, $graph:expr => $($val:ident)*) => {
+        $(
+            let $val = std::slice::from_raw_parts_mut($graph.$val, slice_len!($ctrl, $graph, $val) as usize);
+        )*
+    };
+    ($graph:expr => $($val:ident)*) => {
+        $(
+            let $val = std::slice::from_raw_parts_mut($graph.$val, slice_len!((), $graph, $val) as usize);
+        )*
+    };
+}
+
+#[macro_export]
+macro_rules! get_graph_slices {
+    ($ctrl:expr, $graph:expr => $($val:ident)*) => {
+        $(
+            let $val = std::slice::from_raw_parts($graph.$val, slice_len!($ctrl, $graph, $val) as usize);
+        )*
+    };
+    ($graph:expr => $($val:ident)*) => {
+        $(
+            let $val = std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize);
+        )*
+    };
 }
 
 /// Equivalent of MAKECSR in gk_macros.h
@@ -208,8 +309,8 @@ macro_rules! BNDInsert {
     ($n:expr, $lind:expr, $lptr:expr, $i:expr) => {
         assert_eq!($lptr[$i], -1);
         $lind[$n as usize] = $i as _;
-        $n += 1;
         $lptr[$i as usize] = $n as _;
+        $n += 1;
     };
 }
 
@@ -231,17 +332,6 @@ macro_rules! mkslice {
     };
     ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
         let $newvar: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
-    };
-    ($newvar:ident: $struct:ident->$var:ident?, $len:expr) => {
-        let $newvar: Option<&mut [_]>;
-        if (*$struct).$var.is_null() {
-            $newvar = None;
-        } else {
-            $newvar = Some(std::slice::from_raw_parts_mut(
-                (*$struct).$var,
-                $len as usize,
-            ));
-        }
     };
 }
 
@@ -426,7 +516,7 @@ impl Ctrl {
     }
 
     pub fn new_kmetis_basic() -> Self {
-        let mut options = options_arr!(Cut Grow);
+        let mut options = make_options!(Cut Grow);
         let ncon = 1;
         let nparts = 2;
         let tpwgts = None;

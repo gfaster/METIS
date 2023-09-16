@@ -34,7 +34,6 @@ extern "C" {
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
     pub fn ComputeCut(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
-    pub fn CheckBnd2(graph: *mut graph_t) -> idx_t;
     pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
     pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
 
@@ -241,25 +240,32 @@ pub const METIS_OPTION_CTYPE: moptions_et = 2;
 pub const METIS_OPTION_IPTYPE: moptions_et = 3;
 pub const METIS_OPTION_RTYPE: moptions_et = 4;
 pub const METIS_OPTION_DBGLVL: moptions_et = 5;
-pub const METIS_OPTION_NITER: moptions_et = 6;
-pub const METIS_OPTION_NCUTS: moptions_et = 7;
-pub const METIS_OPTION_SEED: moptions_et = 8;
-pub const METIS_OPTION_NO2HOP: moptions_et = 9;
-pub const METIS_OPTION_MINCONN: moptions_et = 10;
-pub const METIS_OPTION_CONTIG: moptions_et = 11;
-pub const METIS_OPTION_COMPRESS: moptions_et = 12;
-pub const METIS_OPTION_CCORDER: moptions_et = 13;
-pub const METIS_OPTION_PFACTOR: moptions_et = 14;
-pub const METIS_OPTION_NSEPS: moptions_et = 15;
-pub const METIS_OPTION_UFACTOR: moptions_et = 16;
-pub const METIS_OPTION_NUMBERING: moptions_et = 17;
-pub const METIS_OPTION_HELP: moptions_et = 18;
-pub const METIS_OPTION_TPWGTS: moptions_et = 19;
-pub const METIS_OPTION_NCOMMON: moptions_et = 20;
-pub const METIS_OPTION_NOOUTPUT: moptions_et = 21;
-pub const METIS_OPTION_BALANCE: moptions_et = 22;
-pub const METIS_OPTION_GTYPE: moptions_et = 23;
-pub const METIS_OPTION_UBVEC: moptions_et = 24;
+pub const METIS_OPTION_NIPARTS: moptions_et = 6;
+pub const METIS_OPTION_NITER: moptions_et = 7;
+pub const METIS_OPTION_NCUTS: moptions_et = 8;
+pub const METIS_OPTION_SEED: moptions_et = 9;
+pub const METIS_OPTION_ONDISK: moptions_et = 10;
+pub const METIS_OPTION_MINCONN: moptions_et = 11;
+pub const METIS_OPTION_CONTIG: moptions_et = 12;
+pub const METIS_OPTION_COMPRESS: moptions_et = 13;
+pub const METIS_OPTION_CCORDER: moptions_et = 14;
+pub const METIS_OPTION_PFACTOR: moptions_et = 15;
+pub const METIS_OPTION_NSEPS: moptions_et = 16;
+pub const METIS_OPTION_UFACTOR: moptions_et = 17;
+pub const METIS_OPTION_NUMBERING: moptions_et = 18;
+pub const METIS_OPTION_DROPEDGES: moptions_et = 19;
+pub const METIS_OPTION_NO2HOP: moptions_et = 20;
+pub const METIS_OPTION_TWOHOP: moptions_et = 21;
+pub const METIS_OPTION_FAST: moptions_et = 22;
+
+pub const METIS_OPTION_HELP: moptions_et = 23;
+pub const METIS_OPTION_TPWGTS: moptions_et = 24;
+pub const METIS_OPTION_NCOMMON: moptions_et = 25;
+pub const METIS_OPTION_NOOUTPUT: moptions_et = 26;
+pub const METIS_OPTION_BALANCE: moptions_et = 27;
+pub const METIS_OPTION_GTYPE: moptions_et = 28;
+pub const METIS_OPTION_UBVEC: moptions_et = 29;
+
 pub type moptions_et = ::std::os::raw::c_uint;
 pub const METIS_PTYPE_RB: mptype_et = 0;
 pub const METIS_PTYPE_KWAY: mptype_et = 1;
@@ -297,11 +303,12 @@ pub const METIS_OBJTYPE_VOL: mobjtype_et = 1;
 pub const METIS_OBJTYPE_NODE: mobjtype_et = 2;
 pub type mobjtype_et = ::std::os::raw::c_uint;
 
-pub const BNDTYPE_REFINE: std::ffi::c_int = 1;
-pub const BNDTYPE_BALANCE: std::ffi::c_int = 2;
+// interals
+pub(crate) const BNDTYPE_REFINE: std::ffi::c_int = 1;
+pub(crate) const BNDTYPE_BALANCE: std::ffi::c_int = 2;
 
-pub const OMODE_REFINE: std::ffi::c_int = 1;
-pub const OMODE_BALANCE: std::ffi::c_int = 2;
+pub(crate) const OMODE_REFINE: std::ffi::c_int = 1;
+pub(crate) const OMODE_BALANCE: std::ffi::c_int = 2;
 
 #[repr(u32)]
 pub enum Optype {
