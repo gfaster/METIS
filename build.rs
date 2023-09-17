@@ -51,6 +51,7 @@ fn main() {
         .define("IDXTYPEWIDTH", "32")
         .define("REALTYPEWIDTH", "32")
         .define("DMALLOC", "")
+        .flag("-fno-strict-aliasing")
         // .define("ASSERT", "1")
         // .define("ASSERT2", "1")
         .warnings(false)
