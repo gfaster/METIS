@@ -11,6 +11,8 @@ As of 2023-09-17 (`c80c7df`), 1,426 of 15,642 lines of C code have been ported
 (not including header files) - that means 14,216 to go. It has taken 4,164
 lines of Rust code to achieve this.
 
+Check [`translation.md`](./translation.md) for my porting process.
+
 ##  Downloading METIS
 
 You can download METIS by simply cloning it using the command:
