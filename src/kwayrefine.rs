@@ -164,7 +164,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 /* This function allocates memory for the k-way cut-based refinement */
 /*************************************************************************/
 #[metis_func]
-fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
@@ -216,7 +216,7 @@ fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
 /* This function computes the initial id/ed  for cut-based partitioning */
 /*************************************************************************/
 #[metis_func]
-extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
+pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ComputeKWayPartitionParams");
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
@@ -423,7 +423,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
 
     cgraph = (*graph).coarser;
     // TODO: I think this may be should be cgraph.nvtxs
-    mkslice!(cwhere: cgraph->where_, (*graph).nvtxs as usize);
+    mkslice_mut!(cwhere: cgraph->where_, (*graph).nvtxs as usize);
 
     if (*ctrl).objtype == METIS_OBJTYPE_CUT {
         assert!(debug::CheckBnd2(cgraph) != 0);
@@ -460,7 +460,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
 
             {
                 // memset((*graph).ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
-                mkslice!(graph->ckrinfo, nvtxs);
+                mkslice_mut!(graph->ckrinfo, nvtxs);
                 ckrinfo.fill_with(std::default::Default::default);
             }
 
@@ -625,8 +625,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
         (*cgraph).mincut
     };
     {
-        mkslice!(dst: graph->pwgts, nparts * (*graph).ncon);
-        mkslice!(src: cgraph->pwgts, nparts * (*graph).ncon);
+        mkslice_mut!(dst: graph->pwgts, nparts * (*graph).ncon);
+        mkslice_mut!(src: cgraph->pwgts, nparts * (*graph).ncon);
         dst.copy_from_slice(src);
         // remember: icopy(n, src, dest) -> reverse of memcpy
         // icopy(nparts * (*graph).ncon, (*cgraph).pwgts, (*graph).pwgts);
@@ -645,7 +645,7 @@ pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bn
     let ctrl = ctrl.as_mut().unwrap();
     let mut nbnd;
 
-    mkslice!(graph->bndptr, graph.nvtxs);
+    mkslice_mut!(graph->bndptr, graph.nvtxs);
     bndptr.fill(-1);
 
     nbnd = 0;
@@ -821,7 +821,7 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 constraints */
 /*************************************************************************/
 #[metis_func]
-extern "C" fn IsBalanced(
+pub extern "C" fn IsBalanced(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     ffactor: real_t,

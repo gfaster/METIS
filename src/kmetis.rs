@@ -9,18 +9,20 @@
 \version\verbatim $Id: kmetis.c 20398 2016-11-22 17:17:12Z karypis $ \endverbatim
 */
 
-use std::{os::raw::c_void, ptr};
+use std::{os::raw::c_void, ptr, slice};
 
 use crate::*;
 
-macro_rules! goto_sigthrow {
-    () => {
-        gk_siguntrap();
-        gk_malloc_cleanup(0);
-
-        return metis_rcode(sigrval);
-    };
-}
+// mimics the use of a goto and label in kmetis.c
+// I also put it at the end of the function for the return value
+// macro_rules! goto_sigthrow {
+//     ($sigrval:ident) => {
+//         gk_siguntrap();
+//         gk_malloc_cleanup(0);
+//
+//         return util::metis_rcode($sigrval);
+//     };
+// }
 
 /*************************************************************************/
 /* This function is the entry point for MCKMETIS */
@@ -41,31 +43,33 @@ pub fn METIS_PartGraphKway(
     objval: *mut idx_t,
     part: *mut idx_t,
 ) -> std::ffi::c_int {
-    let sigrval: int = 0;
-    let renumber: int = 0;
-    graph_t * graph;
-    ctrl_t * ctrl;
+    let sigrval: std::ffi::c_int = 0;
+    let renumber: std::ffi::c_int = 0;
+    let graph: *mut graph_t;
+    let ctrl: *mut ctrl_t;
 
     /* set up malloc cleaning code and signal catchers */
-    if (!gk_malloc_init()) {
+    if gk_malloc_init() == 0 {
         return METIS_ERROR_MEMORY;
     }
-    gk_sigtrap();
+    // gk_sigtrap();
 
-    if ((sigrval = gk_sigcatch()) != 0) {
-        goto_sigthrow!();
-    }
+    // sigrval = gk_sigcatch();
+    // if sigrval != 0 {
+    //     goto_sigthrow!(sigrval);
+    // }
+
     /* set up the run parameters */
     ctrl = SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
-    if (!ctrl) {
-        gk_siguntrap();
+    if ctrl.is_null() {
+        // gk_siguntrap();
         return METIS_ERROR_INPUT;
     }
+    let ctrl = ctrl.as_mut().unwrap();
 
-    /* if required, change the numbering to 0 */
-    if (ctrl.numflag == 1) {
-        Change2CNumbering(*nvtxs, xadj, adjncy);
-        renumber = 1;
+    // I don't feel like it
+    if ctrl.numflag == 1 {
+        panic!("renumbering not supported");
     }
 
     /* set up the graph */
@@ -75,49 +79,52 @@ pub fn METIS_PartGraphKway(
     SetupKWayBalMultipliers(ctrl, graph);
 
     /* set various run parameters that depend on the graph */
-    ctrl.CoarsenTo = gk_max((*nvtxs) / (40 * gk_log2(*nparts)), 30 * (*nparts));
-    ctrl.nIparts = (if ctrl.nIparts != -1 {
+    ctrl.CoarsenTo = ((*nvtxs) / (40 * (*nparts).ilog2() as idx_t)).max(30 * (*nparts));
+    ctrl.nIparts = if ctrl.nIparts != -1 {
         ctrl.nIparts
     } else {
-        (if ctrl.CoarsenTo == 30 * (*nparts) {
+        if ctrl.CoarsenTo == 30 * (*nparts) {
             4
         } else {
             5
-        })
-    });
+        }
+    };
 
     /* take care contiguity requests for disconnected graphs */
-    if (ctrl.contig && !IsConnected(graph, 0)) {
+    if ctrl.contig != 0 && IsConnected(graph, 0) == 0 {
         panic!(
-            "METIS Error: A contiguous partition is requested for a non-contiguous input graph.\n"
+            "METIS Error: A contiguous partition is requested for a non-contiguous input graph."
         );
     }
     /* allocate workspace memory */
     AllocateWorkSpace(ctrl, graph);
 
     /* start the partitioning */
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.TotalTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.TotalTmr));
 
-    iset(*nvtxs, 0, part);
-    if (ctrl.dbglvl & 512) {
-        *objval = (if *nparts == 1 {
+    // iset(*nvtxs, 0, part);
+    part.write_bytes(0, *nvtxs as usize);
+    if ctrl.dbglvl & 512 != 0 {
+        *objval = if *nparts == 1 {
             0
         } else {
             BlockKWayPartitioning(ctrl, graph, part)
-        });
+        };
     } else {
-        *objval = (if *nparts == 1 {
+        *objval = if *nparts == 1 {
             0
         } else {
             MlevelKWayPartitioning(ctrl, graph, part)
-        });
+        };
     }
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.TotalTmr));
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.TotalTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    FreeCtrl(&mut ctrl);
+    FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
+
+    util::metis_rcode(sigrval)
 }
 
 /*************************************************************************/
@@ -134,6 +141,8 @@ pub fn METIS_PartGraphKway(
 /*************************************************************************/
 #[metis_func]
 pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
+    let ctrl = ctrl.as_mut().unwrap();
+    let graph = graph.as_mut().unwrap();
     let i: idx_t;
     let j: idx_t;
     let objval: idx_t = 0;
@@ -142,17 +151,17 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
     let curbal: real_t = 0.0;
     let bestbal: real_t = 0.0;
     let cgraph: *mut graph_t;
-    let status: int;
+    let status: i32;
 
     for i in 0..ctrl.ncuts {
-        cgraph = CoarsenGraph(ctrl, graph);
+        let cgraph = CoarsenGraph(ctrl, graph).as_mut().unwrap();
 
-        IFSET(
-            ctrl.dbglvl,
-            METIS_DBG_TIME,
-            gk_startcputimer(ctrl.InitPartTmr),
-        );
-        AllocateKWayPartitionMemory(ctrl, cgraph);
+        // ifset!(
+        //     ctrl.dbglvl,
+        //     METIS_DBG_TIME,
+        //     gk_startcputimer(ctrl.InitPartTmr),
+        // );
+        kwayrefine::AllocateKWayPartitionMemory(ctrl, cgraph);
 
         /* Release the work space */
         FreeWorkSpace(ctrl);
@@ -164,51 +173,49 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
         AllocateWorkSpace(ctrl, graph);
         AllocateRefinementWorkSpace(ctrl, graph.nedges, 2 * cgraph.nedges);
 
-        IFSET(
-            ctrl.dbglvl,
-            METIS_DBG_TIME,
-            gk_stopcputimer(ctrl.InitPartTmr),
-        );
-        IFSET(
+        // ifset!(
+        //     ctrl.dbglvl,
+        //     METIS_DBG_TIME,
+        //     gk_stopcputimer(ctrl.InitPartTmr)
+        // );
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_IPART,
-            print!(
-                "Initial {:}-way partitioning cut: {:}\n",
-                ctrl.nparts, objval
-            ),
+            println!("Initial {:}-way partitioning cut: {:}", ctrl.nparts, objval)
         );
 
-        RefineKWay(ctrl, graph, cgraph);
+        kwayrefine::RefineKWay(ctrl, graph, cgraph);
 
-        match (ctrl.objtype) {
+        match ctrl.objtype {
             METIS_OBJTYPE_CUT => {
                 curobj = graph.mincut;
             }
             METIS_OBJTYPE_VOL => {
                 curobj = graph.minvol;
             }
-            _ => panic!("Unknown objtype: {}\n", ctrl.objtype),
+            _ => panic!("Unknown objtype: {}", ctrl.objtype),
         }
 
         curbal = ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
 
-        if (i == 0
+        if i == 0
             || (curbal <= 0.0005 && bestobj > curobj)
-            || (bestbal > 0.0005 && curbal < bestbal))
+            || (bestbal > 0.0005 && curbal < bestbal)
         {
-            icopy(graph.nvtxs, graph.where_, part);
+            // icopy(graph.nvtxs, graph.where_, part);
+            part.copy_from(graph.where_, graph.nvtxs as usize);
             bestobj = curobj;
             bestbal = curbal;
         }
 
         FreeRData(graph);
 
-        if (bestobj == 0) {
+        if bestobj == 0 {
             break;
         }
     }
 
-    FreeGraph(&mut graph);
+    FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
 
     return bestobj;
 }
@@ -223,30 +230,32 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ctrl = ctrl.as_mut().unwrap();
     let i: idx_t;
     let ntrials: idx_t;
-    let options: [idx_t; METIS_NOPTIONS];
+    let options: [idx_t; METIS_NOPTIONS as usize];
     let curobj: idx_t = 0;
     let bestobj: idx_t = 0;
     let bestwhere_: *mut idx_t = ptr::null_mut();
     let ubvec: *mut real_t = ptr::null_mut();
     let status: std::ffi::c_int;
 
-    METIS_SetDefaultOptions(options);
+    METIS_SetDefaultOptions(options.as_mut_ptr());
     //options[METIS_OPTION_NITER]     = 10;
-    options[METIS_OPTION_NITER] = ctrl.niter;
-    options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_CUT;
-    options[METIS_OPTION_NO2HOP] = ctrl.no2hop;
-    options[METIS_OPTION_ONDISK] = ctrl.ondisk;
-    options[METIS_OPTION_DROPEDGES] = ctrl.dropedges;
+    options[METIS_OPTION_NITER as usize] = ctrl.niter;
+    options[METIS_OPTION_OBJTYPE as usize] = METIS_OBJTYPE_CUT as idx_t;
+    options[METIS_OPTION_NO2HOP as usize] = ctrl.no2hop;
+    options[METIS_OPTION_ONDISK as usize] = ctrl.ondisk;
+    options[METIS_OPTION_DROPEDGES as usize] = ctrl.dropedges;
     //options[METIS_OPTION_DBGLVL]    = ctrl.dbglvl;
 
-    ubvec = rmalloc(graph.ncon, "InitKWayPartitioning: ubvec");
-    for i in 0..graph.ncon {
-        ubvec[i] = ctrl.ubfactors[i].pow(1.0 / log(ctrl.nparts)) as real_t;
+    // ubvec = rmalloc(graph.ncon, "InitKWayPartitioning: ubvec");
+    let mut ubvec = vec![0.0 as real_t; graph.ncon as usize];
+    mkslice_mut!(ctrl->ubfactors, graph.ncon);
+    for i in 0..(graph.ncon as usize) {
+        ubvec[i] = (ubfactors[i] as f64).powf(1.0 / (ctrl.nparts as f64).ln()) as real_t;
     }
 
-    match (ctrl.objtype) {
+    match ctrl.objtype {
         METIS_OBJTYPE_CUT | METIS_OBJTYPE_VOL => {
-            options[METIS_OPTION_NCUTS] = ctrl.nIparts;
+            options[METIS_OPTION_NCUTS as usize] = ctrl.nIparts;
             status = METIS_PartGraphRecursive(
                 &mut graph.nvtxs,
                 &mut graph.ncon,
@@ -257,14 +266,14 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                 graph.adjwgt,
                 &mut ctrl.nparts,
                 ctrl.tpwgts,
-                ubvec,
-                options,
+                ubvec.as_mut_ptr(),
+                options.as_mut_ptr(),
                 &mut curobj,
                 graph.where_,
             );
 
-            if (status != METIS_OK) {
-                panic!("Failed during initial partitioning\n");
+            if status != METIS_OK {
+                panic!("Failed during initial partitioning");
             }
         }
 
@@ -279,29 +288,30 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         //                      graph.xadj, graph.adjncy, graph.vwgt, graph.vsize,
         //                      graph.adjwgt, &mut ctrl.nparts, ctrl.tpwgts, ubvec,
         //                      options, &mut curobj, graph.where_);
-        //         if (status != METIS_OK)
-        //           panic!("Failed during initial partitioning\n");
+        //         if status != METIS_OK
+        //           panic!("Failed during initial partitioning");
         //
         //         curobj = ComputeVolume(graph, graph.where_);
         //
-        //         if (i == 0 || bestobj > curobj) {
+        //         if i == 0 || bestobj > curobj {
         //           bestobj = curobj;
-        //           if (i < ntrials-1)
+        //           if i < ntrials-1
         //             icopy(graph.nvtxs, graph.where_, bestwhere_);
         //         }
         //
-        //         if (bestobj == 0)
+        //         if bestobj == 0
         //           break;
         //       }
-        //       if (bestobj != curobj)
+        //       if bestobj != curobj
         //         icopy(graph.nvtxs, bestwhere_, graph.where_);
         //
         //       break;
         // #endif
-        _ => panic!("Unknown objtype: {}\n", ctrl.objtype),
+        _ => panic!("Unknown objtype: {}", ctrl.objtype),
     }
 
-    gk_free(&mut ubvec as *mut *mut c_void, &mut bestwhere_, LTERM);
+    // don't need this - ubvec is RAII, bestwhere_ is commented out
+    // gk_free(&mut ubvec as *mut *mut c_void, &mut bestwhere_, LTERM);
 }
 
 /*************************************************************************/
@@ -320,9 +330,6 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let i: idx_t;
-    let ii: idx_t;
-    let j: idx_t;
     let nvtxs: idx_t;
     let objval: idx_t = 0;
     let vwgt: *mut idx_t;
@@ -332,65 +339,78 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     let cpwgts: *mut idx_t;
     let fpart: *mut idx_t;
     let perm: *mut idx_t;
-    ipq_t * queue;
+    let queue: pqueue::Mheap<_, _>;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
-    vwgt = graph.vwgt;
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices_mut!(graph => vwgt);
 
     nparts = ctrl.nparts;
 
-    mynparts = gk_min(100 * nparts, sqrt(nvtxs));
+    mynparts = (100 * nparts).min((nvtxs as f32).sqrt() as idx_t);
+    mkslice_mut!(part, nvtxs);
 
-    for i in 0..nvtxs {
-        part[i] = i % nparts;
+    for i in 0..(nvtxs as usize) {
+        part[i] = (i % nparts as usize) as idx_t;
     }
-    irandArrayPermute(nvtxs, part, 4 * nvtxs, 0);
-    print!("Random cut: {}\n", (int)ComputeCut(graph, part));
+    irandArrayPermute(nvtxs as idx_t, part.as_mut_ptr(), 4 * nvtxs as idx_t, 0);
+    println!("Random cut: {}", ComputeCut(graph, part.as_mut_ptr()));
 
     /* create the initial multi-section */
-    mynparts = GrowMultisection(ctrl, graph, mynparts, part);
+    mynparts = GrowMultisection(ctrl, graph, mynparts, part.as_mut_ptr());
 
     /* balance using label-propagation and refine using a randomized greedy strategy */
-    BalanceAndRefineLP(ctrl, graph, mynparts, part);
+    BalanceAndRefineLP(ctrl, graph, mynparts, part.as_mut_ptr());
 
     /* determine the size of the fine partitions */
-    fpwgts = iset(mynparts, 0, iwspacemalloc(ctrl, mynparts));
-    for i in 0..nvtxs {
-        fpwgts[part[i]] += vwgt[i];
+    // fpwgts = iset(mynparts, 0, iwspacemalloc(ctrl, mynparts));
+    let mut fpwgts = vec![0; mynparts as usize];
+    for i in 0..(nvtxs as usize) {
+        fpwgts[part[i] as usize] += vwgt[i];
     }
 
     /* create and initialize the queue that will determine
-    where_ to put the next one */
-    cpwgts = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
-    queue = ipqCreate(nparts);
+    where to put the next one */
+    // cpwgts = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
+    let mut cpwgts = vec![0; nparts as usize];
+
+    // I am not certain about the behavior of the queue - this will have the most potential for
+    // error
+    // queue = ipqCreate(nparts);
+    queue = pqueue::Mheap::new(nparts as usize);
     for i in 0..nparts {
-        ipqInsert(queue, i, 0);
+        // ipqInsert(queue, i, 0);
+        queue.insert(i, 0);
     }
 
     /* assign the fine partitions into the coarse partitions */
-    fpart = iwspacemalloc(ctrl, mynparts);
-    perm = iwspacemalloc(ctrl, mynparts);
-    irandArrayPermute(mynparts, perm, mynparts, 1);
-    for ii in 0..mynparts {
-        i = perm[ii];
-        j = ipqSeeTopVal(queue);
-        fpart[i] = j;
-        cpwgts[j] += fpwgts[i];
-        ipqUpdate(queue, j, -cpwgts[j]);
+    // fpart = iwspacemalloc(ctrl, mynparts);
+    let fpart = vec![0; mynparts as usize];
+    // perm = iwspacemalloc(ctrl, mynparts);
+    let perm = vec![0; mynparts as usize];
+    irandArrayPermute(mynparts, perm.as_mut_ptr(), mynparts, 1);
+    for ii in 0..(mynparts as usize) {
+        let i = perm[ii];
+        // let j = ipqSeeTopVal(queue);
+        let j = queue.see_top_val().unwrap_or(-1);
+        fpart[i as usize] = j;
+        cpwgts[j as usize] += fpwgts[i as usize];
+        // ipqUpdate(queue, j, -cpwgts[j]);
+        queue.update(j, -cpwgts[j as usize]);
     }
-    ipqDestroy(queue);
+    // ipqDestroy(queue);
+    drop(queue);
 
-    for i in 0..nparts {
-        print!("cpwgts[{}] = {}\n", i, cpwgts[i]);
+    for i in 0..(nparts as usize) {
+        println!("cpwgts[{}] = {}", i, cpwgts[i]);
     }
     for i in 0..nvtxs {
-        part[i] = fpart[part[i]];
+        part[i] = fpart[part[i] as usize];
     }
-    WCOREPOP;
+    // WCOREPOP;
 
-    return ComputeCut(graph, part);
+    return ComputeCut(graph, part.as_mut_ptr());
 }
 
 /*************************************************************************/
@@ -408,10 +428,7 @@ pub fn GrowMultisection(
 ) -> idx_t {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let i: idx_t;
-    let j: idx_t;
-    let k: idx_t;
-    let l: idx_t;
+    let mut nparts = nparts;
     let nvtxs: idx_t;
     let nleft: idx_t;
     let first: idx_t;
@@ -424,63 +441,69 @@ pub fn GrowMultisection(
     let maxpwgt: idx_t;
     let pwgts: *mut idx_t;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
     nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    vwgt = graph.xadj;
-    adjncy = graph.adjncy;
+    // xadj = graph.xadj;
+    // vwgt = graph.vwgt;
+    // adjncy = graph.adjncy;
+    get_graph_slices!(graph => xadj vwgt adjncy);
+    get_graph_slices_mut!(graph => where_);
 
-    queue = iwspacemalloc(ctrl, nvtxs);
+    // queue = iwspacemalloc(ctrl, nvtxs);
+    let mut queue = vec![0; nvtxs as usize];
 
     /* Select the seeds for the nparts-way BFS */
-    nleft = 0;
-    for i in 0..nvtxs {
-        if (xadj[i + 1] - xadj[i] > 1)
+    let mut nleft = 0;
+    for i in 0..(nvtxs as usize) {
+        if xadj[i + 1] - xadj[i] > 1
         /* a seed's degree should be > 1 */
         {
-            where_[nleft] = i;
+            where_[nleft as usize] = i as idx_t;
             nleft += 1;
         }
     }
-    nparts = gk_min(nparts, nleft);
-    for i in 0..nparts {
-        j = irandInRange(nleft);
-        queue[i] = where_[j];
-        where_[j] = --nleft;
+    nparts = nparts.min(nleft);
+    for i in 0..(nparts as usize) {
+        let j = irandInRange(nleft) as usize;
+        queue[i as usize] = where_[j];
+        nleft -= 1;
+        where_[j] = nleft;
     }
 
-    pwgts = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
-    tvwgt = isum(nvtxs, vwgt, 1);
-    maxpwgt = (1.5 * tvwgt) / nparts;
+    let mut pwgts = vec![0; nparts as usize];
+    let tvwgt: idx_t = vwgt.iter().sum();
+    // tvwgt = isum(nvtxs, vwgt, 1);
+    maxpwgt = ((1.5 * tvwgt as f32) / nparts as f32) as idx_t;
 
-    iset(nvtxs, -1, where_);
-    for i in 0..nparts {
-        where_[queue[i]] = i;
-        pwgts[i] = vwgt[queue[i]];
+    where_.fill(-1);
+    for i in 0..(nparts as usize) {
+        where_[queue[i] as usize] = i as idx_t;
+        pwgts[i] = vwgt[queue[i] as usize];
     }
 
-    first = 0;
-    last = nparts;
+    let mut first = 0 as usize;
+    let mut last = nparts as usize;
     nleft = nvtxs - nparts;
 
     /* Start the BFS from queue to get a partition */
-    while (first < last) {
-        i = queue[first];
+    while first < last {
+        let i = queue[first] as usize;
         first += 1;
-        l = where_[i];
-        if (pwgts[l] > maxpwgt) {
+        let l = where_[i] as usize;
+        if pwgts[l] > maxpwgt {
             continue;
         }
         for j in xadj[i]..xadj[i + 1] {
-            k = adjncy[j];
-            if (where_[k] == -1) {
-                if (pwgts[l] + vwgt[k] > maxpwgt) {
+            let j = j as usize;
+            let k = adjncy[j] as usize;
+            if where_[k] == -1 {
+                if pwgts[l] + vwgt[k] > maxpwgt {
                     break;
                 }
                 pwgts[l] += vwgt[k];
-                where_[k] = l;
-                queue[last] = k;
+                where_[k] = l as idx_t;
+                queue[last] = k as idx_t;
                 last += 1;
                 nleft -= 1;
             }
@@ -488,15 +511,15 @@ pub fn GrowMultisection(
     }
 
     /* Assign the unassigned vertices randomly to the nparts partitions */
-    if (nleft > 0) {
-        for i in 0..nvtxs {
-            if (where_[i] == -1) {
+    if nleft > 0 {
+        for i in 0..(nvtxs as usize) {
+            if where_[i] == -1 {
                 where_[i] = irandInRange(nparts);
             }
         }
     }
 
-    WCOREPOP;
+    // WCOREPOP;
 
     return nparts;
 }
@@ -514,12 +537,6 @@ pub fn BalanceAndRefineLP(
 ) -> () {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let ii: idx_t;
-    let i: idx_t;
-    let j: idx_t;
-    let k: idx_t;
-    let u: idx_t;
-    let v: idx_t;
     let nvtxs: idx_t;
     let iter: idx_t;
     let xadj: *mut idx_t;
@@ -540,169 +557,177 @@ pub fn BalanceAndRefineLP(
     let nbrmrks: *mut idx_t;
     let ubfactor: real_t;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt);
+    let where_ = slice::from_raw_parts_mut(where_, nvtxs);
 
-    pwgts = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
+    let pwgts = vec![0; nparts as usize];
 
-    ubfactor = I2RUBFACTOR(ctrl.ufactor);
-    tvwgt = isum(nvtxs, vwgt, 1);
-    maxpwgt = (ubfactor * tvwgt) / nparts;
-    minpwgt = (1.0 * tvwgt) / (ubfactor * nparts);
+    ubfactor = util::i2rubfactor(ctrl.ufactor);
+    tvwgt = vwgt.iter().sum::<idx_t>();
+    maxpwgt = ((ubfactor * tvwgt as real_t) / nparts as real_t) as idx_t;
+    minpwgt = ((1.0 * tvwgt as real_t) / (ubfactor * nparts as real_t)) as idx_t;
 
     for i in 0..nvtxs {
-        pwgts[where_[i]] += vwgt[i];
+        pwgts[where_[i] as usize] += vwgt[i];
     }
     /* for randomly visiting the vertices */
-    perm = iincset(nvtxs, 0, iwspacemalloc(ctrl, nvtxs));
+    // perm = iincset(nvtxs, 0, iwspacemalloc(ctrl, nvtxs));
+    let mut perm = Vec::from_iter(0..(nvtxs as idx_t));
 
     /* for keeping track of adjacent partitions */
-    nbrids = iwspacemalloc(ctrl, nparts);
-    nbrwgts = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
-    nbrmrks = iset(nparts, -1, iwspacemalloc(ctrl, nparts));
+    let nbrids: Vec<idx_t> = vec![0; nparts as usize];
+    let nbrwgts: Vec<idx_t> = vec![0; nparts as usize];
+    let nbrmrks: Vec<idx_t> = vec![-1; nparts as usize];
 
     /* perform a fixed number of balancing LP iterations */
-    if (ctrl.dbglvl & METIS_DBG_REFINE) {
-        print!(
-            "BLP: nparts: {:}, min-max: [{:}, {:}], bal: {:7.4}, cut: {:9}\n",
+    if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
+        println!(
+            "BLP: nparts: {:}, min-max: [{:}, {:}], bal: {:7.4}, cut: {:9}",
             nparts,
             minpwgt,
             maxpwgt,
-            1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
-            ComputeCut(graph, where_)
+            *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
+            // 1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
+            ComputeCut(graph, where_.as_mut_ptr())
         );
     }
     for iter in 0..ctrl.niter {
-        if (imax(nparts, pwgts, 1) * nparts < ubfactor * tvwgt) {
+        // if imax(nparts, pwgts, 1) * nparts < ubfactor * tvwgt {
+        if (*pwgts.iter().max().unwrap_or(&0) as f32) * (nparts as f32) < ubfactor * (tvwgt as f32)
+        {
             break;
         }
-        irandArrayPermute(nvtxs, perm, nvtxs / 8, 1);
+        // I may choose to recreate this macro impl if it's too slow
+        // irandArrayPermute(nvtxs, perm, nvtxs / 8, 1);
+        fastrand::shuffle(&mut perm);
         nmoves = 0;
 
-        for ii in 0..nvtxs {
-            u = perm[ii];
+        for ii in 0..(nvtxs as usize) {
+            let u = perm[ii] as usize;
 
-            from = where_[u];
-            if (pwgts[from] - vwgt[u] < minpwgt) {
+            let from = where_[u] as usize;
+            if pwgts[from] - vwgt[u] < minpwgt {
                 continue;
             }
             nnbrs = 0;
             for j in xadj[u]..xadj[u + 1] {
-                v = adjncy[j];
-                to = where_[v];
+                let j = j as usize;
+                let v = adjncy[j] as usize;
+                let to = where_[v] as usize;
 
-                if (pwgts[to] + vwgt[u] > maxpwgt) {
+                if pwgts[to] + vwgt[u] > maxpwgt {
                     continue; /* skip if 'to' is overweight */
                 }
-                if ((k = nbrmrks[to]) == -1) {
+                let k = nbrmrks[to];
+                if k == -1 {
                     k = nnbrs;
                     nbrmrks[to] = nnbrs;
                     nnbrs += 1;
-                    nbrids[k] = to;
+                    nbrids[k as usize] = to as idx_t;
                 }
-                nbrwgts[k] += xadj[v + 1] - xadj[v];
+                nbrwgts[k as usize] += xadj[v + 1] - xadj[v];
             }
-            if (nnbrs == 0) {
+            if nnbrs == 0 {
                 continue;
             }
-            to = nbrids[iargmax(nnbrs, nbrwgts, 1)];
-            if (from != to) {
-                where_[u] = to;
-                INC_DEC(pwgts[to], pwgts[from], vwgt[u]);
+            let to = nbrids[util::iargmax(&nbrwgts, 1)] as usize;
+            if from != to {
+                where_[u] = to as idx_t;
+                inc_dec!(pwgts[to], pwgts[from], vwgt[u]);
                 nmoves += 1;
             }
 
-            for k in 0..nnbrs {
-                nbrmrks[nbrids[k]] = -1;
+            for k in 0..(nnbrs as usize) {
+                nbrmrks[nbrids[k] as usize] = -1;
                 nbrwgts[k] = 0;
             }
         }
 
-        if (ctrl.dbglvl & METIS_DBG_REFINE) {
-            print!(
-                "     nmoves: {:8}, bal: {:7.4}, cut: {:9}\n",
+        if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
+            println!(
+                "     nmoves: {:8}, bal: {:7.4}, cut: {:9}",
                 nmoves,
-                1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
-                ComputeCut(graph, where_)
+                *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
+                ComputeCut(graph, where_.as_mut_ptr())
             );
         }
-        if (nmoves == 0) {
+        if nmoves == 0 {
             break;
         }
     }
 
     /* perform a fixed number of refinement LP iterations */
-    if (ctrl.dbglvl & METIS_DBG_REFINE) {
-        print!(
-            "RLP: nparts: {:}, min-max: [{:}, {:}], bal: {:7.4}, cut: {:9}\n",
+    if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
+        println!(
+            "RLP: nparts: {:}, min-max: [{:}, {:}], bal: {:7.4}, cut: {:9}",
             nparts,
             minpwgt,
             maxpwgt,
-            1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
-            ComputeCut(graph, where_)
+            *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
+            ComputeCut(graph, where_.as_mut_ptr())
         );
     }
     for iter in 0..ctrl.niter {
-        irandArrayPermute(nvtxs, perm, nvtxs / 8, 1);
+        irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
         nmoves = 0;
 
-        for ii in 0..nvtxs {
-            u = perm[ii];
+        for ii in 0..(nvtxs as usize) {
+            let u = perm[ii] as usize;
 
-            from = where_[u];
-            if (pwgts[from] - vwgt[u] < minpwgt) {
+            let from = where_[u] as usize;
+            if pwgts[from] - vwgt[u] < minpwgt {
                 continue;
             }
             nnbrs = 0;
             for j in xadj[u]..xadj[u + 1] {
-                v = adjncy[j];
-                to = where_[v];
+                let j = j as usize;
+                let v = adjncy[j] as usize;
+                let to = where_[v] as usize;
 
-                if (to != from && pwgts[to] + vwgt[u] > maxpwgt) {
+                if to != from && pwgts[to] + vwgt[u] > maxpwgt {
                     continue; /* skip if 'to' is overweight */
                 }
-                if ((k = nbrmrks[to]) == -1) {
+                let k = nbrmrks[to];
+                if k == -1 {
                     k = nnbrs;
                     nbrmrks[to] = nnbrs;
                     nnbrs += 1;
 
-                    nbrids[k] = to;
+                    nbrids[k as usize] = to as idx_t;
                 }
-                nbrwgts[k] += adjwgt[j];
+                nbrwgts[k as usize] += adjwgt[j];
             }
-            if (nnbrs == 0) {
+            if nnbrs == 0 {
                 continue;
             }
-            to = nbrids[iargmax(nnbrs, nbrwgts, 1)];
-            if (from != to) {
-                where_[u] = to;
-                INC_DEC(pwgts[to], pwgts[from], vwgt[u]);
+            let to = nbrids[util::iargmax(&nbrwgts, 1)] as usize;
+            if from != to {
+                where_[u] = to as idx_t;
+                inc_dec!(pwgts[to], pwgts[from], vwgt[u]);
                 nmoves += 1;
             }
 
-            for k in 0..nnbrs {
-                nbrmrks[nbrids[k]] = -1;
+            for k in 0..(nnbrs as usize) {
+                nbrmrks[nbrids[k] as usize] = -1;
                 nbrwgts[k] = 0;
             }
         }
 
-        if (ctrl.dbglvl & METIS_DBG_REFINE) {
-            print!(
-                "     nmoves: {:8}, bal: {:7.4}, cut: {:9}\n",
+        if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
+            println!(
+                "     nmoves: {:8}, bal: {:7.4}, cut: {:9}",
                 nmoves,
-                1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
-                ComputeCut(graph, where_)
+                *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
+                ComputeCut(graph, where_.as_mut_ptr())
             );
         }
-        if (nmoves == 0) {
+        if nmoves == 0 {
             break;
         }
     }
 
-    WCOREPOP;
+    // WCOREPOP;
 }

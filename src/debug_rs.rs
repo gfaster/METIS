@@ -7,23 +7,17 @@ use crate::*;
 pub extern "C" fn CheckBnd2(graph: *const graph_t) -> idx_t {
     let graph = graph.as_ref().unwrap();
     let nvtxs = graph.nvtxs;
-    mkslice!(graph->xadj, nvtxs + 1);
-    mkslice!(graph->adjncy, xadj[xadj.len() - 1]);
-    let where_ = graph.where_;
-    mkslice!(graph->bndptr, nvtxs);
-    mkslice!(graph->bndind, nvtxs);
-    mkslice!(graph->adjwgt, graph.nedges);
+    get_graph_slices!(graph => xadj adjncy where_ bndptr bndind adjwgt);
     let mut id;
     let mut ed;
 
     let mut nbnd = 0;
-
     for i in 0..(nvtxs as usize) {
         id = 0;
         ed = 0;
         for j in xadj[i]..xadj[i + 1] {
             let j = j as usize;
-            if *where_.add(i) != *where_.add(adjncy[j] as usize) {
+            if where_[i] != where_[adjncy[j] as usize] {
                 ed += adjwgt[j];
             } else {
                 id += adjwgt[j];

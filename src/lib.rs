@@ -12,6 +12,8 @@ pub use debug_rs as debug;
 pub mod kmetis;
 pub mod kwayrefine;
 
+pub(crate) mod pqueue;
+
 #[macro_use]
 pub mod util;
 

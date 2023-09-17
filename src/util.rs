@@ -151,6 +151,21 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
     max / incx
 }
 
+
+/// converts a user provided ufactor into a real ubfactor
+#[inline(always)]
+pub fn i2rubfactor(ufactor: idx_t) -> real_t { 
+    1.0+0.001*(ufactor as f32)
+}
+
+#[macro_export]
+macro_rules! inc_dec {
+    ($a:expr, $b:expr, $val:expr) => {
+        $a += $val;
+        $b -= $val;
+    };
+}
+
 /*
 * ====================================================
 * below here is my additional functions
@@ -201,8 +216,9 @@ macro_rules! slice_len {
         xadj[xadj.len() - 1]
     }};
     ($ctrl:expr, $graph:expr, adjwgt) => {{
-        let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
-        xadj[xadj.len() - 1]
+        // let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
+        // xadj[xadj.len() - 1]
+        $graph.nedges
     }};
     ($ctrl:expr, $graph:expr, vwgt) => {
         $graph.nvtxs * $graph.ncon
@@ -264,6 +280,16 @@ macro_rules! get_graph_slices {
     };
 }
 
+/// debug level handling from gk_macros.h
+#[macro_export]
+macro_rules! ifset {
+    ($a:expr, $flag:expr, $cmd:expr) => {
+        if $a & $flag != 0 {
+            $cmd;
+        }
+    };
+}
+
 /// Equivalent of MAKECSR in gk_macros.h
 ///
 /// n is the length of the slice, but it's often used shorter in METIS
@@ -321,12 +347,34 @@ macro_rules! BNDDelete {
 }
 
 #[macro_export]
-macro_rules! mkslice {
+macro_rules! mkslice_mut {
     ($struct:ident->$var:ident, $len:expr) => {
         let $var: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
     };
     ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
         let $newvar: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
+    };
+    ($var:ident, $len:expr) => {
+        let $var: &mut [_] = std::slice::from_raw_parts_mut($var, $len as usize);
+    };
+    ($newvar:ident: $var:expr, $len:expr) => {
+        let $newvar: &mut [_] = std::slice::from_raw_parts_mut($var, $len as usize);
+    };
+}
+
+#[macro_export]
+macro_rules! mkslice {
+    ($struct:ident->$var:ident, $len:expr) => {
+        let $var: &[_] = std::slice::from_raw_parts((*$struct).$var, $len as usize);
+    };
+    ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
+        let $newvar: &[_] = std::slice::from_raw_parts((*$struct).$var, $len as usize);
+    };
+    ($var:ident, $len:expr) => {
+        let $var: &[_] = std::slice::from_raw_parts($var, $len as usize);
+    };
+    ($newvar:ident: $var:ident, $len:expr) => {
+        let $newvar: &[_] = std::slice::from_raw_parts($var, $len as usize);
     };
 }
 

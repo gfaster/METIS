@@ -2,7 +2,6 @@
 
 #[metis_decl]
 extern "C" {
-    pub fn isrand(seed: idx_t) -> std::ffi::c_void;
 
     pub fn SetupCtrl(
         optype: moptype_et,
@@ -13,10 +12,49 @@ extern "C" {
         ubvec: *const real_t,  // manually verified const
     ) -> *mut ctrl_t;
 
-    pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
-
+    pub fn AllocateRefinementWorkSpace(
+        ctrl: *mut ctrl_t,
+        nbrpoolsize_max: idx_t,
+        nbrpoolsize: idx_t,
+    ) -> std::ffi::c_void;
     pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
+    pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
+    pub fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut graph_t;
+    pub fn ComputeCut(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
+    pub fn ComputeLoadImbalanceDiff(
+        graph: *mut graph_t,
+        nparts: idx_t,
+        pijbm: *mut real_t,
+        ubvec: *mut real_t,
+    ) -> real_t;
+    pub fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
+    pub fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn FindPartitionInducedComponents(
+        graph: *mut graph_t,
+        where_: *mut idx_t,
+        cptr: *mut idx_t,
+        cind: *mut idx_t,
+    ) -> idx_t;
 
+    pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
+    pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
+    pub fn FreeRData(graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
+
+    pub fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn Greedy_KWayOptimize(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        niter: idx_t,
+        ffactor: real_t,
+        omode: idx_t,
+    ) -> std::ffi::c_void;
+    pub fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t;
+    pub fn isrand(seed: idx_t) -> std::ffi::c_void;
     pub fn SetupGraph(
         ctrl: *mut ctrl_t,
         nvtxs: idx_t,
@@ -27,42 +65,20 @@ extern "C" {
         vsize: *mut idx_t,
         adjwgt: *mut idx_t,
     ) -> *mut graph_t;
-
-    pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
-    pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
-    pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
+    pub fn SetupKWayBalMultipliers(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
-    pub fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
-    pub fn ComputeCut(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
-    pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
+    pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
-    pub fn ComputeLoadImbalanceDiff(
-        graph: *mut graph_t,
-        nparts: idx_t,
-        pijbm: *mut real_t,
-        ubvec: *mut real_t,
-    ) -> real_t;
-    pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn FindPartitionInducedComponents(
-        graph: *mut graph_t,
-        where_: *mut idx_t,
-        cptr: *mut idx_t,
-        cind: *mut idx_t,
-    ) -> idx_t;
-    pub fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn Greedy_KWayOptimize(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        niter: idx_t,
-        ffactor: real_t,
-        omode: idx_t,
-    ) -> std::ffi::c_void;
-    pub fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
-    pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
-
+    pub fn irandArrayPermute(n: idx_t, p: *mut idx_t, nshuffles: idx_t, flag: std::ffi::c_int) -> std::ffi::c_void;
+    pub fn irandInRange(r: idx_t) -> idx_t;
 }
+
+// replacing c args with rust args (2 commands over visual region)
+// 1:
+// '<,'>s/\v(\w+_t) (\**)(\w+)/\3: \2\1/g
+// 2:
+// '<,'>s/\V*/*mut /g
 
 pub const METIS_VER_MAJOR: u32 = 5;
 pub const METIS_VER_MINOR: u32 = 1;

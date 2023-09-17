@@ -89,7 +89,8 @@ where
             let j = (i - 1) >> 1;
             if key < heap[j].key {
                 heap[i] = heap[j];
-                locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i as isize;
+                locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
+                    i as isize;
                 i = j;
             } else {
                 break;
@@ -111,7 +112,10 @@ where
         let heap = &mut self.heap;
 
         debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] != -1);
-        debug_assert!(heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val == node);
+        debug_assert!(
+            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val
+                == node
+        );
 
         debug_assert!(self.check_heap());
 
@@ -130,7 +134,8 @@ where
                     let j = (i - 1) >> 1;
                     if newkey < heap[j as usize].key {
                         heap[i as usize] = heap[j as usize];
-                        locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                        locator[TryInto::<usize>::try_into(heap[i as usize].val)
+                            .expect("valid index")] = i;
                         i = j;
                     } else {
                         break;
@@ -139,19 +144,23 @@ where
             } else {
                 /* Filter down */
                 let nnodes = self.nnodes;
-                while let mut j = ((i as usize) << 1) + 1{
-                    if j >= nnodes { break; }
+                while let mut j = ((i as usize) << 1) + 1 {
+                    if j >= nnodes {
+                        break;
+                    }
                     if heap[j].key < newkey {
                         if j + 1 < nnodes && heap[j + 1].key < heap[j].key {
                             j += 1;
                         }
                         heap[i as usize] = heap[j];
-                        locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                        locator[TryInto::<usize>::try_into(heap[i as usize].val)
+                            .expect("valid index")] = i;
                         i = j as isize;
                     } else if j + 1 < nnodes && heap[j + 1].key < newkey {
                         j += 1;
                         heap[i as usize] = heap[j];
-                        locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                        locator[TryInto::<usize>::try_into(heap[i as usize].val)
+                            .expect("valid index")] = i;
                         i = j as isize;
                     } else {
                         break;
@@ -174,13 +183,17 @@ where
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
-        let oldkey = heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].key;
+        let oldkey =
+            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].key;
         if !(newkey < oldkey) && !(oldkey < newkey) {
             return;
         }
 
         debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] != -1);
-        debug_assert!(heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val == node);
+        debug_assert!(
+            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val
+                == node
+        );
         debug_assert!(self.check_heap());
 
         let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
@@ -191,7 +204,9 @@ where
                 let j = (i as usize - 1) >> 1;
                 if newkey < heap[j].key {
                     heap[i as usize] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                    locator
+                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
+                        i;
                     i = j as isize;
                 } else {
                     break;
@@ -201,18 +216,24 @@ where
             /* Filter down */
             let nnodes = self.nnodes;
             while let mut j = ((i as usize) << 1) + 1 {
-                if !(j < nnodes) { break; }
+                if !(j < nnodes) {
+                    break;
+                }
                 if heap[j].key < newkey {
                     if j + 1 < nnodes && heap[j + 1].key < heap[j].key {
                         j += 1;
                     }
                     heap[i as usize] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                    locator
+                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
+                        i;
                     i = j as isize;
                 } else if j + 1 < nnodes && heap[j + 1].key < newkey {
                     j += 1;
                     heap[i as usize] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] = i;
+                    locator
+                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
+                        i;
                     i = j as isize;
                 } else {
                     break;
@@ -245,7 +266,7 @@ where
         let heap = &mut self.heap;
         let locator = &mut self.locator;
 
-        let mut vtx= heap[0].val;
+        let mut vtx = heap[0].val;
         locator[TryInto::<usize>::try_into(vtx).expect("valid index")] = -1;
 
         let mut i = self.nnodes;
@@ -254,18 +275,22 @@ where
             let node = heap[i].val.into();
             i = 0;
             while let mut j = 2 * i + 1 {
-                if !(j < self.nnodes) { break; }
+                if !(j < self.nnodes) {
+                    break;
+                }
                 if heap[j].key < key {
                     if j + 1 < self.nnodes && heap[j + 1].key < heap[j].key {
                         j = j + 1;
                     }
                     heap[i] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] = i as isize;
+                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
+                        i as isize;
                     i = j;
                 } else if j + 1 < self.nnodes && heap[j + 1].key < key {
                     j = j + 1;
                     heap[i] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] = i as isize;
+                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
+                        i as isize;
                     i = j;
                 } else {
                     break;
@@ -309,7 +334,9 @@ where
     /* This function returns the key of a specific item */
     /**************************************************************************/
     pub fn see_key(&self, node: VT) -> KT {
-        return self.heap[self.locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].key;
+        return self.heap
+            [self.locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize]
+            .key;
     }
 
     /*************************************************************************/
@@ -326,7 +353,10 @@ where
 
         debug_assert!(locator[TryInto::<usize>::try_into(heap[0].val).expect("valid index")] == 0);
         for i in 1..nnodes {
-            debug_assert!(locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] == i as isize);
+            debug_assert!(
+                locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")]
+                    == i as isize
+            );
             debug_assert!(heap[i].key >= heap[(i - 1) / 2].key);
         }
         for i in 1..nnodes {
@@ -350,9 +380,7 @@ mod test {
     use super::Mheap;
 
     macro_rules! basic_test {
-        ($name:ident: $amt:expr, $items:expr) => {
-
-        };
+        ($name:ident: $amt:expr, $items:expr) => {};
     }
 
     #[test]
