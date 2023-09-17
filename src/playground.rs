@@ -3,15 +3,15 @@ use crate::util::verify_part;
 // use metis::util::create_dummy_weights;
 use metis::*;
 
-macro_rules! options_arr {
-    ($objtype:ident $iptype:ident) => {{
-        let mut options = [-1; METIS_NOPTIONS as usize];
-        options[crate::METIS_OPTION_PTYPE as usize] = crate::Objtype::$objtype as i32;
-        options[crate::METIS_OPTION_IPTYPE as usize] = crate::Iptype::$iptype as i32;
-
-        options
-    }};
-}
+// macro_rules! options_arr {
+//     ($objtype:ident $iptype:ident) => {{
+//         let mut options = [-1; METIS_NOPTIONS as usize];
+//         options[crate::METIS_OPTION_PTYPE as usize] = crate::Objtype::$objtype as i32;
+//         options[crate::METIS_OPTION_IPTYPE as usize] = crate::Iptype::$iptype as i32;
+//
+//         options
+//     }};
+// }
 
 fn main() {
     // let n = 10;
@@ -42,7 +42,7 @@ fn main() {
     let mut part = [0; 2];
     let mut options = [-1; METIS_NOPTIONS as usize];
 
-    let res = unsafe {
+    let _res = unsafe {
         METIS_PartGraphRecursive(
             &mut nvtxs as *mut _,
             &mut ncon as *mut _,

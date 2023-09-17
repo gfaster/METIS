@@ -4,8 +4,9 @@
 use std::ptr;
 
 use crate::bindings::{
-    idx_t, METIS_PartGraphKway, METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK,
+    idx_t,  METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK,
 };
+use crate::kmetis::METIS_PartGraphKway;
 
 use crate::util::{create_dummy_weights, verify_part};
 
@@ -253,3 +254,40 @@ part_test! {
     vwgt: true,
     adjwgt: false,
 }
+
+part_test! {
+    name: large_kway_edge_node,
+    options: make_options!(Cut Node),
+    nparts: 20,
+    ncon: 1,
+    vwgt: false,
+    adjwgt: false,
+}
+
+part_test! {
+    name: large_kway_edge_node_vwgt,
+    options: make_options!(Cut Node),
+    nparts: 20,
+    ncon: 1,
+    vwgt: true,
+    adjwgt: false,
+}
+
+part_test! {
+    name: large_kway_edge_node_vwgt_2con,
+    options: make_options!(Cut Node),
+    nparts: 20,
+    ncon: 2,
+    vwgt: true,
+    adjwgt: false,
+}
+
+part_test! {
+    name: large_kway_edge_node_vwgt_2con_adjwgt,
+    options: make_options!(Cut Node),
+    nparts: 20,
+    ncon: 2,
+    vwgt: true,
+    adjwgt: true,
+}
+

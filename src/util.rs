@@ -126,9 +126,9 @@ pub extern "C" fn metis_rcode(sigrval: std::ffi::c_int) -> std::ffi::c_int {
 
 /// returns the max element in slice by stride incx
 ///
-/// eventually will be metis_func, but need to port everything from the gk_mkblas at once
+/// eventually will be `metis_func`, but need to port everything from the `gk_mkblas` at once
 ///
-/// In the original, iargmax takes an `n` parameter which is the number of steps that will be
+/// In the original, `iargmax` takes an `n` parameter which is the number of steps that will be
 /// taken. This is implied by the length of the slice
 ///
 /// ```
@@ -189,8 +189,23 @@ macro_rules! options_match {
     ($options:ident, Random) => {
         $options[$crate::METIS_OPTION_IPTYPE as usize] = $crate::Iptype::Random as idx_t;
     };
+    ($options:ident, Minconn) => {
+        $options[$crate::METIS_OPTION_MINCONN as usize] = 1;
+    };
 }
 
+/// Build options array: populate it with a number of idents
+///
+/// `Vol`: communication volume minimization
+/// `Cut`: edgecut minimization
+///
+/// `Grow`: initial partition via greedy strategy
+/// `Edge`: make separator from edge cut
+/// `Node`: initial partition via greedy node-based strategy
+///
+/// `Minconn`: minimize the degree of partition graph
+///
+/// *I need to add more - check manual*
 #[macro_export]
 macro_rules! make_options {
     ($($val:ident)*) => {{
@@ -463,6 +478,7 @@ pub fn verify_part(
         "objval should be edgecut, and the calculated cut should be double it"
     );
     assert!(
+        // (nparts * pwgts[iargmax(nparts, pwgts)]) as f64
         (nparts * pwgts.iter().max().unwrap()) as f64 <= 1.10 * pwgts.iter().sum::<idx_t>() as f64
     );
 }

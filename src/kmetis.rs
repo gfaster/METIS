@@ -9,7 +9,7 @@
 \version\verbatim $Id: kmetis.c 20398 2016-11-22 17:17:12Z karypis $ \endverbatim
 */
 
-use std::{os::raw::c_void, ptr, slice};
+use std::slice;
 
 use crate::*;
 
@@ -44,7 +44,7 @@ pub fn METIS_PartGraphKway(
     part: *mut idx_t,
 ) -> std::ffi::c_int {
     let sigrval: std::ffi::c_int = 0;
-    let renumber: std::ffi::c_int = 0;
+    // let renumber: std::ffi::c_int = 0;
     let graph: *mut graph_t;
     let ctrl: *mut ctrl_t;
 
@@ -143,15 +143,10 @@ pub fn METIS_PartGraphKway(
 pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
-    let i: idx_t;
-    let j: idx_t;
     let objval: idx_t = 0;
-    let curobj: idx_t = 0;
-    let bestobj: idx_t = 0;
-    let curbal: real_t = 0.0;
-    let bestbal: real_t = 0.0;
-    let cgraph: *mut graph_t;
-    let status: i32;
+    let mut bestobj: idx_t = 0;
+    let mut bestbal: real_t = 0.0;
+    // let status: i32;
 
     for i in 0..ctrl.ncuts {
         let cgraph = CoarsenGraph(ctrl, graph).as_mut().unwrap();
@@ -186,6 +181,7 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 
         kwayrefine::RefineKWay(ctrl, graph, cgraph);
 
+        let curobj;
         match ctrl.objtype {
             METIS_OBJTYPE_CUT => {
                 curobj = graph.mincut;
@@ -196,7 +192,7 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
             _ => panic!("Unknown objtype: {}", ctrl.objtype),
         }
 
-        curbal = ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
+        let curbal = ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
 
         if i == 0
             || (curbal <= 0.0005 && bestobj > curobj)
@@ -228,15 +224,14 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let i: idx_t;
-    let ntrials: idx_t;
-    let options: [idx_t; METIS_NOPTIONS as usize];
-    let curobj: idx_t = 0;
-    let bestobj: idx_t = 0;
-    let bestwhere_: *mut idx_t = ptr::null_mut();
-    let ubvec: *mut real_t = ptr::null_mut();
+    // let ntrials: idx_t;
+    let mut options: [idx_t; METIS_NOPTIONS as usize];
+    let mut curobj: idx_t = 0;
+    // let bestobj: idx_t = 0;
+    // let bestwhere_: *mut idx_t = ptr::null_mut();
     let status: std::ffi::c_int;
 
+    options = [-1; METIS_NOPTIONS as usize];
     METIS_SetDefaultOptions(options.as_mut_ptr());
     //options[METIS_OPTION_NITER]     = 10;
     options[METIS_OPTION_NITER as usize] = ctrl.niter;
@@ -330,16 +325,8 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let nvtxs: idx_t;
-    let objval: idx_t = 0;
-    let vwgt: *mut idx_t;
     let nparts: idx_t;
-    let mynparts: idx_t;
-    let fpwgts: *mut idx_t;
-    let cpwgts: *mut idx_t;
-    let fpart: *mut idx_t;
-    let perm: *mut idx_t;
-    let queue: pqueue::Mheap<_, _>;
+    let mut queue: pqueue::Mheap<_, _>;
 
     // WCOREPUSH;
 
@@ -348,7 +335,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
 
     nparts = ctrl.nparts;
 
-    mynparts = (100 * nparts).min((nvtxs as f32).sqrt() as idx_t);
+    let mynparts = (100 * nparts).min((nvtxs as f32).sqrt() as idx_t);
     mkslice_mut!(part, nvtxs);
 
     for i in 0..(nvtxs as usize) {
@@ -358,7 +345,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     println!("Random cut: {}", ComputeCut(graph, part.as_mut_ptr()));
 
     /* create the initial multi-section */
-    mynparts = GrowMultisection(ctrl, graph, mynparts, part.as_mut_ptr());
+    let mynparts = GrowMultisection(ctrl, graph, mynparts, part.as_mut_ptr());
 
     /* balance using label-propagation and refine using a randomized greedy strategy */
     BalanceAndRefineLP(ctrl, graph, mynparts, part.as_mut_ptr());
@@ -386,9 +373,9 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
 
     /* assign the fine partitions into the coarse partitions */
     // fpart = iwspacemalloc(ctrl, mynparts);
-    let fpart = vec![0; mynparts as usize];
+    let mut fpart = vec![0; mynparts as usize];
     // perm = iwspacemalloc(ctrl, mynparts);
-    let perm = vec![0; mynparts as usize];
+    let mut perm = vec![0; mynparts as usize];
     irandArrayPermute(mynparts, perm.as_mut_ptr(), mynparts, 1);
     for ii in 0..(mynparts as usize) {
         let i = perm[ii];
@@ -421,25 +408,16 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
 /*************************************************************************/
 #[metis_func]
 pub fn GrowMultisection(
-    ctrl: *mut ctrl_t,
+    _ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     nparts: idx_t,
     where_: *mut idx_t,
 ) -> idx_t {
     let graph = graph.as_mut().unwrap();
-    let ctrl = ctrl.as_mut().unwrap();
+    // let ctrl = ctrl.as_mut().unwrap();
     let mut nparts = nparts;
     let nvtxs: idx_t;
-    let nleft: idx_t;
-    let first: idx_t;
-    let last: idx_t;
-    let xadj: *mut idx_t;
-    let vwgt: *mut idx_t;
-    let adjncy: *mut idx_t;
-    let queue: *mut idx_t;
-    let tvwgt: idx_t;
     let maxpwgt: idx_t;
-    let pwgts: *mut idx_t;
 
     // WCOREPUSH;
 
@@ -448,7 +426,10 @@ pub fn GrowMultisection(
     // vwgt = graph.vwgt;
     // adjncy = graph.adjncy;
     get_graph_slices!(graph => xadj vwgt adjncy);
-    get_graph_slices_mut!(graph => where_);
+
+    // get_graph_slices_mut!(graph => where_);
+    // using mkslice instead of graph since where_ was passed as argument
+    mkslice_mut!(where_, nvtxs);
 
     // queue = iwspacemalloc(ctrl, nvtxs);
     let mut queue = vec![0; nvtxs as usize];
@@ -537,24 +518,9 @@ pub fn BalanceAndRefineLP(
 ) -> () {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let nvtxs: idx_t;
-    let iter: idx_t;
-    let xadj: *mut idx_t;
-    let vwgt: *mut idx_t;
-    let adjncy: *mut idx_t;
-    let adjwgt: *mut idx_t;
     let tvwgt: idx_t;
-    let pwgts: *mut idx_t;
     let maxpwgt: idx_t;
     let minpwgt: idx_t;
-    let perm: *mut idx_t;
-    let from: idx_t;
-    let to: idx_t;
-    let nmoves: idx_t;
-    let nnbrs: idx_t;
-    let nbrids: *mut idx_t;
-    let nbrwgts: *mut idx_t;
-    let nbrmrks: *mut idx_t;
     let ubfactor: real_t;
 
     // WCOREPUSH;
@@ -563,7 +529,7 @@ pub fn BalanceAndRefineLP(
     get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt);
     let where_ = slice::from_raw_parts_mut(where_, nvtxs);
 
-    let pwgts = vec![0; nparts as usize];
+    let mut pwgts = vec![0; nparts as usize];
 
     ubfactor = util::i2rubfactor(ctrl.ufactor);
     tvwgt = vwgt.iter().sum::<idx_t>();
@@ -578,9 +544,9 @@ pub fn BalanceAndRefineLP(
     let mut perm = Vec::from_iter(0..(nvtxs as idx_t));
 
     /* for keeping track of adjacent partitions */
-    let nbrids: Vec<idx_t> = vec![0; nparts as usize];
-    let nbrwgts: Vec<idx_t> = vec![0; nparts as usize];
-    let nbrmrks: Vec<idx_t> = vec![-1; nparts as usize];
+    let mut nbrids: Vec<idx_t> = vec![0; nparts as usize];
+    let mut nbrwgts: Vec<idx_t> = vec![0; nparts as usize];
+    let mut nbrmrks: Vec<idx_t> = vec![-1; nparts as usize];
 
     /* perform a fixed number of balancing LP iterations */
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
@@ -594,7 +560,7 @@ pub fn BalanceAndRefineLP(
             ComputeCut(graph, where_.as_mut_ptr())
         );
     }
-    for iter in 0..ctrl.niter {
+    for _ in 0..ctrl.niter {
         // if imax(nparts, pwgts, 1) * nparts < ubfactor * tvwgt {
         if (*pwgts.iter().max().unwrap_or(&0) as f32) * (nparts as f32) < ubfactor * (tvwgt as f32)
         {
@@ -603,7 +569,7 @@ pub fn BalanceAndRefineLP(
         // I may choose to recreate this macro impl if it's too slow
         // irandArrayPermute(nvtxs, perm, nvtxs / 8, 1);
         fastrand::shuffle(&mut perm);
-        nmoves = 0;
+        let mut nmoves = 0;
 
         for ii in 0..(nvtxs as usize) {
             let u = perm[ii] as usize;
@@ -612,7 +578,7 @@ pub fn BalanceAndRefineLP(
             if pwgts[from] - vwgt[u] < minpwgt {
                 continue;
             }
-            nnbrs = 0;
+            let mut nnbrs = 0;
             for j in xadj[u]..xadj[u + 1] {
                 let j = j as usize;
                 let v = adjncy[j] as usize;
@@ -621,7 +587,7 @@ pub fn BalanceAndRefineLP(
                 if pwgts[to] + vwgt[u] > maxpwgt {
                     continue; /* skip if 'to' is overweight */
                 }
-                let k = nbrmrks[to];
+                let mut k = nbrmrks[to];
                 if k == -1 {
                     k = nnbrs;
                     nbrmrks[to] = nnbrs;
@@ -670,9 +636,9 @@ pub fn BalanceAndRefineLP(
             ComputeCut(graph, where_.as_mut_ptr())
         );
     }
-    for iter in 0..ctrl.niter {
+    for _ in 0..ctrl.niter {
         irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
-        nmoves = 0;
+        let mut nmoves = 0;
 
         for ii in 0..(nvtxs as usize) {
             let u = perm[ii] as usize;
@@ -681,7 +647,7 @@ pub fn BalanceAndRefineLP(
             if pwgts[from] - vwgt[u] < minpwgt {
                 continue;
             }
-            nnbrs = 0;
+            let mut nnbrs = 0;
             for j in xadj[u]..xadj[u + 1] {
                 let j = j as usize;
                 let v = adjncy[j] as usize;
@@ -690,7 +656,7 @@ pub fn BalanceAndRefineLP(
                 if to != from && pwgts[to] + vwgt[u] > maxpwgt {
                     continue; /* skip if 'to' is overweight */
                 }
-                let k = nbrmrks[to];
+                let mut k = nbrmrks[to];
                 if k == -1 {
                     k = nnbrs;
                     nbrmrks[to] = nnbrs;

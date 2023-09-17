@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /*
 \file  gk_mkpqueue.h
 \brief Templates for priority queues
@@ -8,7 +9,7 @@
 */
 use std::fmt::Debug;
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct Node<K, V>
 where
     V: Copy + Default + PartialEq,
@@ -76,10 +77,10 @@ where
     /* This function adds an item in the priority queue */
     /**************************************************************************/
     pub fn insert(&mut self, node: VT, key: KT) {
+        debug_assert!(self.check_heap());
+
         let locator = &mut self.locator;
         let heap = &mut self.heap;
-
-        debug_assert!(self.check_heap());
 
         debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] == -1);
 
@@ -96,7 +97,7 @@ where
                 break;
             }
         }
-        debug_assert!(i >= 0);
+        // debug_assert!(i >= 0);
         heap[i].key = key;
         heap[i].val = node;
         locator[TryInto::<usize>::try_into(node).expect("valid index")] = i as isize;
@@ -108,6 +109,7 @@ where
     /* This function deletes an item from the priority queue */
     /**************************************************************************/
     pub fn delete(&mut self, node: VT) {
+        debug_assert!(self.check_heap());
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
@@ -117,7 +119,6 @@ where
                 == node
         );
 
-        debug_assert!(self.check_heap());
 
         let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
         locator[TryInto::<usize>::try_into(node).expect("valid index")] = -1;
@@ -125,7 +126,7 @@ where
         self.nnodes -= 1;
         if self.nnodes > 0 && heap[self.nnodes].val != node {
             let node = heap[self.nnodes].val;
-            let mut newkey = heap[self.nnodes].key;
+            let newkey = heap[self.nnodes].key;
             let oldkey = heap[i as usize].key;
 
             if newkey < oldkey {
@@ -144,7 +145,8 @@ where
             } else {
                 /* Filter down */
                 let nnodes = self.nnodes;
-                while let mut j = ((i as usize) << 1) + 1 {
+                loop {
+let mut j = ((i as usize) << 1) + 1 ;
                     if j >= nnodes {
                         break;
                     }
@@ -180,6 +182,7 @@ where
     /* This function updates the key values associated for a particular item */
     /**************************************************************************/
     pub fn update(&mut self, node: VT, newkey: KT) {
+        debug_assert!(self.check_heap());
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
@@ -194,7 +197,6 @@ where
             heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val
                 == node
         );
-        debug_assert!(self.check_heap());
 
         let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
 
@@ -215,7 +217,8 @@ where
         } else {
             /* Filter down */
             let nnodes = self.nnodes;
-            while let mut j = ((i as usize) << 1) + 1 {
+            loop {
+let mut j = ((i as usize) << 1) + 1 ;
                 if !(j < nnodes) {
                     break;
                 }
@@ -266,7 +269,7 @@ where
         let heap = &mut self.heap;
         let locator = &mut self.locator;
 
-        let mut vtx = heap[0].val;
+        let vtx = heap[0].val;
         locator[TryInto::<usize>::try_into(vtx).expect("valid index")] = -1;
 
         let mut i = self.nnodes;
@@ -274,7 +277,8 @@ where
             let key = heap[i].key;
             let node = heap[i].val.into();
             i = 0;
-            while let mut j = 2 * i + 1 {
+            loop {
+let mut j = 2 * i + 1 ;
                 if !(j < self.nnodes) {
                     break;
                 }
@@ -379,10 +383,6 @@ where
 mod test {
     use super::Mheap;
 
-    macro_rules! basic_test {
-        ($name:ident: $amt:expr, $items:expr) => {};
-    }
-
     #[test]
     fn basic() {
         let mut heap = Mheap::new(10);
@@ -392,6 +392,19 @@ mod test {
         let mut it = 0..10;
         while let Some(k) = heap.get_top() {
             assert_eq!(Some(k), it.next());
+        }
+        assert_eq!(it.next(), None);
+    }
+
+    #[test]
+    fn basic_2() {
+        let mut heap = Mheap::new(10);
+        for x in 0..10 {
+            heap.insert(x, 10 - x);
+        }
+        let mut it = 0..10;
+        while let Some(k) = heap.get_top() {
+            assert_eq!(Some(9 - k), it.next());
         }
         assert_eq!(it.next(), None);
     }

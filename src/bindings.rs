@@ -113,23 +113,23 @@ extern "C" {
         part: *mut idx_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
-    pub fn METIS_PartGraphKway(
-        nvtxs: *mut idx_t,
-        ncon: *mut idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        vsize: *mut idx_t,
-        adjwgt: *mut idx_t,
-        nparts: *mut idx_t,
-        tpwgts: *mut real_t,
-        ubvec: *mut real_t,
-        options: *mut idx_t,
-        edgecut: *mut idx_t,
-        part: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
+// extern "C" {
+//     pub fn METIS_PartGraphKway(
+//         nvtxs: *mut idx_t,
+//         ncon: *mut idx_t,
+//         xadj: *mut idx_t,
+//         adjncy: *mut idx_t,
+//         vwgt: *mut idx_t,
+//         vsize: *mut idx_t,
+//         adjwgt: *mut idx_t,
+//         nparts: *mut idx_t,
+//         tpwgts: *mut real_t,
+//         ubvec: *mut real_t,
+//         options: *mut idx_t,
+//         edgecut: *mut idx_t,
+//         part: *mut idx_t,
+//     ) -> ::std::os::raw::c_int;
+// }
 extern "C" {
     pub fn METIS_MeshToDual(
         ne: *mut idx_t,
