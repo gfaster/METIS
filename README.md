@@ -5,6 +5,12 @@ and producing fill reducing orderings for sparse matrices. The algorithms implem
 METIS are based on the multilevel recursive-bisection, multilevel k-way, and multi-constraint 
 partitioning schemes developed in our lab.
 
+This repository is my attempt of porting METIS to Rust file-by-file, line-by-line.
+
+As of 2023-09-17 (`c80c7df`), 1,426 of 15,642 lines of C code have been ported
+(not including header files) - that means 14,216 to go. It has taken 4,164
+lines of Rust code to achieve this.
+
 ##  Downloading METIS
 
 You can download METIS by simply cloning it using the command:
@@ -29,13 +35,8 @@ sudo apt-get install cmake
 
 Rust and Cargo should be installed via [`rustup`](https://rustup.rs/)
 
-In addition, you need to clone [GKlib](https://github.com/KarypisLab/GKlib) as a subdirectory of METIS.
-
 ### Building
 
-1. Clone Gklib
-    - Should be as a subdirectory in this repo: `METIS/GKlib`
-2. in the newly cloned `METIS/GKlib/Makefile`, set `prefix` to `../install`
 3. `cd` to `METIS/GKlib` and run `make config` and then `make install`
 4. return to the parent directory (`METIS`)
 5. run `cargo build` and/or `cargo test`
@@ -44,16 +45,13 @@ full commands, assuming `gcc`, `cmake`, `build-essential`, `rustc`, and `cargo` 
 ```sh
 git clone https://github.com/gfaster/METIS
 cd METIS
-git clone https://github.com/KarypisLab/GKlib
-cd GKlib
 
-# should be changed properly, but this still works
-make config prefix=../install 
+# should be changed properly, but just in case
+cd GKlib && make config prefix=../install 
 
 make install
 cd ..
 cargo test
-
 ```
 
 
