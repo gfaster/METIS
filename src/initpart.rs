@@ -107,9 +107,9 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.InitPartTmr));
 
     /* this is required for the cut-based part of the refinement */
-    Setup2WayBalMultipliers(ctrl, graph, ntpwgts);
+    Setup2WayBalMultipliers(ctrl, graph, ntpwgts.as_mut_ptr());
 
-    match (ctrl.iptype) {
+    match ctrl.iptype {
         METIS_IPTYPE_EDGE => {
             if graph.nedges == 0 {
                 RandomBisection(ctrl, graph, ntpwgts.as_mut_ptr(), niparts);
@@ -118,11 +118,11 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
             }
             Compute2WayPartitionParams(ctrl, graph);
             ConstructSeparator(ctrl, graph);
-        }
+        },
 
         METIS_IPTYPE_NODE => {
             GrowBisectionNode(ctrl, graph, ntpwgts.as_mut_ptr(), niparts);
-        }
+        },
 
         _ => panic!("Unknown iptype of {}", ctrl.iptype),
     }
@@ -157,13 +157,13 @@ pub fn RandomBisection(
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
-    let bestcut = 0;
-    let pwgts: [_; 2];
+    let mut bestcut = 0;
 
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(graph => xadj vwgt adjncy adjwgt);
+    // not used but declared in C function: xadj adjncy adjwgt
+    get_graph_slices!(graph => vwgt);
 
     Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
@@ -179,8 +179,7 @@ pub fn RandomBisection(
 
         if inbfs > 0 {
             irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 2, 1);
-            pwgts[1] = (*graph.tvwgt);
-            pwgts[0] = 0;
+            let mut pwgts = [0, *graph.tvwgt];
 
             for ii in 0..nvtxs {
                 let i = perm[ii] as usize;
@@ -242,14 +241,15 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(graph => xadj adjncy adjwgt vwgt);
+    // adjwgt not used in C function
+    get_graph_slices!(graph => xadj adjncy vwgt);
 
     Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
-    let bestwhere = vec![0; nvtxs];
-    let queue = vec![0; nvtxs];
-    let touched = vec![0; nvtxs];
+    let mut bestwhere = vec![0; nvtxs];
+    let mut queue = vec![0; nvtxs];
+    let mut touched = vec![0; nvtxs];
     let mut bestcut = 0;
 
     let onemaxpwgt ;
@@ -284,7 +284,7 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
                 if nleft == 0 || drain {
                     break;
                 }
-                let k = irandInRange(nleft as idx_t);
+                let mut k = irandInRange(nleft as idx_t);
                 let mut i = 0;
                 for ii in 0..nvtxs {
                     i = ii;
@@ -530,7 +530,8 @@ pub fn GrowBisectionNode(
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs;
-    get_graph_slices!(graph => xadj vwgt adjncy adjwgt);
+    // adjwgt not used in C function
+    get_graph_slices!(graph => xadj vwgt adjncy);
 
     let mut bestwhere = vec![0; nvtxs as usize];
     let mut queue = vec![0; nvtxs as usize];
@@ -573,7 +574,7 @@ pub fn GrowBisectionNode(
                 if nleft == 0 || drain != 0 {
                     break;
                 }
-                let k = irandInRange(nleft);
+                let mut k = irandInRange(nleft);
                 let mut i = 0;
                 for ii in 0..nvtxs {
                     i = ii;

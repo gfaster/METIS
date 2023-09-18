@@ -233,12 +233,13 @@ The last step can be accomplished with modified commands from step 2. Start
 by highlighting the new declarations and then execute:
 ```
 :'<,'>:g/\v\([^)]+$/join
-:'<,'>:g/\v^\w+ \**[^)]+$/join
-:'<,'>:g/\v^\w+ \**[^)]+$/join
-:'<,'>:s/\v(\w+ ?\**)([,)])/\1 _\2/g
+:'<,'>:g/\v\([^)]+$/join
+:'<,'>:g/\v\([^)]+$/join
+:'<,'>:s/\v([,(] ?\w+ ?\**)([,)])/\1 _\2/g
 :'<,'>:s/\v(\w+) (\**)(\w*)([,)])/\3: \2\1\4/g
 :'<,'>:s/\V*/*mut /g
-:%s/\v^(\w+) (%(\*mut )*)([^{]*)/pub fn \3 -> \2\1/
+:'<,'>:s/\v^(\w+) (%(\*mut )*)(.*);/pub fn \3 -> \2\1;/
+:'<,'>:s/void/std::ffi::c_void/g
 ```
 
 ### Some additional out of place functions:
