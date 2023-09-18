@@ -9,6 +9,11 @@
 */
 use std::fmt::Debug;
 
+use crate::{real_t, idx_t};
+
+pub type IPQueue = IndexedPriorityQueue<idx_t, idx_t>;
+pub type RPQueue = IndexedPriorityQueue<idx_t, real_t>;
+
 #[derive(Default, Clone, Copy)]
 struct Node<K, V>
 where
@@ -21,7 +26,7 @@ where
     val: V,
 }
 
-pub struct Mheap<K, V>
+pub struct IndexedPriorityQueue<K, V>
 where
     V: Copy + Default + PartialEq,
     usize: TryFrom<V>,
@@ -33,7 +38,7 @@ where
     heap: Box<[Node<K, V>]>,
 }
 
-impl<KT, VT> Mheap<KT, VT>
+impl<KT, VT> IndexedPriorityQueue<KT, VT>
 where
     VT: Copy + Default + PartialEq,
     usize: TryFrom<VT>,
@@ -380,11 +385,11 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::Mheap;
+    use super::IndexedPriorityQueue;
 
     #[test]
     fn basic() {
-        let mut heap = Mheap::new(10);
+        let mut heap = IndexedPriorityQueue::new(10);
         for x in 0..10 {
             heap.insert(x, x);
         }
@@ -397,7 +402,7 @@ mod test {
 
     #[test]
     fn basic_2() {
-        let mut heap = Mheap::new(10);
+        let mut heap = IndexedPriorityQueue::new(10);
         for x in 0..10 {
             heap.insert(x, 10 - x);
         }

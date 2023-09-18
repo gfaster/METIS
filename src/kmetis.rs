@@ -326,7 +326,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     let nparts: idx_t;
-    let mut queue: pqueue::Mheap<_, _>;
+    let mut queue: pqueue::IPQueue;
 
     // WCOREPUSH;
 
@@ -365,7 +365,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     // I am not certain about the behavior of the queue - this will have the most potential for
     // error
     // queue = ipqCreate(nparts);
-    queue = pqueue::Mheap::new(nparts as usize);
+    queue = pqueue::IPQueue::new(nparts as usize);
     for i in 0..nparts {
         // ipqInsert(queue, i, 0);
         queue.insert(i, 0);

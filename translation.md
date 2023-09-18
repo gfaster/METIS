@@ -272,9 +272,20 @@ redundant - see implementation for details.
 
 ### Some more useful replacements
 
+Replacing block comments over function, the 2nd one is finicky.
+```
+:g/\v\/\*{10,}/norm dd
+:g/^\/\*/norm WgbcgccI/
+```
+
 Replacing `iset` calls that aren't attached to any given `malloc` call:
 ```
 :s/\viset\(.*,(.*),(.*)\);/\/\/ &\r\2.fill(\1);/
+```
+
+Replacing `icopy` calls (detailed in appendix)
+```
+:s/\vicopy\(.*,(.*),(.*)\);/\/\/ &\r\2.copy_from_slice(&\1);/
 ```
 
 ## 9. Everything else

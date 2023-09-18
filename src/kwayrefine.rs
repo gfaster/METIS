@@ -13,10 +13,7 @@ use crate::*;
 use core::ptr;
 use std::slice;
 
-/*************************************************************************/
-/* This function is the entry point of cut-based refinement */
-
-/*************************************************************************/
+/// This function is the entry point of cut-based refinement
 #[metis_func]
 pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) -> () {
     eprintln!("Called RefineKWay");
@@ -160,9 +157,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     // );
 }
 
-/*************************************************************************/
-/* This function allocates memory for the k-way cut-based refinement */
-/*************************************************************************/
+/// This function allocates memory for the k-way cut-based refinement
 #[metis_func]
 pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
     let ctrl = ctrl.as_mut().unwrap();
@@ -189,14 +184,14 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
         METIS_OBJTYPE_CUT => {
             graph.ckrinfo = gk_malloc(
                 graph.nvtxs as usize * std::mem::size_of::<ckrinfo_t>(),
-                "AllocateKWayPartitionMemory: ckrinfo".as_ptr(),
+                "AllocateKWayPartitionMemory: ckrinfo\0".as_ptr(),
             ) as *mut _;
         }
 
         METIS_OBJTYPE_VOL => {
             graph.vkrinfo = gk_malloc(
                 graph.nvtxs as usize * std::mem::size_of::<vkrinfo_t>(),
-                "AllocateKWayVolPartitionMemory: vkrinfo".as_ptr(),
+                "AllocateKWayVolPartitionMemory: vkrinfo\0".as_ptr(),
             ) as *mut _;
 
             /* This is to let the cut-based -minconn and -contig large-scale graph
@@ -212,9 +207,7 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
     };
 }
 
-/*************************************************************************/
-/* This function computes the initial id/ed  for cut-based partitioning */
-/*************************************************************************/
+/// This function computes the initial id/ed  for cut-based partitioning
 #[metis_func]
 pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ComputeKWayPartitionParams");
@@ -635,9 +628,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     FreeGraph((&mut graph.coarser) as *mut *mut graph_t);
 }
 
-/*************************************************************************/
-/* This function computes the boundary definition for balancing. */
-/*************************************************************************/
+/// This function computes the boundary definition for balancing.
 #[metis_func]
 pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bndtype: idx_t) {
     eprintln!("Called ComputeKWayBoundary");
@@ -697,9 +688,7 @@ pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bn
     graph.nbnd = nbnd;
 }
 
-/*************************************************************************/
-/* This function computes the initial gains in the communication volume */
-/*************************************************************************/
+/// This function computes the initial gains in the communication volume
 #[metis_func]
 pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ComputeKWayVolGains");
@@ -816,10 +805,7 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     }
 }
 
-/*************************************************************************/
-/* This function checks if the partition weights are within the balance
-constraints */
-/*************************************************************************/
+/// This function checks if the partition weights are within the balance constraints
 #[metis_func]
 pub extern "C" fn IsBalanced(
     ctrl: *mut ctrl_t,

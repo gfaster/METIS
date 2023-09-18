@@ -620,6 +620,7 @@ impl Drop for Ctrl {
 
 #[cfg(test)]
 mod test {
+    #[allow(unused_imports)]
     use crate::idx_t;
 
     #[ab_test_eq(super::iargmax_nrm)]
