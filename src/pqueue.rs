@@ -9,7 +9,7 @@
 */
 use std::fmt::Debug;
 
-use crate::{real_t, idx_t};
+use crate::{idx_t, real_t};
 
 pub type IPQueue = IndexedPriorityQueue<idx_t, idx_t>;
 pub type RPQueue = IndexedPriorityQueue<idx_t, real_t>;

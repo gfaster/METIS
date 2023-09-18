@@ -38,7 +38,7 @@ Then finally, to declare the function and set the return type:
 ## 3. Fix bracketing and blocks
 Helps to record macro for bracket-less `if` and `for` statements:
 ```
-ysi_B
+ys_B
 ```
 Replacing `switch` with `match`
 ```
@@ -202,7 +202,7 @@ can pick and choose for the second.
 ```
 :%s/IFSET/ifset!/I
 :%s/ASSERTP\=/assert!/I
-:%s/\v\%(.{-0,5})"%(PR%(IDX)|%(REAL))"/{:\1}/g
+:%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
 :g/\vgk_%(start|stop)cputimer/normal gcc

@@ -9,6 +9,7 @@ pub use bindings::*;
 pub mod bucketsort;
 pub mod debug_rs;
 pub use debug_rs as debug;
+pub mod balance;
 pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;

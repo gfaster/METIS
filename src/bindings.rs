@@ -77,15 +77,39 @@ extern "C" {
     ) -> std::ffi::c_void;
     pub fn irandInRange(r: idx_t) -> idx_t;
 
-pub fn Setup2WayBalMultipliers(ctrl: *mut ctrl_t, graph: *mut graph_t, tpwgts: *mut real_t) -> std::ffi::c_void;
-pub fn Compute2WayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-pub fn Allocate2WayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-pub fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) -> std::ffi::c_void;
-pub fn FM_2WayRefine(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t, niter: idx_t) -> std::ffi::c_void;
-pub fn Compute2WayNodePartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-pub fn FM_2WayNodeRefine2Sided(ctrl: *mut ctrl_t, graph: *mut graph_t, niter: idx_t) -> std::ffi::c_void;
-pub fn FM_2WayNodeRefine1Sided(ctrl: *mut ctrl_t, graph: *mut graph_t, niter: idx_t) -> std::ffi::c_void;
+    pub fn Setup2WayBalMultipliers(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        tpwgts: *mut real_t,
+    ) -> std::ffi::c_void;
+    pub fn Compute2WayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn Allocate2WayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn Balance2Way(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        ntpwgts: *mut real_t,
+    ) -> std::ffi::c_void;
+    pub fn FM_2WayRefine(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        ntpwgts: *mut real_t,
+        niter: idx_t,
+    ) -> std::ffi::c_void;
+    pub fn Compute2WayNodePartitionParams(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+    ) -> std::ffi::c_void;
+    pub fn FM_2WayNodeRefine2Sided(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        niter: idx_t,
+    ) -> std::ffi::c_void;
+    pub fn FM_2WayNodeRefine1Sided(
+        ctrl: *mut ctrl_t,
+        graph: *mut graph_t,
+        niter: idx_t,
+    ) -> std::ffi::c_void;
 
 }
 

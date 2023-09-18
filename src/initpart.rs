@@ -118,11 +118,11 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
             }
             Compute2WayPartitionParams(ctrl, graph);
             ConstructSeparator(ctrl, graph);
-        },
+        }
 
         METIS_IPTYPE_NODE => {
             GrowBisectionNode(ctrl, graph, ntpwgts.as_mut_ptr(), niparts);
-        },
+        }
 
         _ => panic!("Unknown iptype of {}", ctrl.iptype),
     }
@@ -175,7 +175,7 @@ pub fn RandomBisection(
 
     for inbfs in 0..niparts {
         // iset(nvtxs, 1, where_);
-        where_.fill( 1);
+        where_.fill(1);
 
         if inbfs > 0 {
             irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 2, 1);
@@ -252,8 +252,8 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
     let mut touched = vec![0; nvtxs];
     let mut bestcut = 0;
 
-    let onemaxpwgt ;
-    let oneminpwgt ;
+    let onemaxpwgt;
+    let oneminpwgt;
     {
         // I'm not sure what the actual dimensions are - it's probably the [2; real_t] declared
         // elsewhere, but I'm not quite sure so I'm isolating this for clarity.
@@ -264,9 +264,9 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
 
     for inbfs in 0..niparts {
         // iset(nvtxs, 1, where_);
-        where_.fill( 1);
+        where_.fill(1);
         // iset(nvtxs, 0, touched);
-        touched.fill( 0);
+        touched.fill(0);
 
         let mut pwgts = [0, *graph.tvwgt];
 
@@ -370,7 +370,6 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
     // icopy(nvtxs, bestwhere, where_);
     where_.copy_from_slice(&bestwhere);
 
-
     // WCOREPOP;
 }
 
@@ -410,7 +409,7 @@ pub fn McRandomBisection(
     for inbfs in 0..2 * niparts {
         irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 2, 1);
         // iset(ncon, 0, counts);
-        counts.fill( 0);
+        counts.fill(0);
 
         /* partition by splitting the queues randomly */
         for ii in 0..nvtxs {
@@ -479,7 +478,7 @@ pub fn McGrowBisection(
 
     for inbfs in 0..2 * niparts {
         // iset(nvtxs, 1, where_);
-        where_.fill( 1);
+        where_.fill(1);
         where_[irandInRange(nvtxs as idx_t) as usize] = 0;
 
         Compute2WayPartitionParams(ctrl, graph);
@@ -548,15 +547,18 @@ pub fn GrowBisectionNode(
     graph.bndind = imalloc(nvtxs as usize, "GrowBisectionNode: bndind\0".as_ptr()) as _;
     graph.id = imalloc(nvtxs as usize, "GrowBisectionNode: id\0".as_ptr()) as _;
     graph.ed = imalloc(nvtxs as usize, "GrowBisectionNode: ed\0".as_ptr()) as _;
-    graph.nrinfo = gk_malloc(nvtxs as usize * std::mem::size_of::<nrinfo_t>(), "GrowBisectionNode: nrinfo\0".as_ptr()) as _;
+    graph.nrinfo = gk_malloc(
+        nvtxs as usize * std::mem::size_of::<nrinfo_t>(),
+        "GrowBisectionNode: nrinfo\0".as_ptr(),
+    ) as _;
 
     get_graph_slices_mut!(graph => where_ bndind);
 
     for inbfs in 0..niparts {
         // iset(nvtxs, 1, where_);
- where_.fill( 1);
+        where_.fill(1);
         // iset(nvtxs, 0, touched);
- touched.fill( 0);
+        touched.fill(0);
 
         let mut pwgts = [0, *graph.tvwgt];
 

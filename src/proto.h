@@ -24,7 +24,7 @@ void General2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 void McGeneral2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 
 
-/* bucketsort.c */
+/* bucketsort.c - Ported */
 void BucketSortKeysInc(ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys,
          idx_t *tperm, idx_t *perm);
 
@@ -128,7 +128,7 @@ void graph_WriteToDisk(ctrl_t *ctrl, graph_t *graph);
 void graph_ReadFromDisk(ctrl_t *ctrl, graph_t *graph);
 
 
-/* initpart.c */
+/* initpart.c - Ported */
 void Init2WayPartition(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
 void InitSeparator(ctrl_t *ctrl, graph_t *graph, idx_t niparts);
 void RandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
@@ -139,7 +139,7 @@ void GrowBisectionNode(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t nipa
 void GrowBisectionNode2(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
 
 
-/* kmetis.c */
+/* kmetis.c - Ported */
 idx_t MlevelKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part);
 void InitKWayPartitioning(ctrl_t *ctrl, graph_t *graph);
 idx_t BlockKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part);
@@ -168,7 +168,7 @@ void Greedy_KWayEdgeStats(ctrl_t *ctrl, graph_t *graph);
 void Greedy_KWayEdgeCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter);
 
 
-/* kwayrefine.c */
+/* kwayrefine.c - Ported */
 void RefineKWay(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph);
 void AllocateKWayPartitionMemory(ctrl_t *ctrl, graph_t *graph);
 void ComputeKWayPartitionParams(ctrl_t *ctrl, graph_t *graph);
@@ -324,7 +324,7 @@ real_t ComputeElementBalance(idx_t, idx_t, idx_t *);
 void InitTimers(ctrl_t *);
 void PrintTimers(ctrl_t *);
 
-/* util.c */
+/* util.c - Ported */
 idx_t iargmax_strd(size_t, idx_t *, idx_t);
 idx_t iargmax_nrm(size_t n, idx_t *x, real_t *y);
 idx_t iargmax2_nrm(size_t n, idx_t *x, real_t *y);

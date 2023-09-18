@@ -165,7 +165,7 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
 
     graph.pwgts = imalloc(
         (ctrl.nparts * graph.ncon) as usize,
-        "AllocateKWayPartitionMemory: pwgts\0".as_ptr()
+        "AllocateKWayPartitionMemory: pwgts\0".as_ptr(),
     ) as _;
     graph.where_ = imalloc(
         graph.nvtxs as usize,
