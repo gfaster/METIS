@@ -3,9 +3,7 @@
 
 use std::ptr;
 
-use crate::bindings::{
-    idx_t,  METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK,
-};
+use crate::bindings::{idx_t, METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK};
 use crate::kmetis::METIS_PartGraphKway;
 
 use crate::util::{create_dummy_weights, verify_part};
@@ -290,4 +288,3 @@ part_test! {
     vwgt: true,
     adjwgt: true,
 }
-

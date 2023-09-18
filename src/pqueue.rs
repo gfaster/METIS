@@ -119,7 +119,6 @@ where
                 == node
         );
 
-
         let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
         locator[TryInto::<usize>::try_into(node).expect("valid index")] = -1;
 
@@ -146,7 +145,7 @@ where
                 /* Filter down */
                 let nnodes = self.nnodes;
                 loop {
-let mut j = ((i as usize) << 1) + 1 ;
+                    let mut j = ((i as usize) << 1) + 1;
                     if j >= nnodes {
                         break;
                     }
@@ -218,7 +217,7 @@ let mut j = ((i as usize) << 1) + 1 ;
             /* Filter down */
             let nnodes = self.nnodes;
             loop {
-let mut j = ((i as usize) << 1) + 1 ;
+                let mut j = ((i as usize) << 1) + 1;
                 if !(j < nnodes) {
                     break;
                 }
@@ -278,7 +277,7 @@ let mut j = ((i as usize) << 1) + 1 ;
             let node = heap[i].val.into();
             i = 0;
             loop {
-let mut j = 2 * i + 1 ;
+                let mut j = 2 * i + 1;
                 if !(j < self.nnodes) {
                     break;
                 }

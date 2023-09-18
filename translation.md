@@ -145,7 +145,7 @@ at first assignment. For slices, try to do it at the function scope.
 
 Use the `mkslice` and `mkslice_mut` macros for slices. Generally, the length of
 the slice is revealed by checking a loop that it's accessed in. Members of
-`graph_` should use its macro instead (detailed in step 4).
+`graph_t` should probably use its macro instead (detailed in step 4).
 
 Example:
 
@@ -205,6 +205,9 @@ can pick and choose for the second.
 :%s/\v\%(.{-0,5})"%(PR%(IDX)|%(REAL))"/{:\1}/g
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
+:g/\vgk_%(start|stop)cputimer/normal gcc
+:%s/\vgk_errexit\(\w+, =/panic!(/
+:%s/\vsizeof\((\w+)\)/std::mem::size_of::<\1>()/g
 
 :%s/\vBND\w+/&!/I
 :%s/INC_DEC/\L&!/I
@@ -226,7 +229,7 @@ After all functions are replaced, we need to declare the remaining in
 
 3. Merge multiline declarations to a single line and fix it.
 
-The last step can be accomplished with a modified commands from step 2. Start
+The last step can be accomplished with modified commands from step 2. Start
 by highlighting the new declarations and then execute:
 ```
 :'<,'>:g/\v\([^)]+$/join
@@ -266,6 +269,13 @@ This replace is probably fine:
 The first argument in `util::make_csr` and `util::shift_csr` is possibly
 redundant - see implementation for details.
 
+### Some more useful replacements
+
+Replacing `iset` calls that aren't attached to any given `malloc` call:
+```
+:s/\viset\(.*,(.*),(.*)\);/\/\/ &\r\2.fill(\1);/
+```
+
 ## 9. Everything else
 
 Still a lot to do get to it until it compiles. Every time errors get to zero
@@ -273,3 +283,10 @@ and jump back up is a pass.
 
 Once we've committed a version that compiles, we can run `cargo fix` to help
 with some simple style things like `if` statement parentheses.
+
+## Things to look out for
+
+- make sure that the `gk_malloc` calls have null-terminated strings
+
+- we use a ton of casting to `usize`, but remember that `idx_t` is signed and
+  often negative

@@ -9,9 +9,9 @@ pub use bindings::*;
 pub mod bucketsort;
 pub mod debug_rs;
 pub use debug_rs as debug;
+pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
-pub mod initpart;
 
 pub(crate) mod pqueue;
 

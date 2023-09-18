@@ -69,8 +69,12 @@ extern "C" {
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
-
-    pub fn irandArrayPermute(n: idx_t, p: *mut idx_t, nshuffles: idx_t, flag: std::ffi::c_int) -> std::ffi::c_void;
+    pub fn irandArrayPermute(
+        n: idx_t,
+        p: *mut idx_t,
+        nshuffles: idx_t,
+        flag: std::ffi::c_int,
+    ) -> std::ffi::c_void;
     pub fn irandInRange(r: idx_t) -> idx_t;
 }
 

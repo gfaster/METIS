@@ -151,11 +151,10 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
     max / incx
 }
 
-
 /// converts a user provided ufactor into a real ubfactor
 #[inline(always)]
-pub fn i2rubfactor(ufactor: idx_t) -> real_t { 
-    1.0+0.001*(ufactor as f32)
+pub fn i2rubfactor(ufactor: idx_t) -> real_t {
+    1.0 + 0.001 * (ufactor as f32)
 }
 
 #[macro_export]
@@ -265,6 +264,9 @@ macro_rules! slice_len {
     ($ctrl:expr, $graph:expr, bndind) => {
         $graph.nvtxs
     };
+    ($ctrl:expr, $graph:expr, tvwgt) => {
+        $graph.ncon
+    };
 }
 
 #[macro_export]
@@ -311,7 +313,7 @@ macro_rules! ifset {
 #[inline(always)]
 pub fn make_csr(n: usize, a: &mut [idx_t]) {
     assert!(n <= a.len() - 1, "making a csr indexes up to n");
-    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, than we can remove n as an argument");
+    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
     if n == 0 {
         return;
     }
@@ -329,7 +331,7 @@ pub fn make_csr(n: usize, a: &mut [idx_t]) {
 #[inline(always)]
 pub fn shift_csr(n: usize, a: &mut [idx_t]) {
     assert!(n <= a.len() - 1, "making a csr indexes up to n");
-    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, than we can remove n as an argument");
+    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
 
     if n == 0 {
         return;

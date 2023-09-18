@@ -170,19 +170,19 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
 
     graph.pwgts = imalloc(
         (ctrl.nparts * graph.ncon) as usize,
-        "AllocateKWayPartitionMemory: pwgts".as_ptr(),
+        "AllocateKWayPartitionMemory: pwgts\0".as_ptr()
     ) as _;
     graph.where_ = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: where".as_ptr(),
+        "AllocateKWayPartitionMemory: where\0".as_ptr(),
     ) as _;
     graph.bndptr = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: bndptr".as_ptr(),
+        "AllocateKWayPartitionMemory: bndptr\0".as_ptr(),
     ) as _;
     graph.bndind = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: bndind".as_ptr(),
+        "AllocateKWayPartitionMemory: bndind\0".as_ptr(),
     ) as _;
 
     match ctrl.objtype {
