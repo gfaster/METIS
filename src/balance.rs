@@ -59,10 +59,11 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt where_ pwgts bndptr bndind tvwgt id ed);
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt tvwgt);
+    get_graph_slices_mut!(ctrl, graph => where_ id ed pwgts bndind bndptr);
 
-    let moved: Vec<idx_t> = vec![0; nvtxs];
-    let perm: Vec<idx_t> = vec![0; nvtxs];
+    let mut moved: Vec<idx_t> = vec![0; nvtxs];
+    let mut perm: Vec<idx_t> = vec![0; nvtxs];
 
     mkslice!(ntpwgts, graph.ncon); // maybe * 2
 
@@ -94,7 +95,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the boundary nodes of the proper partition whose size is OK in the priority queue */
-    let nbnd = graph.nbnd as usize;
+    let mut nbnd = graph.nbnd as usize;
     irandArrayPermute(nbnd as idx_t, perm.as_mut_ptr(), nbnd as idx_t / 5, 1);
     for ii in (0)..(nbnd) {
         let i = perm[ii as usize] as usize;
@@ -106,7 +107,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
         }
     }
 
-    let mincut = graph.mincut;
+    let mut mincut = graph.mincut;
     for nswaps in (0)..(nvtxs) {
         // let higain = rpqGetTop(queue)
         let higain = queue.get_top();
@@ -165,7 +166,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
                 /* If k was a boundary vertex */
                 if (ed[k] == 0) {
                     /* Not a boundary vertex any more */
-                    let nbnd = nbnd as usize;
+                    let mut nbnd = nbnd as usize;
                     BNDDelete!(nbnd, bndind, bndptr, k);
                     if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff)
                     /* Remove it if in the queues */
@@ -232,7 +233,8 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt where_ pwgts bndptr bndind ed id);
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt);
+    get_graph_slices_mut!(ctrl, graph => where_ ed id pwgts bndind bndptr);
 
     let mut moved: Vec<idx_t> = vec![0; nvtxs];
     let mut perm: Vec<idx_t> = vec![0; nvtxs];
@@ -260,7 +262,7 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     );
 
     // queue = rpqCreate(nvtxs);
-    let queue = pqueue::RPQueue::new(nvtxs);
+    let mut queue = pqueue::RPQueue::new(nvtxs);
 
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
@@ -388,7 +390,8 @@ pub extern "C" fn McGeneral2WayBalance(
 
     // WCOREPUSH;
 
-    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt invtvwgt where_ id ed pwgts bndptr bndind );
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt invtvwgt);
+    get_graph_slices_mut!(ctrl, graph => pwgts where_ id ed bndind bndptr);
     let ncon = graph.ncon as usize;
     let nvtxs = graph.nvtxs as usize;
 
@@ -448,11 +451,11 @@ pub extern "C" fn McGeneral2WayBalance(
         }
     }
 
-    let minbal =
+    let mut minbal =
         ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, minbalv.as_mut_ptr());
     assert!(minbal > 0.0);
 
-    let newcut = graph.mincut;
+    let mut newcut = graph.mincut;
     let mut mincut = graph.mincut;
     let mut mincutorder: idx_t = -1;
 
@@ -481,7 +484,7 @@ pub extern "C" fn McGeneral2WayBalance(
     assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert all nodes in the priority queues */
-    let nbnd = graph.nbnd;
+    let mut nbnd = graph.nbnd;
     irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 10, 1);
     for ii in (0)..(nvtxs) {
         let i = perm[ii] as usize;
