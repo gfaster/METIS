@@ -9,10 +9,10 @@
 */
 use std::fmt::Debug;
 
-use crate::{idx_t, real_t};
+use crate::{get_graph_slices, idx_t, mkslice, real_t, slice_len};
 
 pub type IPQueue = IndexedPriorityQueue<idx_t, idx_t>;
-pub type RPQueue = IndexedPriorityQueue<idx_t, real_t>;
+pub type RPQueue = IndexedPriorityQueue<real_t, idx_t>;
 
 #[derive(Default, Clone, Copy)]
 struct Node<K, V>
@@ -257,10 +257,8 @@ where
         return;
     }
 
-    /*************************************************************************/
-    /* This function returns the item at the top of the queue and removes
-    it from the priority queue */
-    /**************************************************************************/
+    /// This function returns the item at the top of the queue and removes it from the priority queue
+    /// I have not yet convinced myself it will never return -1
     pub fn get_top(&mut self) -> Option<VT> {
         debug_assert!(self.check_heap());
 
@@ -380,6 +378,99 @@ where
         debug_assert!(j == nnodes, "{} {}", j, nnodes);
 
         return true;
+    }
+}
+
+/// This function selects the partition number and the queue from which we will move vertices out.
+///
+/// this is originally from fm.c, but I needed to rewrite it early
+pub fn select_queue(
+    graph: &mut crate::graph_t,
+    pijbm: &[real_t],
+    ubfactors: &[real_t],
+    queues: &mut [RPQueue],
+    from: &mut idx_t,
+    cnum: &mut idx_t,
+) {
+    // idx_t ncon, i, part;
+    // real_t max, tmp;
+
+    let ncon = graph.ncon;
+    let pwgts: &[_] = unsafe { std::slice::from_raw_parts((*graph).pwgts, (ncon * 2) as usize) };
+
+    *from = -1;
+    *cnum = -1;
+
+    /* First determine the side and the queue, irrespective of the presence of nodes.
+    The side & queue is determined based on the most violated balancing constraint. */
+    let mut max = 0.0;
+    for part in 0..2 {
+        for i in 0..ncon {
+            let tmp = pwgts[(part * ncon + i) as usize] as real_t
+                * pijbm[(part * ncon + i) as usize]
+                - ubfactors[i as usize];
+            /* the '=' in the test below is to ensure that under tight constraints
+            the partition that is at the max is selected */
+            if (tmp >= max) {
+                max = tmp;
+                *from = part;
+                *cnum = i;
+            }
+        }
+    }
+
+    if (*from != -1) {
+        /* in case the desired queue is empty, select a queue from the same side */
+        if ((queues[(2 * (*cnum) + (*from)) as usize]).length() == 0) {
+            let mut i = 0;
+            for ii in 0..ncon {
+                i = ii;
+                if ((queues[(2 * i + (*from)) as usize]).length() > 0) {
+                    max = pwgts[((*from) * ncon + i) as usize] as real_t
+                        * pijbm[((*from) * ncon + i) as usize]
+                        - ubfactors[(i) as usize];
+                    *cnum = i;
+                    break;
+                }
+            }
+            i += 1;
+            // for (i++; i<ncon; i++) {
+            while i < ncon {
+                let tmp = pwgts[((*from) * ncon + i) as usize] as real_t
+                    * pijbm[((*from) * ncon + i) as usize]
+                    - ubfactors[i as usize];
+                if (tmp > max && (queues[(2 * i + (*from)) as usize]).length() > 0) {
+                    max = tmp;
+                    *cnum = i;
+                }
+                i += 1;
+            }
+            i += 1;
+        }
+
+        /*
+        printf("Selected1 %"PRIDX"(%"PRIDX") . %"PRIDX" [%5"PRREAL"]\n",
+            *from, *cnum, rpqLength(queues[2*(*cnum)+(*from)]), max);
+        */
+    } else {
+        /* the partitioning does not violate balancing constraints, in which case select
+        a queue based on cut criteria */
+        for part in 0..2 {
+            for i in 0..ncon {
+                if ((queues[(2 * i + part) as usize]).length() > 0
+                    && (*from == -1
+                        || (queues[(2 * i + part) as usize].see_top_key().unwrap()) > max))
+                {
+                    max = (queues[(2 * i + part) as usize].see_top_key().unwrap());
+                    *from = part;
+                    *cnum = i;
+                }
+            }
+        }
+        /*
+        printf("Selected2 %"PRIDX"(%"PRIDX") . %"PRIDX"\n",
+            *from, *cnum, rpqLength(queues[2*(*cnum)+(*from)]), max);
+        */
     }
 }
 

@@ -14,21 +14,21 @@ use crate::*;
 * This function is the entry poidx_t of the bisection balancing algorithms.
 **************************************************************************/
 #[metis_func]
-pub extern "C" fn Balance2Way(
-    ctrl: *mut ctrl_t,
-    graph: *mut graph_t,
-    ntpwgts: *mut real_t,
-) -> void {
+pub extern "C" fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    if (ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors) <= 0) {
+    if (ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors) <= 0.0) {
         return;
     }
-
     if (graph.ncon == 1) {
         /* return right away if the balance is OK */
-        if (rabs(ntpwgts[0] * graph.tvwgt[0] - graph.pwgts[0]) < 3 * graph.tvwgt[0] / graph.nvtxs) {
-            return;
+        {
+            get_graph_slices!(ctrl, graph => tvwgt pwgts);
+            if ((*ntpwgts * tvwgt[0] as f32 - pwgts[0] as f32).abs()
+                < 3 as f32 * tvwgt[0] as f32 / graph.nvtxs as f32)
+            {
+                return;
+            }
         }
 
         if (graph.nbnd > 0) {
@@ -46,11 +46,7 @@ pub extern "C" fn Balance2Way(
 * from the domain that is overweight to the one that is underweight.
 **************************************************************************/
 #[metis_func]
-pub extern "C" fn Bnd2WayBalance(
-    ctrl: *mut ctrl_t,
-    graph: *mut graph_t,
-    ntpwgts: *mut real_t,
-) -> void {
+pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
@@ -60,86 +56,81 @@ pub extern "C" fn Bnd2WayBalance(
     // idx_t higain, mincut, mindiff;
     // idx_t tpwgts[2];
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    where_ = graph.where_;
-    id = graph.id;
-    ed = graph.ed;
-    pwgts = graph.pwgts;
-    bndptr = graph.bndptr;
-    bndind = graph.bndind;
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt where_ pwgts bndptr bndind tvwgt id ed);
 
-    moved = iwspacemalloc(ctrl, nvtxs);
-    perm = iwspacemalloc(ctrl, nvtxs);
+    let moved: Vec<idx_t> = vec![0; nvtxs];
+    let perm: Vec<idx_t> = vec![0; nvtxs];
+
+    mkslice!(ntpwgts, graph.ncon); // maybe * 2
 
     /* Determine from which domain you will be moving data */
-    tpwgts[0] = graph.tvwgt[0] * ntpwgts[0];
-    tpwgts[1] = graph.tvwgt[0] - tpwgts[0];
-    mindiff = iabs(tpwgts[0] - pwgts[0]);
-    from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 });
-    to = (from + 1) % 2;
+    let mut tpwgts = [0; 2];
+    tpwgts[0] = (tvwgt[0] as f32 * ntpwgts[0]) as idx_t;
+    let tpwgts = [tpwgts[0], tvwgt[0] - tpwgts[0]];
+    let mindiff = (tpwgts[0] - pwgts[0]).abs();
+    let from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 }) as usize;
+    let to = (from + 1) % 2;
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
-        printf(
+        println!(
             "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]\n",
-            pwgts[0],
-            pwgts[1],
-            tpwgts[0],
-            tpwgts[1],
-            graph.nvtxs,
-            graph.nbnd,
-            graph.mincut,
-        ),
+            pwgts[0], pwgts[1], tpwgts[0], tpwgts[1], graph.nvtxs, graph.nbnd, graph.mincut,
+        )
     );
 
-    queue = rpqCreate(nvtxs);
+    // queue = rpqCreate(nvtxs);
+    // TODO: do we want this an rpq or ipq?
+    let mut queue = pqueue::RPQueue::new(nvtxs);
 
-    iset(nvtxs, -1, moved);
+    // iset(nvtxs, -1, moved);
+    moved.fill(-1);
 
-    ASSERT(ComputeCut(graph, where_) == graph.mincut);
-    ASSERT(CheckBnd(graph));
+    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the boundary nodes of the proper partition whose size is OK in the priority queue */
-    nbnd = graph.nbnd;
-    irandArrayPermute(nbnd, perm, nbnd / 5, 1);
+    let nbnd = graph.nbnd as usize;
+    irandArrayPermute(nbnd as idx_t, perm.as_mut_ptr(), nbnd as idx_t / 5, 1);
     for ii in (0)..(nbnd) {
-        i = perm[ii];
-        ASSERT(ed[bndind[i]] > 0 || id[bndind[i]] == 0);
-        ASSERT(bndptr[bndind[i]] != -1);
-        if (where_[bndind[i]] == from && vwgt[bndind[i]] <= mindiff) {
-            rpqInsert(queue, bndind[i], ed[bndind[i]] - id[bndind[i]]);
+        let i = perm[ii as usize] as usize;
+        let ind = bndind[i] as usize;
+        assert!(ed[ind] > 0 || id[ind] == 0);
+        assert!(bndptr[ind] != -1);
+        if where_[ind] == from as idx_t && vwgt[ind] <= mindiff {
+            queue.insert(ind as idx_t, ed[ind] as f32 - id[ind] as f32);
         }
     }
 
-    mincut = graph.mincut;
+    let mincut = graph.mincut;
     for nswaps in (0)..(nvtxs) {
-        if ((higain = rpqGetTop(queue)) == -1) {
+        // let higain = rpqGetTop(queue)
+        let higain = queue.get_top();
+        if (higain == None) {
             break;
         }
+        let higain = higain.unwrap() as usize;
 
-        ASSERT(bndptr[higain] != -1);
+        assert!(bndptr[higain] != -1);
 
         if (pwgts[to] + vwgt[higain] > tpwgts[to]) {
             break;
         }
 
         mincut -= (ed[higain] - id[higain]);
-        INC_DEC(pwgts[to], pwgts[from], vwgt[higain]);
+        inc_dec!(pwgts[to], pwgts[from], vwgt[higain]);
 
-        where_[higain] = to;
-        moved[higain] = nswaps;
+        where_[higain] = to as idx_t;
+        moved[higain] = nswaps as idx_t;
 
-        IFSET(
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_MOVEINFO,
-            printf(
+            println!(
                 "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]\n",
                 higain,
                 from,
@@ -148,73 +139,75 @@ pub extern "C" fn Bnd2WayBalance(
                 mincut,
                 pwgts[0],
                 pwgts[1],
-            ),
+            )
         );
 
         /**************************************************************
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
-        SWAP(id[higain], ed[higain], tmp);
+        std::mem::swap(&mut id[higain], &mut ed[higain]);
         if (ed[higain] == 0 && xadj[higain] < xadj[higain + 1]) {
-            BNDDelete(nbnd, bndind, bndptr, higain);
+            BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
         for j in (xadj[higain])..(xadj[higain + 1]) {
-            k = adjncy[j];
-            kwgt = (if to == where_[k] {
+            let j = j as usize;
+            let k = adjncy[j] as usize;
+            let kwgt = (if to as idx_t == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
             });
-            INC_DEC(id[k], ed[k], kwgt);
+            inc_dec!(id[k], ed[k], kwgt);
 
             /* Update its boundary information and queue position */
             if (bndptr[k] != -1) {
                 /* If k was a boundary vertex */
                 if (ed[k] == 0) {
                     /* Not a boundary vertex any more */
-                    BNDDelete(nbnd, bndind, bndptr, k);
-                    if (moved[k] == -1 && where_[k] == from && vwgt[k] <= mindiff)
+                    let nbnd = nbnd as usize;
+                    BNDDelete!(nbnd, bndind, bndptr, k);
+                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff)
                     /* Remove it if in the queues */
                     {
-                        rpqDelete(queue, k);
+                        // rpqDelete(queue, k);
+                        queue.delete(k as idx_t);
                     }
                 } else {
                     /* If it has not been moved, update its position in the queue */
-                    if (moved[k] == -1 && where_[k] == from && vwgt[k] <= mindiff) {
-                        rpqUpdate(queue, k, ed[k] - id[k]);
+                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
+                        // rpqUpdate(queue, k, ed[k] - id[k]);
+                        queue.update(k as idx_t, ed[k] as real_t - id[k] as real_t);
                     }
                 }
             } else {
                 if (ed[k] > 0) {
                     /* It will now become a boundary vertex */
-                    BNDInsert(nbnd, bndind, bndptr, k);
-                    if (moved[k] == -1 && where_[k] == from && vwgt[k] <= mindiff) {
-                        rpqInsert(queue, k, ed[k] - id[k]);
+                    BNDInsert!(nbnd, bndind, bndptr, k);
+                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
+                        // rpqInsert(queue, k, ed[k] - id[k]);
+                        queue.insert(k as idx_t, ed[k] as real_t - id[k] as real_t);
                     }
                 }
             }
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
-        printf(
+        println!(
             "\tMinimum cut: {:6}, PWGTS: [{:6} {:6}], NBND: {:6}\n",
-            mincut,
-            pwgts[0],
-            pwgts[1],
-            nbnd,
-        ),
+            mincut, pwgts[0], pwgts[1], nbnd,
+        )
     );
 
     graph.mincut = mincut;
-    graph.nbnd = nbnd;
+    graph.nbnd = nbnd as idx_t;
 
-    rpqDestroy(queue);
+    // rpqDestroy(queue);
 
-    WCOREPOP;
+    // WCOREPOP;
 }
 
 /*************************************************************************
@@ -226,11 +219,7 @@ pub extern "C" fn Bnd2WayBalance(
 * is underweight.
 **************************************************************************/
 #[metis_func]
-pub extern "C" fn General2WayBalance(
-    ctrl: *mut ctrl_t,
-    graph: *mut graph_t,
-    ntpwgts: *mut real_t,
-) -> void {
+pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
@@ -240,82 +229,78 @@ pub extern "C" fn General2WayBalance(
     // idx_t higain, mincut, mindiff;
     // idx_t tpwgts[2];
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    where_ = graph.where_;
-    id = graph.id;
-    ed = graph.ed;
-    pwgts = graph.pwgts;
-    bndptr = graph.bndptr;
-    bndind = graph.bndind;
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt where_ pwgts bndptr bndind ed id);
 
-    moved = iwspacemalloc(ctrl, nvtxs);
-    perm = iwspacemalloc(ctrl, nvtxs);
+    let mut moved: Vec<idx_t> = vec![0; nvtxs];
+    let mut perm: Vec<idx_t> = vec![0; nvtxs];
 
     /* Determine from which domain you will be moving data */
-    tpwgts[0] = graph.tvwgt[0] * ntpwgts[0];
-    tpwgts[1] = graph.tvwgt[0] - tpwgts[0];
-    mindiff = iabs(tpwgts[0] - pwgts[0]);
-    from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 });
-    to = (from + 1) % 2;
+    let tpwgts: [idx_t; 2] = {
+        let mut tpwgts = [0; 2];
+        get_graph_slices!(graph => tvwgt);
+        mkslice!(ntpwgts, 1);
+        tpwgts[0] = (tvwgt[0] as real_t * ntpwgts[0]) as idx_t;
+        tpwgts[1] = tvwgt[0] - tpwgts[0];
+        tpwgts
+    };
+    let mindiff = (tpwgts[0] - pwgts[0]).abs();
+    let from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 }) as usize;
+    let to = (from + 1) % 2;
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
-        printf(
+        println!(
             "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]\n",
-            pwgts[0],
-            pwgts[1],
-            tpwgts[0],
-            tpwgts[1],
-            graph.nvtxs,
-            graph.nbnd,
-            graph.mincut,
-        ),
+            pwgts[0], pwgts[1], tpwgts[0], tpwgts[1], graph.nvtxs, graph.nbnd, graph.mincut,
+        )
     );
 
-    queue = rpqCreate(nvtxs);
+    // queue = rpqCreate(nvtxs);
+    let queue = pqueue::RPQueue::new(nvtxs);
 
-    iset(nvtxs, -1, moved);
+    // iset(nvtxs, -1, moved);
+    moved.fill(-1);
 
-    ASSERT(ComputeCut(graph, where_) == graph.mincut);
-    ASSERT(CheckBnd(graph));
+    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the nodes of the proper partition whose size is OK in the priority queue */
-    irandArrayPermute(nvtxs, perm, nvtxs / 5, 1);
-    for ii in (0)..(nvtxs) {
-        i = perm[ii];
-        if (where_[i] == from && vwgt[i] <= mindiff) {
-            rpqInsert(queue, i, ed[i] - id[i]);
+    irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 5, 1);
+    for ii in 0..nvtxs {
+        let i = perm[ii] as usize;
+        if where_[i] == from as idx_t && vwgt[i] <= mindiff {
+            // rpqInsert(queue, i, ed[i] - id[i]);
+            queue.insert(i as idx_t, ed[i] as real_t - id[i] as real_t);
         }
     }
 
-    mincut = graph.mincut;
-    nbnd = graph.nbnd;
+    let mut mincut = graph.mincut;
+    let mut nbnd = graph.nbnd;
     for nswaps in (0)..(nvtxs) {
-        if ((higain = rpqGetTop(queue)) == -1) {
+        let higain = queue.get_top();
+        if higain == None || higain == Some(-1) {
+            break;
+        }
+        let higain = higain.unwrap() as usize;
+
+        if pwgts[to] + vwgt[higain] > tpwgts[to as usize] {
             break;
         }
 
-        if (pwgts[to] + vwgt[higain] > tpwgts[to]) {
-            break;
-        }
+        mincut -= ed[higain] - id[higain];
+        inc_dec!(pwgts[to], pwgts[from], vwgt[higain]);
 
-        mincut -= (ed[higain] - id[higain]);
-        INC_DEC(pwgts[to], pwgts[from], vwgt[higain]);
+        where_[higain] = to as idx_t;
+        moved[higain] = nswaps as idx_t;
 
-        where_[higain] = to;
-        moved[higain] = nswaps;
-
-        IFSET(
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_MOVEINFO,
-            printf(
+            println!(
                 "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]\n",
                 higain,
                 from,
@@ -324,63 +309,62 @@ pub extern "C" fn General2WayBalance(
                 mincut,
                 pwgts[0],
                 pwgts[1],
-            ),
+            )
         );
 
         /**************************************************************
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
-        SWAP(id[higain], ed[higain], tmp);
+        std::mem::swap(&mut id[higain], &mut ed[higain]);
         if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
-            BNDDelete(nbnd, bndind, bndptr, higain);
+            BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
         if (ed[higain] > 0 && bndptr[higain] == -1) {
-            BNDInsert(nbnd, bndind, bndptr, higain);
+            BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
         for j in (xadj[higain])..(xadj[higain + 1]) {
-            k = adjncy[j];
+            let j = j as usize;
+            let k = adjncy[j] as usize;
 
-            kwgt = (if to == where_[k] {
+            let kwgt = (if to == where_[k] as usize {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
             });
-            INC_DEC(id[k], ed[k], kwgt);
+            inc_dec!(id[k], ed[k], kwgt);
 
             /* Update the queue position */
-            if (moved[k] == -1 && where_[k] == from && vwgt[k] <= mindiff) {
-                rpqUpdate(queue, k, ed[k] - id[k]);
+            if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
+                // rpqUpdate(queue, k, ed[k] - id[k]);
+                queue.update(k as idx_t, (ed[k] - id[k]) as f32)
             }
 
             /* Update its boundary information */
             if (ed[k] == 0 && bndptr[k] != -1) {
-                BNDDelete(nbnd, bndind, bndptr, k);
+                BNDDelete!(nbnd, bndind, bndptr, k);
             } else if (ed[k] > 0 && bndptr[k] == -1) {
-                BNDInsert(nbnd, bndind, bndptr, k);
+                BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
-        printf(
+        println!(
             "\tMinimum cut: {:6}, PWGTS: [{:6} {:6}], NBND: {:6}\n",
-            mincut,
-            pwgts[0],
-            pwgts[1],
-            nbnd,
-        ),
+            mincut, pwgts[0], pwgts[1], nbnd,
+        )
     );
 
     graph.mincut = mincut;
     graph.nbnd = nbnd;
 
-    rpqDestroy(queue);
+    // rpqDestroy(queue);
 
-    WCOREPOP;
+    // WCOREPOP;
 }
 
 /*************************************************************************
@@ -391,7 +375,7 @@ pub extern "C" fn McGeneral2WayBalance(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     ntpwgts: *mut real_t,
-) -> void {
+) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, l, kwgt, nvtxs, ncon, nbnd, nswaps, from, to, pass,
@@ -402,149 +386,198 @@ pub extern "C" fn McGeneral2WayBalance(
     // real_t *invtvwgt, *minbalv, *newbalv, minbal, newbal;
     // rpq_t **queues;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    invtvwgt = graph.invtvwgt;
-    where_ = graph.where_;
-    id = graph.id;
-    ed = graph.ed;
-    pwgts = graph.pwgts;
-    bndptr = graph.bndptr;
-    bndind = graph.bndind;
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt invtvwgt where_ id ed pwgts bndptr bndind );
+    let ncon = graph.ncon as usize;
+    let nvtxs = graph.nvtxs as usize;
 
-    moved = iwspacemalloc(ctrl, nvtxs);
-    swaps = iwspacemalloc(ctrl, nvtxs);
-    perm = iwspacemalloc(ctrl, nvtxs);
-    qnum = iwspacemalloc(ctrl, nvtxs);
-    newbalv = rwspacemalloc(ctrl, ncon);
-    minbalv = rwspacemalloc(ctrl, ncon);
-    qsizes = iwspacemalloc(ctrl, 2 * ncon);
+    let mut moved: Vec<idx_t> = vec![0; nvtxs as usize];
+    let mut swaps = vec![0; nvtxs as usize];
+    let mut perm = vec![0; nvtxs as usize];
+    let mut qnum = vec![0; nvtxs as usize];
+    let mut newbalv = vec![0.0; ncon as usize];
+    let mut minbalv: Vec<real_t> = vec![0.0; ncon as usize];
+    let mut qsizes: Vec<idx_t> = vec![0; 2 * ncon as usize];
 
-    limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
+    mkslice!(ntpwgts, ncon * 2);
+
+    // let limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
+    let limit = ((0.01 * nvtxs as real_t) as idx_t).clamp(15, 100);
 
     /* Initialize the queues */
-    queues = vec![0; (2*ncon*sizeof(rpq_t *)) as usize];
-    for i in (0)..(2 * ncon) {
-        queues[i] = rpqCreate(nvtxs);
+    // let mut queues = vec![0; 2*ncon as usize];
+    let mut queues = Vec::with_capacity(2 * ncon as usize);
+    for i in (0)..(2 * ncon as usize) {
+        // queues[i] = rpqCreate(nvtxs);
+        queues[i] = pqueue::RPQueue::new(nvtxs);
         qsizes[i] = 0;
     }
 
     for i in (0)..(nvtxs) {
-        qnum[i] = iargmax_nrm(ncon, vwgt + i * ncon, invtvwgt);
-        qsizes[2 * qnum[i] + where_[i]] += 1;
+        qnum[i] = util::iargmax_nrm(ncon as usize, &vwgt[i * ncon as usize], invtvwgt.as_ptr());
+        qsizes[2 * qnum[i] as usize + where_[i] as usize] += 1;
     }
 
     /* for the empty queues, move into them vertices from other queues */
-    for from in (0)..(2) {
-        for j in (0)..(ncon) {
-            if (qsizes[2 * j + from] == 0) {
+    for from in 0..2 {
+        for j in 0..(ncon as usize) {
+            if qsizes[2 * j + from] == 0 {
                 for i in (0)..(nvtxs) {
-                    if (where_[i] != from) {
+                    if (where_[i] != from as idx_t) {
                         continue;
                     }
 
-                    k = iargmax2_nrm(ncon, vwgt + i * ncon, invtvwgt);
+                    let k = util::iargmax2_nrm(
+                        ncon as usize,
+                        &vwgt[i * ncon as usize],
+                        invtvwgt.as_ptr(),
+                    ) as usize;
                     if (k == j
-                        && qsizes[2 * qnum[i] + from] > qsizes[2 * j + from]
-                        && vwgt[i * ncon + qnum[i]] * invtvwgt[qnum[i]]
-                            < 1.3 * vwgt[i * ncon + j] * invtvwgt[j])
+                        && qsizes[2 * qnum[i] as usize + from] > qsizes[2 * j + from]
+                        && vwgt[i * ncon as usize + qnum[i] as usize] as real_t
+                            * (invtvwgt[qnum[i] as usize] as real_t)
+                            < 1.3 * vwgt[i * ncon as usize + j] as real_t * invtvwgt[j] as real_t)
                     {
-                        qsizes[2 * qnum[i] + from] -= 1;
+                        qsizes[2 * qnum[i] as usize + from] -= 1;
                         qsizes[2 * j + from] += 1;
-                        qnum[i] = j;
+                        qnum[i] = j as idx_t;
                     }
                 }
             }
         }
     }
 
-    minbal = ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, minbalv);
-    ASSERT(minbal > 0.0);
+    let minbal =
+        ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, minbalv.as_mut_ptr());
+    assert!(minbal > 0.0);
 
-    newcut = mincut = graph.mincut;
-    mincutorder = -1;
+    let newcut = graph.mincut;
+    let mut mincut = graph.mincut;
+    let mut mincutorder: idx_t = -1;
 
-    if (ctrl.dbglvl & METIS_DBG_REFINE) {
-        printf("Parts: [");
+    if (ctrl.dbglvl & METIS_DBG_REFINE != 0) {
+        println!("Parts: [");
         for l in (0)..(ncon) {
-            printf(
+            println!(
                 "({:6} {:6} {:.3} {:.3}) ",
-                pwgts[l],
-                pwgts[ncon + l],
-                ntpwgts[l],
-                ntpwgts[ncon + l],
+                pwgts[l as usize],
+                pwgts[(ncon + l) as usize],
+                ntpwgts[l as usize],
+                ntpwgts[(ncon + l) as usize],
             );
         }
 
-        printf(
+        println!(
             "] Nv-Nb[{:5}, {:5}]. ICut: {:6}, LB: {:+.3} [B]\n",
-            graph.nvtxs,
-            graph.nbnd,
-            graph.mincut,
-            minbal,
+            graph.nvtxs, graph.nbnd, graph.mincut, minbal,
         );
     }
 
-    iset(nvtxs, -1, moved);
+    // iset(nvtxs, -1, moved);
+    moved.fill(-1);
 
-    ASSERT(ComputeCut(graph, where_) == graph.mincut);
-    ASSERT(CheckBnd(graph));
+    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert all nodes in the priority queues */
-    nbnd = graph.nbnd;
-    irandArrayPermute(nvtxs, perm, nvtxs / 10, 1);
+    let nbnd = graph.nbnd;
+    irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 10, 1);
     for ii in (0)..(nvtxs) {
-        i = perm[ii];
-        rpqInsert(queues[2 * qnum[i] + where_[i]], i, ed[i] - id[i]);
+        let i = perm[ii] as usize;
+        // rpqInsert(queues[2 * qnum[i] + where_[i]], i, ed[i] - id[i]);
+        queues[(2 * qnum[i] + where_[i]) as usize]
+            .insert(i as idx_t, ed[i] as real_t - id[i] as real_t);
     }
 
-    for nswaps in (0)..(nvtxs) {
+    let mut nswaps = 0;
+    for nswaps_ in (0)..(nvtxs) {
+        nswaps = nswaps_;
         if (minbal <= 0.0) {
             break;
         }
 
-        SelectQueue(graph, ctrl.pijbm, ctrl.ubfactors, queues, &from, &cnum);
-        to = (from + 1) % 2;
+        let mut from: idx_t = 0;
+        let mut cnum: idx_t = 0;
+        pqueue::select_queue(
+            graph,
+            std::slice::from_raw_parts(ctrl.pijbm, (*ctrl).nparts as usize * ncon),
+            std::slice::from_raw_parts(ctrl.ubfactors, ncon),
+            &mut queues,
+            &mut from,
+            &mut cnum,
+        );
+        let to = (from + 1) % 2;
 
-        if (from == -1 || (higain = rpqGetTop(queues[2 * cnum + from])) == -1) {
+        // if (from == -1 || (higain = rpqGetTop(queues[(2 * cnum + from) as usize])) == -1) {
+        let higain = queues[(2 * cnum + from) as usize].get_top();
+        if (from == -1 || higain == None) {
             break;
         }
-
+        let higain = higain.unwrap() as usize;
         newcut -= (ed[higain] - id[higain]);
 
-        iaxpy(ncon, 1, vwgt + higain * ncon, 1, pwgts + to * ncon, 1);
-        iaxpy(ncon, -1, vwgt + higain * ncon, 1, pwgts + from * ncon, 1);
-        newbal = ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv);
+        blas::iaxpy(
+            ncon,
+            1,
+            &vwgt[(higain * ncon)..],
+            1,
+            &mut pwgts[(to as usize * ncon)..],
+            1,
+        );
+        blas::iaxpy(
+            ncon,
+            -1,
+            &vwgt[(higain * ncon)..],
+            1,
+            &mut pwgts[(from as usize * ncon)..],
+            1,
+        );
+        let newbal = ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv.as_mut_ptr());
 
         if (newbal < minbal
             || (newbal == minbal
                 && (newcut < mincut
-                    || (newcut == mincut && BetterBalance2Way(ncon, minbalv, newbalv)))))
+                    || (newcut == mincut
+                        && BetterBalance2Way(
+                            ncon as idx_t,
+                            minbalv.as_mut_ptr(),
+                            newbalv.as_mut_ptr(),
+                        ) != 0))))
         {
             mincut = newcut;
             minbal = newbal;
-            mincutorder = nswaps;
-            rcopy(ncon, newbalv, minbalv);
-        } else if (nswaps - mincutorder > limit) {
+            mincutorder = nswaps as idx_t;
+            // rcopy(ncon, newbalv, minbalv);
+            minbalv.copy_from_slice(&newbalv);
+        } else if (nswaps as idx_t - mincutorder > limit) {
             /* We hit the limit, undo last move */
             newcut += (ed[higain] - id[higain]);
-            iaxpy(ncon, 1, vwgt + higain * ncon, 1, pwgts + from * ncon, 1);
-            iaxpy(ncon, -1, vwgt + higain * ncon, 1, pwgts + to * ncon, 1);
+            blas::iaxpy(
+                ncon,
+                1,
+                &vwgt[(higain * ncon)..],
+                1,
+                &mut pwgts[(from as usize * ncon)..],
+                1,
+            );
+            blas::iaxpy(
+                ncon,
+                -1,
+                &vwgt[(higain * ncon)..],
+                1,
+                &mut pwgts[(to as usize * ncon)..],
+                1,
+            );
             break;
         }
 
         where_[higain] = to;
-        moved[higain] = nswaps;
+        moved[higain] = nswaps as idx_t;
         swaps[nswaps] = higain;
 
-        if (ctrl.dbglvl & METIS_DBG_MOVEINFO) {
-            printf(
+        if (ctrl.dbglvl & METIS_DBG_MOVEINFO != 0) {
+            println!(
                 "Moved {:6} from {:}({:}). Gain: {:5}, Cut: {:5}, NPwgts: ",
                 higain,
                 from,
@@ -553,44 +586,46 @@ pub extern "C" fn McGeneral2WayBalance(
                 newcut,
             );
             for l in (0)..(ncon) {
-                printf("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
+                println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
             }
 
-            printf(", {:+.3} LB: {:+.3}\n", minbal, newbal);
+            println!(", {:+.3} LB: {:+.3}\n", minbal, newbal);
         }
 
         /**************************************************************
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
-        SWAP(id[higain], ed[higain], tmp);
+        std::mem::swap(&mut id[higain], &mut ed[higain]);
         if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
-            BNDDelete(nbnd, bndind, bndptr, higain);
+            BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
         if (ed[higain] > 0 && bndptr[higain] == -1) {
-            BNDInsert(nbnd, bndind, bndptr, higain);
+            BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
-        for j in (xadj[higain])..(xadj[higain + 1]) {
-            k = adjncy[j];
+        for j in xadj[higain]..xadj[higain + 1] {
+            let j = j as usize;
+            let k = adjncy[j] as usize;
 
-            kwgt = (if to == where_[k] {
+            let kwgt = (if to == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
             });
-            INC_DEC(id[k], ed[k], kwgt);
+            inc_dec!(id[k], ed[k], kwgt);
 
             /* Update the queue position */
             if (moved[k] == -1) {
-                rpqUpdate(queues[2 * qnum[k] + where_[k]], k, ed[k] - id[k]);
+                queues[2 * qnum[k] as usize + where_[k] as usize]
+                    .update(k as idx_t, (ed[k] - id[k]) as real_t);
             }
 
             /* Update its boundary information */
             if (ed[k] == 0 && bndptr[k] != -1) {
-                BNDDelete(nbnd, bndind, bndptr, k);
+                BNDDelete!(nbnd, bndind, bndptr, k);
             } else if (ed[k] > 0 && bndptr[k] == -1) {
-                BNDInsert(nbnd, bndind, bndptr, k);
+                BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
     }
@@ -600,67 +635,75 @@ pub extern "C" fn McGeneral2WayBalance(
      *****************************************************************/
     // for (nswaps--; nswaps>mincutorder; nswaps--) {
     nswaps -= 1;
-    while nswaps > mincutorder {
+    while nswaps as idx_t > mincutorder {
         nswaps -= 1;
-        higain = swaps[nswaps];
+        let higain = swaps[nswaps];
 
-        to = where_[higain] = (where_[higain] + 1) % 2;
-        SWAP(id[higain], ed[higain], tmp);
+        // let to = where_[higain] = (where_[higain] + 1) % 2;
+        where_[higain] = (where_[higain] + 1) % 2;
+        let to = where_[higain];
+        std::mem::swap(&mut id[higain], &mut ed[higain]);
         if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
-            BNDDelete(nbnd, bndind, bndptr, higain);
+            BNDDelete!(nbnd, bndind, bndptr, higain);
         } else if (ed[higain] > 0 && bndptr[higain] == -1) {
-            BNDInsert(nbnd, bndind, bndptr, higain);
+            BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
-        iaxpy(ncon, 1, vwgt + higain * ncon, 1, pwgts + to * ncon, 1);
-        iaxpy(
+        blas::iaxpy(
+            ncon,
+            1,
+            &vwgt[(higain * ncon)..],
+            1,
+            &mut pwgts[(to as usize * ncon)..],
+            1,
+        );
+        blas::iaxpy(
             ncon,
             -1,
-            vwgt + higain * ncon,
+            &vwgt[(higain * ncon)..],
             1,
-            pwgts + ((to + 1) % 2) * ncon,
+            &mut pwgts[(((to as usize + 1) % 2) * ncon)..],
             1,
         );
         for j in (xadj[higain])..(xadj[higain + 1]) {
-            k = adjncy[j];
+            let j = j as usize;
+            let k = adjncy[j] as usize;
 
-            kwgt = (if to == where_[k] {
+            let kwgt = (if to == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
             });
-            INC_DEC(id[k], ed[k], kwgt);
+            inc_dec!(id[k], ed[k], kwgt);
 
             if (bndptr[k] != -1 && ed[k] == 0) {
-                BNDDelete(nbnd, bndind, bndptr, k);
+                BNDDelete!(nbnd, bndind, bndptr, k);
             }
 
             if (bndptr[k] == -1 && ed[k] > 0) {
-                BNDInsert(nbnd, bndind, bndptr, k);
+                BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
     }
 
-    if (ctrl.dbglvl & METIS_DBG_REFINE) {
-        printf(
+    if (ctrl.dbglvl & METIS_DBG_REFINE != 0) {
+        println!(
             "\tMincut: {:6} at {:5}, NBND: {:6}, NPwgts: [",
-            mincut,
-            mincutorder,
-            nbnd,
+            mincut, mincutorder, nbnd,
         );
         for l in (0)..(ncon) {
-            printf("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
+            println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
         }
 
-        printf("], LB: {:.3}\n", ComputeLoadImbalance(graph, 2, ctrl.pijbm));
+        println!("], LB: {:.3}\n", ComputeLoadImbalance(graph, 2, ctrl.pijbm));
     }
 
     graph.mincut = mincut;
     graph.nbnd = nbnd;
 
-    for i in (0)..(2 * ncon) {
-        rpqDestroy(queues[i]);
-    }
+    // for i in (0)..(2 * ncon) {
+    //     rpqDestroy(queues[i]);
+    // }
 
-    WCOREPOP;
+    // WCOREPOP;
 }

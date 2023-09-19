@@ -118,7 +118,8 @@ idx_t ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where)
 /*! This function checks whether or not the boundary information is correct 
  */
 /*************************************************************************/
-idx_t CheckBnd(graph_t *graph) 
+idx_t __attribute__((weak))
+CheckBnd(graph_t *graph) 
 {
   idx_t i, j, nvtxs, nbnd;
   idx_t *xadj, *adjncy, *where, *bndptr, *bndind;
@@ -153,6 +154,7 @@ idx_t CheckBnd(graph_t *graph)
 
 /*************************************************************************/
 /*! This function checks whether or not the boundary information is correct 
+ * ported to debug_rs.rs
  */
 /*************************************************************************/
 idx_t __attribute__((weak))

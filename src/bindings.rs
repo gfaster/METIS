@@ -21,7 +21,7 @@ extern "C" {
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
     pub fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut graph_t;
-    pub fn ComputeCut(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
+    pub fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx_t;
     pub fn ComputeLoadImbalanceDiff(
         graph: *mut graph_t,
         nparts: idx_t,
@@ -110,6 +110,16 @@ extern "C" {
         graph: *mut graph_t,
         niter: idx_t,
     ) -> std::ffi::c_void;
+
+    pub fn BetterBalance2Way(n: idx_t, x: *mut real_t, y: *mut real_t) -> std::ffi::c_int;
+    pub fn ComputeLoadImbalanceDiffVec(
+        graph: *mut graph_t,
+        nparts: idx_t,
+        pijbm: *mut real_t,
+        ubfactors: *mut real_t,
+        diffvec: *mut real_t,
+    ) -> real_t;
+    pub fn ComputeLoadImbalance(graph: *mut graph_t, nparts: idx_t, pijbm: *mut real_t) -> real_t;
 
 }
 

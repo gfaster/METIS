@@ -2,6 +2,35 @@
 
 use crate::*;
 
+#[metis_func]
+pub extern "C" fn CheckBnd(graph: *const graph_t) -> idx_t {
+    let graph = graph.as_ref().unwrap();
+    // idx_t i, j, nvtxs, nbnd;
+    // idx_t *xadj, *adjncy, *where, *bndptr, *bndind;
+
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(graph => xadj adjncy where_ bndptr bndind);
+
+    let mut nbnd = 0;
+    for i in 0..nvtxs {
+        if xadj[i + 1] - xadj[i] == 0 {
+            nbnd += 1; /* Islands are considered to be boundary vertices */
+        }
+        for j in xadj[i]..xadj[i + 1] {
+            if where_[i] != where_[adjncy[j as usize] as usize] {
+                nbnd += 1;
+                assert!(bndptr[i] != -1);
+                assert!(bndind[bndptr[i] as usize] == i as idx_t);
+                break;
+            }
+        }
+    }
+
+    assert!(nbnd == graph.nbnd, "{} {}\n", nbnd, graph.nbnd);
+
+    return 1;
+}
+
 /// This function checks whether or not the boundary information is correct
 #[metis_func]
 pub extern "C" fn CheckBnd2(graph: *const graph_t) -> idx_t {

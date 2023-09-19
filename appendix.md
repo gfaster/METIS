@@ -1,6 +1,9 @@
 # Appendix
 There is a bunch of wacky stuff in this library, so here is what I found out.
 
+Something I didn't realize before is that the BLAS functions actually follow
+the conventions of standard BLAS routines.
+
 ## functions
 
 ### `?set` (eg `iset`)

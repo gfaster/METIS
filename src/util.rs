@@ -267,6 +267,9 @@ macro_rules! slice_len {
     ($ctrl:expr, $graph:expr, tvwgt) => {
         $graph.ncon
     };
+    ($ctrl:expr, $graph:expr, invtvwgt) => {
+        $graph.ncon
+    };
 }
 
 #[macro_export]
@@ -354,11 +357,11 @@ macro_rules! BNDInsert {
 
 #[macro_export]
 macro_rules! BNDDelete {
-    ($n:ident, $lind:ident, $lptr:ident, $i:expr) => {
+    ($n:expr, $lind:expr, $lptr:expr, $i:expr) => {
         assert_ne!($lptr[$i], -1);
         $n -= 1;
-        $lind[$lptr[$i]] = $lind[$n];
-        $lptr[$lind[$n]] = $lptr[$i];
+        $lind[$lptr[$i] as usize] = $lind[$n as usize];
+        $lptr[$lind[$n as usize] as usize] = $lptr[$i];
         $lptr[$i] = -1;
     };
 }

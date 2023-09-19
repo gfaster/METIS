@@ -128,8 +128,8 @@ Until I figure out for sure, **Don't use local `Vec`s for allocations made with
 `gk_malloc`**
 
 ```
-:%s/\viwspacemalloc\(ctrl, (\w+)\);/vec![0; \1 as usize]/g
-:%s/\vrwspacemalloc\(ctrl, (\w+)\);/vec![0.0; \1 as usize]/g
+:%s/\viwspacemalloc\(ctrl, (.*)\);/vec![0; \1 as usize]/g
+:%s/\vrwspacemalloc\(ctrl, (.*)\);/vec![0.0; \1 as usize]/g
 
 :%s/\iset\((\w+), iwspacemalloc\(ctrl, (\w+)\)\);/vec![\1; \2 as usize]/g
 ```
@@ -212,6 +212,7 @@ can pick and choose for the second.
 :%s/\vBND\w+/&!/I
 :%s/INC_DEC/\L&!/I
 :%s/%d/{}/g
+:%s/\vSWAP\((.{-}),(.{-}),.{-}\)/std::mem::swap(\&mut \1, \&mut \2)/I
 ```
 
 After all functions are replaced, we need to declare the remaining in

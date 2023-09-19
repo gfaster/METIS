@@ -14,6 +14,7 @@ pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
 
+pub(crate) mod blas;
 pub(crate) mod pqueue;
 
 #[macro_use]

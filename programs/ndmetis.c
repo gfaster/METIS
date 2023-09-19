@@ -172,7 +172,7 @@ void NDReportResults(params_t *params, graph_t *graph, idx_t *perm,
   printf("\nMemory Information ----------------------------------------------------------\n");
   printf("  Max memory used:\t\t %7.3"PRREAL" MB\n", (real_t)(params->maxmemory/(1024.0*1024.0)));
 
-#ifndef MACOS
+#if !defined(MACOS) && !defined(WIN32) && !defined(__MINGW32__)
   {
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);
