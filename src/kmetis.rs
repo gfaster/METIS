@@ -45,8 +45,8 @@ pub fn METIS_PartGraphKway(
 ) -> std::ffi::c_int {
     let sigrval: std::ffi::c_int = 0;
     // let renumber: std::ffi::c_int = 0;
-    let graph: *mut graph_t;
-    let ctrl: *mut ctrl_t;
+    
+    
 
     /* set up malloc cleaning code and signal catchers */
     if gk_malloc_init() == 0 {
@@ -60,7 +60,7 @@ pub fn METIS_PartGraphKway(
     // }
 
     /* set up the run parameters */
-    ctrl = SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
+    let ctrl: *mut ctrl_t = SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
     if ctrl.is_null() {
         // gk_siguntrap();
         return METIS_ERROR_INPUT;
@@ -73,7 +73,7 @@ pub fn METIS_PartGraphKway(
     }
 
     /* set up the graph */
-    graph = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph: *mut graph_t = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
 
     /* set up multipliers for making balance computations easier */
     SetupKWayBalMultipliers(ctrl, graph);
@@ -82,12 +82,10 @@ pub fn METIS_PartGraphKway(
     ctrl.CoarsenTo = ((*nvtxs) / (40 * (*nparts).ilog2() as idx_t)).max(30 * (*nparts));
     ctrl.nIparts = if ctrl.nIparts != -1 {
         ctrl.nIparts
+    } else if ctrl.CoarsenTo == 30 * (*nparts) {
+        4
     } else {
-        if ctrl.CoarsenTo == 30 * (*nparts) {
-            4
-        } else {
-            5
-        }
+        5
     };
 
     /* take care contiguity requests for disconnected graphs */
@@ -181,16 +179,16 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 
         kwayrefine::RefineKWay(ctrl, graph, cgraph);
 
-        let curobj;
+        let curobj = 
         match ctrl.objtype {
             METIS_OBJTYPE_CUT => {
-                curobj = graph.mincut;
+                graph.mincut
             }
             METIS_OBJTYPE_VOL => {
-                curobj = graph.minvol;
+                graph.minvol
             }
             _ => panic!("Unknown objtype: {}", ctrl.objtype),
-        }
+        };
 
         let curbal = ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
 
@@ -213,7 +211,7 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 
     FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
 
-    return bestobj;
+    bestobj
 }
 
 /*************************************************************************/
@@ -325,7 +323,7 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let nparts: idx_t;
+    
     let mut queue: pqueue::IPQueue;
 
     // WCOREPUSH;
@@ -333,12 +331,12 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     let nvtxs = graph.nvtxs as usize;
     get_graph_slices_mut!(graph => vwgt);
 
-    nparts = ctrl.nparts;
+    let nparts: idx_t = ctrl.nparts;
 
     let mynparts = (100 * nparts).min((nvtxs as f32).sqrt() as idx_t);
     mkslice_mut!(part, nvtxs);
 
-    for i in 0..(nvtxs as usize) {
+    for i in 0..nvtxs {
         part[i] = (i % nparts as usize) as idx_t;
     }
     irandArrayPermute(nvtxs as idx_t, part.as_mut_ptr(), 4 * nvtxs as idx_t, 0);
@@ -353,7 +351,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     /* determine the size of the fine partitions */
     // fpwgts = iset(mynparts, 0, iwspacemalloc(ctrl, mynparts));
     let mut fpwgts = vec![0; mynparts as usize];
-    for i in 0..(nvtxs as usize) {
+    for i in 0..nvtxs {
         fpwgts[part[i] as usize] += vwgt[i];
     }
 
@@ -397,7 +395,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     }
     // WCOREPOP;
 
-    return ComputeCut(graph, part.as_mut_ptr());
+    ComputeCut(graph, part.as_mut_ptr())
 }
 
 /*************************************************************************/
@@ -416,12 +414,12 @@ pub fn GrowMultisection(
     let graph = graph.as_mut().unwrap();
     // let ctrl = ctrl.as_mut().unwrap();
     let mut nparts = nparts;
-    let nvtxs: idx_t;
-    let maxpwgt: idx_t;
+    
+    
 
     // WCOREPUSH;
 
-    nvtxs = graph.nvtxs;
+    let nvtxs: idx_t = graph.nvtxs;
     // xadj = graph.xadj;
     // vwgt = graph.vwgt;
     // adjncy = graph.adjncy;
@@ -447,7 +445,7 @@ pub fn GrowMultisection(
     nparts = nparts.min(nleft);
     for i in 0..(nparts as usize) {
         let j = irandInRange(nleft) as usize;
-        queue[i as usize] = where_[j];
+        queue[i] = where_[j];
         nleft -= 1;
         where_[j] = nleft;
     }
@@ -455,7 +453,7 @@ pub fn GrowMultisection(
     let mut pwgts = vec![0; nparts as usize];
     let tvwgt: idx_t = vwgt.iter().sum();
     // tvwgt = isum(nvtxs, vwgt, 1);
-    maxpwgt = ((1.5 * tvwgt as f32) / nparts as f32) as idx_t;
+    let maxpwgt: idx_t = ((1.5 * tvwgt as f32) / nparts as f32) as idx_t;
 
     where_.fill(-1);
     for i in 0..(nparts as usize) {
@@ -463,7 +461,7 @@ pub fn GrowMultisection(
         pwgts[i] = vwgt[queue[i] as usize];
     }
 
-    let mut first = 0 as usize;
+    let mut first = 0_usize;
     let mut last = nparts as usize;
     nleft = nvtxs - nparts;
 
@@ -502,7 +500,7 @@ pub fn GrowMultisection(
 
     // WCOREPOP;
 
-    return nparts;
+    nparts
 }
 
 /*************************************************************************/
@@ -515,13 +513,13 @@ pub fn BalanceAndRefineLP(
     graph: *mut graph_t,
     nparts: idx_t,
     where_: *mut idx_t,
-) -> () {
+) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let tvwgt: idx_t;
-    let maxpwgt: idx_t;
-    let minpwgt: idx_t;
-    let ubfactor: real_t;
+    
+    
+    
+    
 
     // WCOREPUSH;
 
@@ -531,10 +529,10 @@ pub fn BalanceAndRefineLP(
 
     let mut pwgts = vec![0; nparts as usize];
 
-    ubfactor = util::i2rubfactor(ctrl.ufactor);
-    tvwgt = vwgt.iter().sum::<idx_t>();
-    maxpwgt = ((ubfactor * tvwgt as real_t) / nparts as real_t) as idx_t;
-    minpwgt = ((1.0 * tvwgt as real_t) / (ubfactor * nparts as real_t)) as idx_t;
+    let ubfactor: real_t = util::i2rubfactor(ctrl.ufactor);
+    let tvwgt: idx_t = vwgt.iter().sum::<idx_t>();
+    let maxpwgt: idx_t = ((ubfactor * tvwgt as real_t) / nparts as real_t) as idx_t;
+    let minpwgt: idx_t = ((1.0 * tvwgt as real_t) / (ubfactor * nparts as real_t)) as idx_t;
 
     for i in 0..nvtxs {
         pwgts[where_[i] as usize] += vwgt[i];
@@ -571,7 +569,7 @@ pub fn BalanceAndRefineLP(
         fastrand::shuffle(&mut perm);
         let mut nmoves = 0;
 
-        for ii in 0..(nvtxs as usize) {
+        for ii in 0..nvtxs {
             let u = perm[ii] as usize;
 
             let from = where_[u] as usize;
@@ -640,7 +638,7 @@ pub fn BalanceAndRefineLP(
         irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
         let mut nmoves = 0;
 
-        for ii in 0..(nvtxs as usize) {
+        for ii in 0..nvtxs {
             let u = perm[ii] as usize;
 
             let from = where_[u] as usize;

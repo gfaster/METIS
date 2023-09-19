@@ -15,7 +15,7 @@ use std::slice;
 
 /// This function is the entry point of cut-based refinement
 #[metis_func]
-pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) -> () {
+pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) {
     eprintln!("Called RefineKWay");
     let mut nlevels;
     let contig = (*ctrl).contig;
@@ -77,25 +77,22 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
         // IFSET((*ctrl).dbglvl, METIS_DBG_TIME, gk_stopcputimer((*ctrl).RefTmr));
 
         /* Deal with contiguity constraints in the middle */
-        if contig != 0 && i == nlevels / 2 {
-            if FindPartitionInducedComponents(
+        if contig != 0 && i == nlevels / 2 && FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
                 ptr::null_mut(),
-            ) > (*ctrl).nparts
-            {
-                EliminateComponents(ctrl, graph);
+            ) > (*ctrl).nparts {
+            EliminateComponents(ctrl, graph);
 
-                if IsBalanced(ctrl, graph, 0.02) == 0 {
-                    (*ctrl).contig = 1;
-                    ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
-                    Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
+            if IsBalanced(ctrl, graph, 0.02) == 0 {
+                (*ctrl).contig = 1;
+                ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
+                Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
 
-                    ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
-                    Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
-                    (*ctrl).contig = 0;
-                }
+                ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
+                Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
+                (*ctrl).contig = 0;
             }
         }
 
@@ -112,7 +109,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
         //     METIS_DBG_TIME,
         //     gk_startcputimer((*ctrl).ProjectTmr),
         // );
-        assert!((*graph).vwgt != ptr::null_mut());
+        assert!(!(*graph).vwgt.is_null());
 
         ProjectKWayPartition(ctrl, graph);
         // IFSET(
@@ -159,7 +156,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
 /// This function allocates memory for the k-way cut-based refinement
 #[metis_func]
-pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
@@ -213,16 +210,16 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
     eprintln!("Called ComputeKWayPartitionParams");
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
-    let nvtxs: idx_t;
-    let ncon: idx_t;
-    let nparts: idx_t;
+    
+    
+    
     let mut nbnd: idx_t;
     let mut mincut: idx_t;
 
-    nparts = ctrl.nparts;
+    let nparts: idx_t = ctrl.nparts;
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
+    let nvtxs: idx_t = graph.nvtxs;
+    let ncon: idx_t = graph.ncon;
 
     get_graph_slices!(ctrl, graph => xadj adjncy vwgt where_ adjwgt);
     get_graph_slices_mut!(ctrl, graph => pwgts bndptr bndind ckrinfo);
@@ -285,7 +282,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
                         let j = j as usize;
                         let other = where_[adjncy[j] as usize];
                         let mynbrs = slice::from_raw_parts_mut(
-                            (*ctrl).cnbrpool.add(myrinfo.inbr as usize),
+                            ctrl.cnbrpool.add(myrinfo.inbr as usize),
                             myrinfo.nnbrs as usize + 1,
                         );
                         if me != other {
@@ -399,26 +396,26 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
 
 /// This function projects a partition, and at the same time computes the parameters for refinement.
 #[metis_func]
-pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ProjectKWayPartition");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    let nvtxs: idx_t;
+    
     let mut nbnd: idx_t;
-    let nparts: idx_t;
+    
 
-    let cgraph: *mut graph_t;
-    let dropedges;
+    
+    
 
-    dropedges = (*ctrl).dropedges;
+    let dropedges = ctrl.dropedges;
 
-    nparts = (*ctrl).nparts;
+    let nparts: idx_t = ctrl.nparts;
 
-    cgraph = (*graph).coarser;
+    let cgraph: *mut graph_t = graph.coarser;
     // TODO: I think this may be should be cgraph.nvtxs
-    mkslice_mut!(cwhere: cgraph->where_, (*graph).nvtxs as usize);
+    mkslice_mut!(cwhere: cgraph->where_, graph.nvtxs as usize);
 
-    if (*ctrl).objtype == METIS_OBJTYPE_CUT {
+    if ctrl.objtype == METIS_OBJTYPE_CUT {
         assert!(debug::CheckBnd2(cgraph) != 0);
     } else {
         assert!((*cgraph).minvol == ComputeVolume(cgraph, (*cgraph).where_));
@@ -427,7 +424,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     /* free the coarse graph's structure (reduce maxmem) */
     FreeSData(cgraph);
 
-    nvtxs = (*graph).nvtxs;
+    let nvtxs: idx_t = graph.nvtxs;
 
     AllocateKWayPartitionMemory(ctrl, graph);
 
@@ -438,7 +435,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
     let mut htable: Vec<idx_t> = vec![-1; nparts as usize];
 
     /* Compute the required info for refinement */
-    match (*ctrl).objtype {
+    match ctrl.objtype {
         METIS_OBJTYPE_CUT => {
             /* go through and project partition and compute id/ed for the nodes */
             for i in 0..(nvtxs as usize) {
@@ -464,7 +461,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                 let istart = xadj[i] as usize;
                 let iend = xadj[i + 1] as usize;
 
-                let myrinfo = (*graph).ckrinfo.add(i).as_mut().unwrap();
+                let myrinfo = graph.ckrinfo.add(i).as_mut().unwrap();
 
                 if cmap[i] == 0 {
                     /* Interior node. Note that cmap[i] = crinfo[cmap[i]].ed */
@@ -527,7 +524,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                 }
             }
 
-            (*graph).nbnd = nbnd;
+            graph.nbnd = nbnd;
             assert!(debug::CheckBnd2(graph) != 0);
         }
 
@@ -553,7 +550,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
             for i in 0..(nvtxs as usize) {
                 let istart = xadj[i] as usize;
                 let iend = xadj[i + 1] as usize;
-                let myrinfo = (*graph).vkrinfo.add(i).as_mut().unwrap();
+                let myrinfo = graph.vkrinfo.add(i).as_mut().unwrap();
 
                 if cmap[i] == 0 {
                     /* Note that cmap[i] = crinfo[cmap[i]].ed */
@@ -564,7 +561,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
                     myrinfo.inbr = vnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
                     // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
                     let mynbrs = slice::from_raw_parts_mut(
-                        (*ctrl).vnbrpool.add(myrinfo.inbr as usize),
+                        ctrl.vnbrpool.add(myrinfo.inbr as usize),
                         nvtxs as usize - myrinfo.inbr as usize,
                     );
 
@@ -594,7 +591,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
 
                     /* Remove space for edegrees if it was interior */
                     if ted == 0 {
-                        (*ctrl).nbrpoolcpos -= (nparts as usize).min(iend - istart);
+                        ctrl.nbrpoolcpos -= (nparts as usize).min(iend - istart);
                         myrinfo.inbr = -1;
                     } else {
                         for j in 0..myrinfo.nnbrs {
@@ -606,20 +603,20 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) -
 
             ComputeKWayVolGains(ctrl, graph);
 
-            assert!((*graph).minvol == ComputeVolume(graph, (*graph).where_));
+            assert!(graph.minvol == ComputeVolume(graph, graph.where_));
         }
 
-        _ => panic!("Unknown objtype of {}", (*ctrl).objtype),
+        _ => panic!("Unknown objtype of {}", ctrl.objtype),
     }
 
-    (*graph).mincut = if dropedges != 0 {
+    graph.mincut = if dropedges != 0 {
         ComputeCut(graph, where_.as_mut_ptr())
     } else {
         (*cgraph).mincut
     };
     {
-        mkslice_mut!(dst: graph->pwgts, nparts * (*graph).ncon);
-        mkslice_mut!(src: cgraph->pwgts, nparts * (*graph).ncon);
+        mkslice_mut!(dst: graph->pwgts, nparts * graph.ncon);
+        mkslice_mut!(src: cgraph->pwgts, nparts * graph.ncon);
         dst.copy_from_slice(src);
         // remember: icopy(n, src, dest) -> reverse of memcpy
         // icopy(nparts * (*graph).ncon, (*cgraph).pwgts, (*graph).pwgts);
@@ -695,9 +692,9 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ctrl: &mut ctrl_t = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
-    let nparts: idx_t;
+    
 
-    nparts = (*ctrl).nparts;
+    let nparts: idx_t = ctrl.nparts;
 
     let nvtxs = graph.nvtxs as usize;
     get_graph_slices!(ctrl, graph => xadj vsize adjncy);
@@ -722,7 +719,7 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             let me = where_[i];
             // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
             let mynbrs = slice::from_raw_parts_mut(
-                (*ctrl).vnbrpool.add(myrinfo.inbr as usize),
+                ctrl.vnbrpool.add(myrinfo.inbr as usize),
                 ctrl.nbrpoolsize - myrinfo.inbr as usize,
             );
 
@@ -812,6 +809,6 @@ pub extern "C" fn IsBalanced(
     graph: *mut graph_t,
     ffactor: real_t,
 ) -> std::ffi::c_int {
-    return (ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors)
-        <= ffactor) as _;
+    (ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors)
+        <= ffactor) as _
 }

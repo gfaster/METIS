@@ -9,7 +9,7 @@
 */
 use std::fmt::Debug;
 
-use crate::{get_graph_slices, idx_t, mkslice, real_t, slice_len};
+use crate::{idx_t, real_t};
 
 pub type IPQueue = IndexedPriorityQueue<idx_t, idx_t>;
 pub type RPQueue = IndexedPriorityQueue<real_t, idx_t>;
@@ -75,7 +75,7 @@ where
     /* This function returns the length of the queue */
     /**************************************************************************/
     pub fn length(&mut self) -> usize {
-        return self.nnodes;
+        self.nnodes
     }
 
     /*************************************************************************/
@@ -95,7 +95,7 @@ where
             let j = (i - 1) >> 1;
             if key < heap[j].key {
                 heap[i] = heap[j];
-                locator[TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
+                locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
                     i as isize;
                 i = j;
             } else {
@@ -192,7 +192,7 @@ where
 
         let oldkey =
             heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].key;
-        if !(newkey < oldkey) && !(oldkey < newkey) {
+        if (newkey >= oldkey) && (oldkey >= newkey) {
             return;
         }
 
@@ -223,7 +223,7 @@ where
             let nnodes = self.nnodes;
             loop {
                 let mut j = ((i as usize) << 1) + 1;
-                if !(j < nnodes) {
+                if j >= nnodes {
                     break;
                 }
                 if heap[j].key < newkey {
@@ -253,8 +253,6 @@ where
         locator[TryInto::<usize>::try_into(node).expect("valid index")] = i;
 
         debug_assert!(self.check_heap());
-
-        return;
     }
 
     /// This function returns the item at the top of the queue and removes it from the priority queue
@@ -277,23 +275,23 @@ where
         let mut i = self.nnodes;
         if i > 0 {
             let key = heap[i].key;
-            let node = heap[i].val.into();
+            let node = heap[i].val;
             i = 0;
             loop {
                 let mut j = 2 * i + 1;
-                if !(j < self.nnodes) {
+                if j >= self.nnodes {
                     break;
                 }
                 if heap[j].key < key {
                     if j + 1 < self.nnodes && heap[j + 1].key < heap[j].key {
-                        j = j + 1;
+                        j += 1;
                     }
                     heap[i] = heap[j];
                     locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
                         i as isize;
                     i = j;
                 } else if j + 1 < self.nnodes && heap[j + 1].key < key {
-                    j = j + 1;
+                    j += 1;
                     heap[i] = heap[j];
                     locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
                         i as isize;
@@ -309,7 +307,7 @@ where
         }
 
         debug_assert!(self.check_heap());
-        return Some(vtx);
+        Some(vtx)
     }
 
     /*************************************************************************/
@@ -340,9 +338,9 @@ where
     /* This function returns the key of a specific item */
     /**************************************************************************/
     pub fn see_key(&self, node: VT) -> KT {
-        return self.heap
+        self.heap
             [self.locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize]
-            .key;
+            .key
     }
 
     /*************************************************************************/
@@ -377,7 +375,7 @@ where
         }
         debug_assert!(j == nnodes, "{} {}", j, nnodes);
 
-        return true;
+        true
     }
 }
 
@@ -396,7 +394,7 @@ pub fn select_queue(
     // real_t max, tmp;
 
     let ncon = graph.ncon;
-    let pwgts: &[_] = unsafe { std::slice::from_raw_parts((*graph).pwgts, (ncon * 2) as usize) };
+    let pwgts: &[_] = unsafe { std::slice::from_raw_parts(graph.pwgts, (ncon * 2) as usize) };
 
     *from = -1;
     *cnum = -1;
@@ -411,7 +409,7 @@ pub fn select_queue(
                 - ubfactors[i as usize];
             /* the '=' in the test below is to ensure that under tight constraints
             the partition that is at the max is selected */
-            if (tmp >= max) {
+            if tmp >= max {
                 max = tmp;
                 *from = part;
                 *cnum = i;
@@ -419,13 +417,13 @@ pub fn select_queue(
         }
     }
 
-    if (*from != -1) {
+    if *from != -1 {
         /* in case the desired queue is empty, select a queue from the same side */
-        if ((queues[(2 * (*cnum) + (*from)) as usize]).length() == 0) {
+        if (queues[(2 * (*cnum) + (*from)) as usize]).length() == 0 {
             let mut i = 0;
             for ii in 0..ncon {
                 i = ii;
-                if ((queues[(2 * i + (*from)) as usize]).length() > 0) {
+                if (queues[(2 * i + (*from)) as usize]).length() > 0 {
                     max = pwgts[((*from) * ncon + i) as usize] as real_t
                         * pijbm[((*from) * ncon + i) as usize]
                         - ubfactors[(i) as usize];
@@ -439,13 +437,12 @@ pub fn select_queue(
                 let tmp = pwgts[((*from) * ncon + i) as usize] as real_t
                     * pijbm[((*from) * ncon + i) as usize]
                     - ubfactors[i as usize];
-                if (tmp > max && (queues[(2 * i + (*from)) as usize]).length() > 0) {
+                if tmp > max && (queues[(2 * i + (*from)) as usize]).length() > 0 {
                     max = tmp;
                     *cnum = i;
                 }
                 i += 1;
             }
-            i += 1;
         }
 
         /*
@@ -457,11 +454,11 @@ pub fn select_queue(
         a queue based on cut criteria */
         for part in 0..2 {
             for i in 0..ncon {
-                if ((queues[(2 * i + part) as usize]).length() > 0
+                if (queues[(2 * i + part) as usize]).length() > 0
                     && (*from == -1
-                        || (queues[(2 * i + part) as usize].see_top_key().unwrap()) > max))
+                        || (queues[(2 * i + part) as usize].see_top_key().unwrap()) > max)
                 {
-                    max = (queues[(2 * i + part) as usize].see_top_key().unwrap());
+                    max = queues[(2 * i + part) as usize].see_top_key().unwrap();
                     *from = part;
                     *cnum = i;
                 }

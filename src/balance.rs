@@ -15,23 +15,24 @@ use crate::*;
 **************************************************************************/
 #[metis_func]
 pub extern "C" fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
+    // eprintln!("called Balance2Way");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    if (ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors) <= 0.0) {
+    if ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors) <= 0.0 {
         return;
     }
-    if (graph.ncon == 1) {
+    if graph.ncon == 1 {
         /* return right away if the balance is OK */
         {
             get_graph_slices!(ctrl, graph => tvwgt pwgts);
-            if ((*ntpwgts * tvwgt[0] as f32 - pwgts[0] as f32).abs()
-                < 3 as f32 * tvwgt[0] as f32 / graph.nvtxs as f32)
+            if (*ntpwgts * tvwgt[0] as f32 - pwgts[0] as f32).abs()
+                < 3_f32 * tvwgt[0] as f32 / graph.nvtxs as f32
             {
                 return;
             }
         }
 
-        if (graph.nbnd > 0) {
+        if graph.nbnd > 0 {
             Bnd2WayBalance(ctrl, graph, ntpwgts);
         } else {
             General2WayBalance(ctrl, graph, ntpwgts);
@@ -47,6 +48,7 @@ pub extern "C" fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *
 **************************************************************************/
 #[metis_func]
 pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
+    eprintln!("called Bnd2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
@@ -97,8 +99,8 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     /* Insert the boundary nodes of the proper partition whose size is OK in the priority queue */
     let mut nbnd = graph.nbnd as usize;
     irandArrayPermute(nbnd as idx_t, perm.as_mut_ptr(), nbnd as idx_t / 5, 1);
-    for ii in (0)..(nbnd) {
-        let i = perm[ii as usize] as usize;
+    for ii in 0..(nbnd) {
+        let i = perm[ii] as usize;
         let ind = bndind[i] as usize;
         assert!(ed[ind] > 0 || id[ind] == 0);
         assert!(bndptr[ind] != -1);
@@ -108,21 +110,21 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     }
 
     let mut mincut = graph.mincut;
-    for nswaps in (0)..(nvtxs) {
+    for nswaps in 0..(nvtxs) {
         // let higain = rpqGetTop(queue)
         let higain = queue.get_top();
-        if (higain == None) {
+        if higain.is_none() {
             break;
         }
         let higain = higain.unwrap() as usize;
 
         assert!(bndptr[higain] != -1);
 
-        if (pwgts[to] + vwgt[higain] > tpwgts[to]) {
+        if pwgts[to] + vwgt[higain] > tpwgts[to] {
             break;
         }
 
-        mincut -= (ed[higain] - id[higain]);
+        mincut -= ed[higain] - id[higain];
         inc_dec!(pwgts[to], pwgts[from], vwgt[higain]);
 
         where_[higain] = to as idx_t;
@@ -147,28 +149,27 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
         std::mem::swap(&mut id[higain], &mut ed[higain]);
-        if (ed[higain] == 0 && xadj[higain] < xadj[higain + 1]) {
+        if ed[higain] == 0 && xadj[higain] < xadj[higain + 1] {
             BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
         for j in (xadj[higain])..(xadj[higain + 1]) {
             let j = j as usize;
             let k = adjncy[j] as usize;
-            let kwgt = (if to as idx_t == where_[k] {
+            let kwgt = if to as idx_t == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
-            });
+            };
             inc_dec!(id[k], ed[k], kwgt);
 
             /* Update its boundary information and queue position */
-            if (bndptr[k] != -1) {
+            if bndptr[k] != -1 {
                 /* If k was a boundary vertex */
-                if (ed[k] == 0) {
+                if ed[k] == 0 {
                     /* Not a boundary vertex any more */
-                    let mut nbnd = nbnd as usize;
                     BNDDelete!(nbnd, bndind, bndptr, k);
-                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff)
+                    if moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff
                     /* Remove it if in the queues */
                     {
                         // rpqDelete(queue, k);
@@ -176,19 +177,17 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
                     }
                 } else {
                     /* If it has not been moved, update its position in the queue */
-                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
+                    if moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff {
                         // rpqUpdate(queue, k, ed[k] - id[k]);
                         queue.update(k as idx_t, ed[k] as real_t - id[k] as real_t);
                     }
                 }
-            } else {
-                if (ed[k] > 0) {
-                    /* It will now become a boundary vertex */
-                    BNDInsert!(nbnd, bndind, bndptr, k);
-                    if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
-                        // rpqInsert(queue, k, ed[k] - id[k]);
-                        queue.insert(k as idx_t, ed[k] as real_t - id[k] as real_t);
-                    }
+            } else if ed[k] > 0 {
+                /* It will now become a boundary vertex */
+                BNDInsert!(nbnd, bndind, bndptr, k);
+                if moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff {
+                    // rpqInsert(queue, k, ed[k] - id[k]);
+                    queue.insert(k as idx_t, ed[k] as real_t - id[k] as real_t);
                 }
             }
         }
@@ -221,6 +220,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
 **************************************************************************/
 #[metis_func]
 pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
+    eprintln!("called General2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
@@ -282,9 +282,9 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
 
     let mut mincut = graph.mincut;
     let mut nbnd = graph.nbnd;
-    for nswaps in (0)..(nvtxs) {
+    for nswaps in 0..(nvtxs) {
         let higain = queue.get_top();
-        if higain == None || higain == Some(-1) {
+        if higain.is_none() || higain == Some(-1) {
             break;
         }
         let higain = higain.unwrap() as usize;
@@ -318,11 +318,11 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
         std::mem::swap(&mut id[higain], &mut ed[higain]);
-        if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
+        if ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1] {
             BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
-        if (ed[higain] > 0 && bndptr[higain] == -1) {
+        if ed[higain] > 0 && bndptr[higain] == -1 {
             BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
@@ -330,23 +330,23 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
             let j = j as usize;
             let k = adjncy[j] as usize;
 
-            let kwgt = (if to == where_[k] as usize {
+            let kwgt = if to == where_[k] as usize {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
-            });
+            };
             inc_dec!(id[k], ed[k], kwgt);
 
             /* Update the queue position */
-            if (moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff) {
+            if moved[k] == -1 && where_[k] == from as idx_t && vwgt[k] <= mindiff {
                 // rpqUpdate(queue, k, ed[k] - id[k]);
                 queue.update(k as idx_t, (ed[k] - id[k]) as f32)
             }
 
             /* Update its boundary information */
-            if (ed[k] == 0 && bndptr[k] != -1) {
+            if ed[k] == 0 && bndptr[k] != -1 {
                 BNDDelete!(nbnd, bndind, bndptr, k);
-            } else if (ed[k] > 0 && bndptr[k] == -1) {
+            } else if ed[k] > 0 && bndptr[k] == -1 {
                 BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
@@ -378,6 +378,7 @@ pub extern "C" fn McGeneral2WayBalance(
     graph: *mut graph_t,
     ntpwgts: *mut real_t,
 ) {
+    // eprintln!("called McGeneral2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, l, kwgt, nvtxs, ncon, nbnd, nswaps, from, to, pass,
@@ -395,13 +396,13 @@ pub extern "C" fn McGeneral2WayBalance(
     let ncon = graph.ncon as usize;
     let nvtxs = graph.nvtxs as usize;
 
-    let mut moved: Vec<idx_t> = vec![0; nvtxs as usize];
-    let mut swaps = vec![0; nvtxs as usize];
-    let mut perm = vec![0; nvtxs as usize];
-    let mut qnum = vec![0; nvtxs as usize];
-    let mut newbalv = vec![0.0; ncon as usize];
-    let mut minbalv: Vec<real_t> = vec![0.0; ncon as usize];
-    let mut qsizes: Vec<idx_t> = vec![0; 2 * ncon as usize];
+    let mut moved: Vec<idx_t> = vec![0; nvtxs];
+    let mut swaps = vec![0; nvtxs];
+    let mut perm = vec![0; nvtxs];
+    let mut qnum = vec![0; nvtxs];
+    let mut newbalv = vec![0.0; ncon];
+    let mut minbalv: Vec<real_t> = vec![0.0; ncon];
+    let mut qsizes: Vec<idx_t> = vec![0; 2 * ncon];
 
     mkslice!(ntpwgts, ncon * 2);
 
@@ -410,37 +411,37 @@ pub extern "C" fn McGeneral2WayBalance(
 
     /* Initialize the queues */
     // let mut queues = vec![0; 2*ncon as usize];
-    let mut queues = Vec::with_capacity(2 * ncon as usize);
-    for i in (0)..(2 * ncon as usize) {
+    let mut queues = Vec::with_capacity(2 * ncon);
+    for i in 0..(2 * ncon) {
         // queues[i] = rpqCreate(nvtxs);
-        queues[i] = pqueue::RPQueue::new(nvtxs);
+        queues.push(pqueue::RPQueue::new(nvtxs));
         qsizes[i] = 0;
     }
 
-    for i in (0)..(nvtxs) {
-        qnum[i] = util::iargmax_nrm(ncon as usize, &vwgt[i * ncon as usize], invtvwgt.as_ptr());
+    for i in 0..(nvtxs) {
+        qnum[i] = util::iargmax_nrm(ncon, &vwgt[i * ncon], invtvwgt.as_ptr());
         qsizes[2 * qnum[i] as usize + where_[i] as usize] += 1;
     }
 
     /* for the empty queues, move into them vertices from other queues */
     for from in 0..2 {
-        for j in 0..(ncon as usize) {
+        for j in 0..ncon {
             if qsizes[2 * j + from] == 0 {
-                for i in (0)..(nvtxs) {
-                    if (where_[i] != from as idx_t) {
+                for i in 0..(nvtxs) {
+                    if where_[i] != from as idx_t {
                         continue;
                     }
 
                     let k = util::iargmax2_nrm(
-                        ncon as usize,
-                        &vwgt[i * ncon as usize],
+                        ncon,
+                        &vwgt[i * ncon],
                         invtvwgt.as_ptr(),
                     ) as usize;
-                    if (k == j
+                    if k == j
                         && qsizes[2 * qnum[i] as usize + from] > qsizes[2 * j + from]
-                        && vwgt[i * ncon as usize + qnum[i] as usize] as real_t
+                        && vwgt[i * ncon + qnum[i] as usize] as real_t
                             * (invtvwgt[qnum[i] as usize] as real_t)
-                            < 1.3 * vwgt[i * ncon as usize + j] as real_t * invtvwgt[j] as real_t)
+                            < 1.3 * vwgt[i * ncon + j] as real_t * invtvwgt[j] as real_t
                     {
                         qsizes[2 * qnum[i] as usize + from] -= 1;
                         qsizes[2 * j + from] += 1;
@@ -459,15 +460,15 @@ pub extern "C" fn McGeneral2WayBalance(
     let mut mincut = graph.mincut;
     let mut mincutorder: idx_t = -1;
 
-    if (ctrl.dbglvl & METIS_DBG_REFINE != 0) {
+    if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
         println!("Parts: [");
-        for l in (0)..(ncon) {
+        for l in 0..(ncon) {
             println!(
                 "({:6} {:6} {:.3} {:.3}) ",
-                pwgts[l as usize],
-                pwgts[(ncon + l) as usize],
-                ntpwgts[l as usize],
-                ntpwgts[(ncon + l) as usize],
+                pwgts[l],
+                pwgts[ncon + l],
+                ntpwgts[l],
+                ntpwgts[ncon + l],
             );
         }
 
@@ -486,7 +487,7 @@ pub extern "C" fn McGeneral2WayBalance(
     /* Insert all nodes in the priority queues */
     let mut nbnd = graph.nbnd;
     irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 10, 1);
-    for ii in (0)..(nvtxs) {
+    for ii in 0..(nvtxs) {
         let i = perm[ii] as usize;
         // rpqInsert(queues[2 * qnum[i] + where_[i]], i, ed[i] - id[i]);
         queues[(2 * qnum[i] + where_[i]) as usize]
@@ -494,9 +495,9 @@ pub extern "C" fn McGeneral2WayBalance(
     }
 
     let mut nswaps = 0;
-    for nswaps_ in (0)..(nvtxs) {
+    for nswaps_ in 0..(nvtxs) {
         nswaps = nswaps_;
-        if (minbal <= 0.0) {
+        if minbal <= 0.0 {
             break;
         }
 
@@ -504,7 +505,7 @@ pub extern "C" fn McGeneral2WayBalance(
         let mut cnum: idx_t = 0;
         pqueue::select_queue(
             graph,
-            std::slice::from_raw_parts(ctrl.pijbm, (*ctrl).nparts as usize * ncon),
+            std::slice::from_raw_parts(ctrl.pijbm, ctrl.nparts as usize * ncon),
             std::slice::from_raw_parts(ctrl.ubfactors, ncon),
             &mut queues,
             &mut from,
@@ -514,11 +515,11 @@ pub extern "C" fn McGeneral2WayBalance(
 
         // if (from == -1 || (higain = rpqGetTop(queues[(2 * cnum + from) as usize])) == -1) {
         let higain = queues[(2 * cnum + from) as usize].get_top();
-        if (from == -1 || higain == None) {
+        if from == -1 || higain.is_none() {
             break;
         }
         let higain = higain.unwrap() as usize;
-        newcut -= (ed[higain] - id[higain]);
+        newcut -= ed[higain] - id[higain];
 
         blas::iaxpy(
             ncon,
@@ -538,7 +539,7 @@ pub extern "C" fn McGeneral2WayBalance(
         );
         let newbal = ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv.as_mut_ptr());
 
-        if (newbal < minbal
+        if newbal < minbal
             || (newbal == minbal
                 && (newcut < mincut
                     || (newcut == mincut
@@ -546,16 +547,17 @@ pub extern "C" fn McGeneral2WayBalance(
                             ncon as idx_t,
                             minbalv.as_mut_ptr(),
                             newbalv.as_mut_ptr(),
-                        ) != 0))))
+                        ) != 0)))
         {
             mincut = newcut;
             minbal = newbal;
             mincutorder = nswaps as idx_t;
             // rcopy(ncon, newbalv, minbalv);
             minbalv.copy_from_slice(&newbalv);
-        } else if (nswaps as idx_t - mincutorder > limit) {
+        } else if nswaps as idx_t - mincutorder > limit {
             /* We hit the limit, undo last move */
-            newcut += (ed[higain] - id[higain]);
+            // this line is in the original but has no effect
+            // newcut += ed[higain] - id[higain];
             blas::iaxpy(
                 ncon,
                 1,
@@ -579,7 +581,7 @@ pub extern "C" fn McGeneral2WayBalance(
         moved[higain] = nswaps as idx_t;
         swaps[nswaps] = higain;
 
-        if (ctrl.dbglvl & METIS_DBG_MOVEINFO != 0) {
+        if ctrl.dbglvl & METIS_DBG_MOVEINFO != 0 {
             println!(
                 "Moved {:6} from {:}({:}). Gain: {:5}, Cut: {:5}, NPwgts: ",
                 higain,
@@ -588,7 +590,7 @@ pub extern "C" fn McGeneral2WayBalance(
                 ed[higain] - id[higain],
                 newcut,
             );
-            for l in (0)..(ncon) {
+            for l in 0..(ncon) {
                 println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
             }
 
@@ -599,11 +601,11 @@ pub extern "C" fn McGeneral2WayBalance(
          * Update the id[i]/ed[i] values of the affected nodes
          ***************************************************************/
         std::mem::swap(&mut id[higain], &mut ed[higain]);
-        if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
+        if ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1] {
             BNDDelete!(nbnd, bndind, bndptr, higain);
         }
 
-        if (ed[higain] > 0 && bndptr[higain] == -1) {
+        if ed[higain] > 0 && bndptr[higain] == -1 {
             BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
@@ -611,23 +613,23 @@ pub extern "C" fn McGeneral2WayBalance(
             let j = j as usize;
             let k = adjncy[j] as usize;
 
-            let kwgt = (if to == where_[k] {
+            let kwgt = if to == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
-            });
+            };
             inc_dec!(id[k], ed[k], kwgt);
 
             /* Update the queue position */
-            if (moved[k] == -1) {
+            if moved[k] == -1 {
                 queues[2 * qnum[k] as usize + where_[k] as usize]
                     .update(k as idx_t, (ed[k] - id[k]) as real_t);
             }
 
             /* Update its boundary information */
-            if (ed[k] == 0 && bndptr[k] != -1) {
+            if ed[k] == 0 && bndptr[k] != -1 {
                 BNDDelete!(nbnd, bndind, bndptr, k);
-            } else if (ed[k] > 0 && bndptr[k] == -1) {
+            } else if ed[k] > 0 && bndptr[k] == -1 {
                 BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
@@ -637,7 +639,6 @@ pub extern "C" fn McGeneral2WayBalance(
      * Roll back computations
      *****************************************************************/
     // for (nswaps--; nswaps>mincutorder; nswaps--) {
-    nswaps -= 1;
     while nswaps as idx_t > mincutorder {
         nswaps -= 1;
         let higain = swaps[nswaps];
@@ -646,9 +647,9 @@ pub extern "C" fn McGeneral2WayBalance(
         where_[higain] = (where_[higain] + 1) % 2;
         let to = where_[higain];
         std::mem::swap(&mut id[higain], &mut ed[higain]);
-        if (ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1]) {
+        if ed[higain] == 0 && bndptr[higain] != -1 && xadj[higain] < xadj[higain + 1] {
             BNDDelete!(nbnd, bndind, bndptr, higain);
-        } else if (ed[higain] > 0 && bndptr[higain] == -1) {
+        } else if ed[higain] > 0 && bndptr[higain] == -1 {
             BNDInsert!(nbnd, bndind, bndptr, higain);
         }
 
@@ -672,29 +673,29 @@ pub extern "C" fn McGeneral2WayBalance(
             let j = j as usize;
             let k = adjncy[j] as usize;
 
-            let kwgt = (if to == where_[k] {
+            let kwgt = if to == where_[k] {
                 adjwgt[j]
             } else {
                 -adjwgt[j]
-            });
+            };
             inc_dec!(id[k], ed[k], kwgt);
 
-            if (bndptr[k] != -1 && ed[k] == 0) {
+            if bndptr[k] != -1 && ed[k] == 0 {
                 BNDDelete!(nbnd, bndind, bndptr, k);
             }
 
-            if (bndptr[k] == -1 && ed[k] > 0) {
+            if bndptr[k] == -1 && ed[k] > 0 {
                 BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
     }
 
-    if (ctrl.dbglvl & METIS_DBG_REFINE != 0) {
+    if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
         println!(
             "\tMincut: {:6} at {:5}, NBND: {:6}, NPwgts: [",
             mincut, mincutorder, nbnd,
         );
-        for l in (0)..(ncon) {
+        for l in 0..(ncon) {
             println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
         }
 

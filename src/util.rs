@@ -78,9 +78,9 @@ pub extern "C" fn rargmax2(n: usize, x: *const real_t) -> idx_t {
     for i in 2..n {
         if x[i] > x[max1] {
             max2 = max1;
-            max1 = i as usize;
+            max1 = i;
         } else if x[i] > x[max2] {
-            max2 = i as usize;
+            max2 = i;
         }
     }
     max2 as idx_t
@@ -315,7 +315,7 @@ macro_rules! ifset {
 /// n is the length of the slice, but it's often used shorter in METIS
 #[inline(always)]
 pub fn make_csr(n: usize, a: &mut [idx_t]) {
-    assert!(n <= a.len() - 1, "making a csr indexes up to n");
+    assert!(n < a.len(), "making a csr indexes up to n");
     debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
     if n == 0 {
         return;
@@ -333,7 +333,7 @@ pub fn make_csr(n: usize, a: &mut [idx_t]) {
 /// Equivalent of SHIFTCSR in gk_macros.h
 #[inline(always)]
 pub fn shift_csr(n: usize, a: &mut [idx_t]) {
-    assert!(n <= a.len() - 1, "making a csr indexes up to n");
+    assert!(n < a.len(), "making a csr indexes up to n");
     debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
 
     if n == 0 {
@@ -411,14 +411,14 @@ pub fn read_graph(f: &mut impl BufRead) -> Result<(Vec<idx_t>, Vec<idx_t>), Box<
     let mut x = 0;
     buf.clear();
     while 0 != f.read_line(&mut buf)? {
-        if buf.trim_start().starts_with('#') || buf.trim().len() == 0 {
+        if buf.trim_start().starts_with('#') || buf.trim().is_empty() {
             continue;
         }
 
         xadj.push(x);
 
-        let mut split = buf.split_whitespace();
-        while let Some(a) = split.next() {
+        let split = buf.split_whitespace();
+        for a in split {
             adjncy.push(a.parse()?);
             x += 1;
         }

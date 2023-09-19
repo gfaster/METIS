@@ -12,8 +12,8 @@ pub fn iaxpy<'a>(
     y: &'a mut [idx_t],
     incy: idx_t,
 ) -> &'a mut [idx_t] {
-    assert!(x.len() <= n);
-    assert!(y.len() <= n);
+    assert!(n <= x.len(), "x len: {}, n: {n}", x.len());
+    assert!(n <= y.len(), "y len: {}, n: {n}", y.len());
 
     for (x, y) in x
         .iter()

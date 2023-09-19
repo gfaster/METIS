@@ -1,3 +1,5 @@
+#![allow(clippy::let_and_return)]
+
 use proc_macro::TokenStream;
 use quote::format_ident;
 use syn::{ItemFn, Token};

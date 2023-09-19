@@ -25,13 +25,13 @@ pub fn Init2WayPartition(
 ) {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
-    let dbglvl;
+    
 
     get_graph_slices!(graph => tvwgt);
 
     assert!(tvwgt[0] >= 0);
 
-    dbglvl = ctrl.dbglvl;
+    let dbglvl = ctrl.dbglvl;
     ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
@@ -61,12 +61,10 @@ pub fn Init2WayPartition(
                 } else {
                     McRandomBisection(ctrl, graph, ntpwgts, niparts);
                 }
+            } else if graph.ncon == 1 {
+                GrowBisection(ctrl, graph, ntpwgts, niparts);
             } else {
-                if graph.ncon == 1 {
-                    GrowBisection(ctrl, graph, ntpwgts, niparts);
-                } else {
-                    McGrowBisection(ctrl, graph, ntpwgts, niparts);
-                }
+                McGrowBisection(ctrl, graph, ntpwgts, niparts);
             }
         }
 
@@ -90,9 +88,9 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
     let mut ntpwgts = [0.5, 0.5];
-    let dbglvl: mdbglvl_et;
+    
 
-    dbglvl = ctrl.dbglvl;
+    let dbglvl: mdbglvl_et = ctrl.dbglvl;
     ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
@@ -401,8 +399,8 @@ pub fn McRandomBisection(
     Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
-    let mut bestwhere = vec![0; nvtxs as usize];
-    let mut perm = vec![0; nvtxs as usize];
+    let mut bestwhere = vec![0; nvtxs];
+    let mut perm = vec![0; nvtxs];
     let mut counts = vec![0; ncon as usize];
     let mut bestcut = 0;
 
@@ -473,7 +471,7 @@ pub fn McGrowBisection(
     Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
-    let mut bestwhere = vec![0; nvtxs as usize];
+    let mut bestwhere = vec![0; nvtxs];
     let mut bestcut = 0;
 
     for inbfs in 0..2 * niparts {

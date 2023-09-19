@@ -29,7 +29,7 @@ pub extern "C" fn BucketSortKeysInc(
     keys: *const idx_t,
     tperm: *const idx_t,
     perm: *mut idx_t,
-) -> () {
+) {
     let keys = unsafe { std::slice::from_raw_parts(keys, n as usize) };
     let tperm = unsafe { std::slice::from_raw_parts(tperm, n as usize) };
     let perm = unsafe { std::slice::from_raw_parts_mut(perm, n as usize) };
