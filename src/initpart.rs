@@ -194,7 +194,7 @@ pub fn RandomBisection(
         Compute2WayPartitionParams(ctrl, graph);
         /* println!("IPART: %3"PRIDX" [%5"PRIDX" %5"PRIDX"] [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.nvtxs, pwgts[0], pwgts[1], graph.pwgts[0], graph.pwgts[1], graph.mincut); */
 
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         /* println!("BPART: [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.pwgts[0], graph.pwgts[1], graph.mincut); */
 
         FM_2WayRefine(ctrl, graph, ntpwgts, 4);
@@ -340,7 +340,7 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
             graph.nvtxs, pwgts[0], pwgts[1], graph.pwgts[0], graph.pwgts[1], graph.mincut);
         */
 
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         /*
         println!("BPART: [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.pwgts[0],
             graph.pwgts[1], graph.mincut);
@@ -422,9 +422,9 @@ pub fn McRandomBisection(
         Compute2WayPartitionParams(ctrl, graph);
 
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
 
         if inbfs == 0 || bestcut >= graph.mincut {
@@ -479,9 +479,9 @@ pub fn McGrowBisection(
 
         Compute2WayPartitionParams(ctrl, graph);
 
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
 
         if inbfs == 0 || bestcut >= graph.mincut {
@@ -621,7 +621,7 @@ pub fn GrowBisectionNode(
          * Do some partition refinement
          **************************************************************/
         Compute2WayPartitionParams(ctrl, graph);
-        Balance2Way(ctrl, graph, ntpwgts);
+        balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, 4);
 
         /* Construct and refine the vertex separator */

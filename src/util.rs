@@ -482,9 +482,12 @@ pub fn verify_part(
         2 * objval,
         "objval should be edgecut, and the calculated cut should be double it"
     );
+    let actual = (nparts * pwgts.iter().max().unwrap()) as f64;
+    let expected = 1.10 * pwgts.iter().sum::<idx_t>() as f64;
     assert!(
         // (nparts * pwgts[iargmax(nparts, pwgts)]) as f64
-        (nparts * pwgts.iter().max().unwrap()) as f64 <= 1.10 * pwgts.iter().sum::<idx_t>() as f64
+        actual <= expected,
+        "actual: {actual:.1}, expected: {expected:.1}.\n\tThis assert spuriously fails sometimes - rerun tests."
     );
 }
 

@@ -85,11 +85,6 @@ extern "C" {
     pub fn Compute2WayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn Allocate2WayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn Balance2Way(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        ntpwgts: *mut real_t,
-    ) -> std::ffi::c_void;
     pub fn FM_2WayRefine(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,
