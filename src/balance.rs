@@ -371,7 +371,6 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
     debug_assert!(debug::CheckBnd(graph) != 0);
 
-
     // rpqDestroy(queue);
 
     // WCOREPOP;
@@ -713,8 +712,6 @@ pub extern "C" fn McGeneral2WayBalance(
 
     debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
     debug_assert!(debug::CheckBnd(graph) != 0);
-
-
 
     // for i in (0)..(2 * ncon) {
     //     rpqDestroy(queues[i]);

@@ -13,20 +13,20 @@ Then run these commands
 ```
 :%s/where/where_/g
 :%s/->/./g
-:%s/\*\/!/*\/
+:%s/\/\*!/\/*
 ```
 Properly accounting for `->` replacement is done in a later step.
 
 ## 2. Convert function declarations
-first, run this command 4 times
+first, run this command to make all function declarations one line
 ```
-:g/\v^\w+ ?\([^)]+$/join
+g/\v^\w+ \**\w+\([^)]+$/norm vibVJ
 ```
 
-Then, at each function declaration to transform arguments and pointers:
+Then, to make the argument format correct
 ```
-:s/\v(\w+_t) (\**)(\w+)([,)])/\3: \2\1\4/g
-:s/\V*/*mut /g
+:g/\v^\w+/:s/\v(\w+_t) (\**)(\w+)([,)])/\3: \2\1\4/g
+:g/\v^\w+/:s/\V*/*mut /g
 ```
 
 Then finally, to declare the function and set the return type:
@@ -36,10 +36,11 @@ Then finally, to declare the function and set the return type:
 
 
 ## 3. Fix bracketing and blocks
-Helps to record macro for bracket-less `if` and `for` statements:
+replace most bracketless if and for statements
 ```
-ys_B
+g/\v^ *(for|if) ?\([^{]*\n.*;/norm jVSB
 ```
+
 Replacing `switch` with `match`
 ```
 :s/switch/match
@@ -105,6 +106,16 @@ replacing `iter` with relevant function decls:
 Also need to replace infinite loops:
 ```
 :%s/for (;;)/loop/
+```
+
+Now that loop iterators are gone (double check this), we can get rid of unary
+increment and decrement
+```
+:g/++\w\+/norm f+xxyiw0pwi+=1;
+:g/\w\+++/norm f+xxhyiw$pA+=1;
+
+:g/--\w\+/norm f-xxyiw0pwi-=1;
+:g/\w\+--/norm f-xxhyiw$pA-=1;
 ```
 
 With this, all syntax errors should be fixed. After you run `cargo fmt`, this
