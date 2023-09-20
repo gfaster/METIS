@@ -45,8 +45,6 @@ pub fn METIS_PartGraphKway(
 ) -> std::ffi::c_int {
     let sigrval: std::ffi::c_int = 0;
     // let renumber: std::ffi::c_int = 0;
-    
-    
 
     /* set up malloc cleaning code and signal catchers */
     if gk_malloc_init() == 0 {
@@ -179,14 +177,9 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 
         kwayrefine::RefineKWay(ctrl, graph, cgraph);
 
-        let curobj = 
-        match ctrl.objtype {
-            METIS_OBJTYPE_CUT => {
-                graph.mincut
-            }
-            METIS_OBJTYPE_VOL => {
-                graph.minvol
-            }
+        let curobj = match ctrl.objtype {
+            METIS_OBJTYPE_CUT => graph.mincut,
+            METIS_OBJTYPE_VOL => graph.minvol,
             _ => panic!("Unknown objtype: {}", ctrl.objtype),
         };
 
@@ -323,7 +316,7 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    
+
     let mut queue: pqueue::IPQueue;
 
     // WCOREPUSH;
@@ -414,8 +407,6 @@ pub fn GrowMultisection(
     let graph = graph.as_mut().unwrap();
     // let ctrl = ctrl.as_mut().unwrap();
     let mut nparts = nparts;
-    
-    
 
     // WCOREPUSH;
 
@@ -516,10 +507,6 @@ pub fn BalanceAndRefineLP(
 ) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    
-    
-    
-    
 
     // WCOREPUSH;
 

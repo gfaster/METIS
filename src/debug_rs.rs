@@ -26,7 +26,12 @@ pub extern "C" fn CheckBnd(graph: *const graph_t) -> idx_t {
         }
     }
 
-    assert!(nbnd == graph.nbnd, "calculated boundry size vs actual: {} vs {}", nbnd, graph.nbnd);
+    assert!(
+        nbnd == graph.nbnd,
+        "calculated boundry size vs actual: {} vs {}",
+        nbnd,
+        graph.nbnd
+    );
 
     1
 }

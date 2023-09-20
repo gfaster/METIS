@@ -67,12 +67,12 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     let mut moved: Vec<idx_t> = vec![0; nvtxs];
     let mut perm: Vec<idx_t> = vec![0; nvtxs];
 
-    mkslice!(ntpwgts, graph.ncon); // maybe * 2
-
     /* Determine from which domain you will be moving data */
-    let mut tpwgts = [0; 2];
-    tpwgts[0] = (tvwgt[0] as f32 * ntpwgts[0]) as idx_t;
-    let tpwgts = [tpwgts[0], tvwgt[0] - tpwgts[0]];
+    let tpwgts = {
+        mkslice!(ntpwgts, graph.ncon); // maybe * 2
+        let first = (tvwgt[0] as f32 * ntpwgts[0]) as idx_t;
+        [first, tvwgt[0] - first]
+    };
     let mindiff = (tpwgts[0] - pwgts[0]).abs();
     let from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 }) as usize;
     let to = (from + 1) % 2;
@@ -112,10 +112,12 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     let mut mincut = graph.mincut;
     for nswaps in 0..(nvtxs) {
         // let higain = rpqGetTop(queue)
+        // largest net degree
         let higain = queue.get_top();
         if higain.is_none() {
             break;
         }
+        // largest cost vertex
         let higain = higain.unwrap() as usize;
 
         assert!(bndptr[higain] != -1);
@@ -204,6 +206,8 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
 
     graph.mincut = mincut;
     graph.nbnd = nbnd as idx_t;
+
+    debug_assert!(debug::CheckBnd(graph) != 0);
 
     // rpqDestroy(queue);
 
@@ -364,6 +368,10 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     graph.mincut = mincut;
     graph.nbnd = nbnd;
 
+    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert!(debug::CheckBnd(graph) != 0);
+
+
     // rpqDestroy(queue);
 
     // WCOREPOP;
@@ -432,11 +440,7 @@ pub extern "C" fn McGeneral2WayBalance(
                         continue;
                     }
 
-                    let k = util::iargmax2_nrm(
-                        ncon,
-                        &vwgt[i * ncon],
-                        invtvwgt.as_ptr(),
-                    ) as usize;
+                    let k = util::iargmax2_nrm(ncon, &vwgt[i * ncon], invtvwgt.as_ptr()) as usize;
                     if k == j
                         && qsizes[2 * qnum[i] as usize + from] > qsizes[2 * j + from]
                         && vwgt[i * ncon + qnum[i] as usize] as real_t
@@ -494,9 +498,9 @@ pub extern "C" fn McGeneral2WayBalance(
             .insert(i as idx_t, ed[i] as real_t - id[i] as real_t);
     }
 
-    let mut nswaps = 0;
+    let mut nswaps: idx_t = 0;
     for nswaps_ in 0..(nvtxs) {
-        nswaps = nswaps_;
+        nswaps = nswaps_ as idx_t;
         if minbal <= 0.0 {
             break;
         }
@@ -537,7 +541,8 @@ pub extern "C" fn McGeneral2WayBalance(
             &mut pwgts[(from as usize * ncon)..],
             1,
         );
-        let newbal = ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv.as_mut_ptr());
+        let newbal =
+            ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv.as_mut_ptr());
 
         if newbal < minbal
             || (newbal == minbal
@@ -578,8 +583,8 @@ pub extern "C" fn McGeneral2WayBalance(
         }
 
         where_[higain] = to;
-        moved[higain] = nswaps as idx_t;
-        swaps[nswaps] = higain;
+        moved[higain] = nswaps;
+        swaps[nswaps as usize] = higain;
 
         if ctrl.dbglvl & METIS_DBG_MOVEINFO != 0 {
             println!(
@@ -639,9 +644,9 @@ pub extern "C" fn McGeneral2WayBalance(
      * Roll back computations
      *****************************************************************/
     // for (nswaps--; nswaps>mincutorder; nswaps--) {
+    nswaps -= 1;
     while nswaps as idx_t > mincutorder {
-        nswaps -= 1;
-        let higain = swaps[nswaps];
+        let higain = swaps[nswaps as usize];
 
         // let to = where_[higain] = (where_[higain] + 1) % 2;
         where_[higain] = (where_[higain] + 1) % 2;
@@ -688,6 +693,7 @@ pub extern "C" fn McGeneral2WayBalance(
                 BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
+        nswaps -= 1;
     }
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
@@ -704,6 +710,11 @@ pub extern "C" fn McGeneral2WayBalance(
 
     graph.mincut = mincut;
     graph.nbnd = nbnd;
+
+    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert!(debug::CheckBnd(graph) != 0);
+
+
 
     // for i in (0)..(2 * ncon) {
     //     rpqDestroy(queues[i]);

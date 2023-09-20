@@ -14,6 +14,12 @@ use crate::{idx_t, real_t};
 pub type IPQueue = IndexedPriorityQueue<idx_t, idx_t>;
 pub type RPQueue = IndexedPriorityQueue<real_t, idx_t>;
 
+macro_rules! idx {
+    ($key:expr) => {
+        TryInto::<usize>::try_into($key).expect("valid index")
+    };
+}
+
 #[derive(Default, Clone, Copy)]
 struct Node<K, V>
 where
@@ -26,6 +32,8 @@ where
     val: V,
 }
 
+/// Priority queue augmented with indices. After inserting a (key, index) pair, it can be quickly
+/// accessed and/or removed using the index.
 pub struct IndexedPriorityQueue<K, V>
 where
     V: Copy + Default + PartialEq,
@@ -38,12 +46,12 @@ where
     heap: Box<[Node<K, V>]>,
 }
 
-impl<KT, VT> IndexedPriorityQueue<KT, VT>
+impl<K, V> IndexedPriorityQueue<K, V>
 where
-    VT: Copy + Default + PartialEq,
-    usize: TryFrom<VT>,
-    <usize as TryFrom<VT>>::Error: Debug,
-    KT: PartialOrd + Copy + Default,
+    V: Copy + Default + PartialEq,
+    usize: TryFrom<V>,
+    <usize as TryFrom<V>>::Error: Debug,
+    K: PartialOrd + Copy + Default,
 {
     /*************************************************************************/
     /* This function initializes the data structures of the priority queue */
@@ -57,37 +65,31 @@ where
         }
     }
 
-    /*************************************************************************/
-    /* This function resets the priority queue */
-    /**************************************************************************/
+    /// clear the queue
     pub fn reset(&mut self) {
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
         // for (i=self.nnodes-1; i>=0; i -= 1)
         for i in (0..self.nnodes).rev() {
-            locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] = -1;
+            locator[idx!(heap[i].val)] = -1;
         }
         self.nnodes = 0;
     }
 
-    /*************************************************************************/
-    /* This function returns the length of the queue */
-    /**************************************************************************/
+    /// get the length
     pub fn length(&mut self) -> usize {
         self.nnodes
     }
 
-    /*************************************************************************/
-    /* This function adds an item in the priority queue */
-    /**************************************************************************/
-    pub fn insert(&mut self, node: VT, key: KT) {
+    /// insert an item
+    pub fn insert(&mut self, index: V, key: K) {
         debug_assert!(self.check_heap());
 
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
-        debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] == -1);
+        debug_assert!(locator[idx!(index)] == -1);
 
         let mut i = self.nnodes;
         self.nnodes += 1;
@@ -95,8 +97,7 @@ where
             let j = (i - 1) >> 1;
             if key < heap[j].key {
                 heap[i] = heap[j];
-                locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
-                    i as isize;
+                locator[idx!(heap[i].val)] = i as isize;
                 i = j;
             } else {
                 break;
@@ -104,31 +105,26 @@ where
         }
         // debug_assert!(i >= 0);
         heap[i].key = key;
-        heap[i].val = node;
-        locator[TryInto::<usize>::try_into(node).expect("valid index")] = i as isize;
+        heap[i].val = index;
+        locator[idx!(index)] = i as isize;
 
         debug_assert!(self.check_heap());
     }
 
-    /*************************************************************************/
-    /* This function deletes an item from the priority queue */
-    /**************************************************************************/
-    pub fn delete(&mut self, node: VT) {
+    /// delete an item
+    pub fn delete(&mut self, index: V) {
         debug_assert!(self.check_heap());
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
-        debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] != -1);
-        debug_assert!(
-            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val
-                == node
-        );
+        debug_assert!(locator[idx!(index)] != -1);
+        debug_assert!(heap[locator[idx!(index)] as usize].val == index);
 
-        let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
-        locator[TryInto::<usize>::try_into(node).expect("valid index")] = -1;
+        let mut i = locator[idx!(index)];
+        locator[idx!(index)] = -1;
 
         self.nnodes -= 1;
-        if self.nnodes > 0 && heap[self.nnodes].val != node {
+        if self.nnodes > 0 && heap[self.nnodes].val != index {
             let node = heap[self.nnodes].val;
             let newkey = heap[self.nnodes].key;
             let oldkey = heap[i as usize].key;
@@ -176,7 +172,7 @@ where
 
             heap[i as usize].key = newkey;
             heap[i as usize].val = node;
-            locator[TryInto::<usize>::try_into(node).expect("valid index")] = i;
+            locator[idx!(node)] = i;
         }
 
         debug_assert!(self.check_heap());
@@ -185,24 +181,20 @@ where
     /*************************************************************************/
     /* This function updates the key values associated for a particular item */
     /**************************************************************************/
-    pub fn update(&mut self, node: VT, newkey: KT) {
+    pub fn update(&mut self, node: V, newkey: K) {
         debug_assert!(self.check_heap());
         let locator = &mut self.locator;
         let heap = &mut self.heap;
 
-        let oldkey =
-            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].key;
+        let oldkey = heap[locator[idx!(node)] as usize].key;
         if (newkey >= oldkey) && (oldkey >= newkey) {
             return;
         }
 
-        debug_assert!(locator[TryInto::<usize>::try_into(node).expect("valid index")] != -1);
-        debug_assert!(
-            heap[locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize].val
-                == node
-        );
+        debug_assert!(locator[idx!(node)] != -1);
+        debug_assert!(heap[locator[idx!(node)] as usize].val == node);
 
-        let mut i = locator[TryInto::<usize>::try_into(node).expect("valid index")];
+        let mut i = locator[idx!(node)];
 
         if newkey < oldkey {
             /* Filter-up */
@@ -210,9 +202,7 @@ where
                 let j = (i as usize - 1) >> 1;
                 if newkey < heap[j].key {
                     heap[i as usize] = heap[j];
-                    locator
-                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
-                        i;
+                    locator[idx!(heap[i as usize].val)] = i;
                     i = j as isize;
                 } else {
                     break;
@@ -231,16 +221,12 @@ where
                         j += 1;
                     }
                     heap[i as usize] = heap[j];
-                    locator
-                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
-                        i;
+                    locator[idx!(heap[i as usize].val)] = i;
                     i = j as isize;
                 } else if j + 1 < nnodes && heap[j + 1].key < newkey {
                     j += 1;
                     heap[i as usize] = heap[j];
-                    locator
-                        [TryInto::<usize>::try_into(heap[i as usize].val).expect("valid index")] =
-                        i;
+                    locator[idx!(heap[i as usize].val)] = i;
                     i = j as isize;
                 } else {
                     break;
@@ -250,14 +236,14 @@ where
 
         heap[i as usize].key = newkey;
         heap[i as usize].val = node;
-        locator[TryInto::<usize>::try_into(node).expect("valid index")] = i;
+        locator[idx!(node)] = i;
 
         debug_assert!(self.check_heap());
     }
 
     /// This function returns the item at the top of the queue and removes it from the priority queue
     /// I have not yet convinced myself it will never return -1
-    pub fn get_top(&mut self) -> Option<VT> {
+    pub fn get_top(&mut self) -> Option<V> {
         debug_assert!(self.check_heap());
 
         if self.nnodes == 0 {
@@ -270,7 +256,7 @@ where
         let locator = &mut self.locator;
 
         let vtx = heap[0].val;
-        locator[TryInto::<usize>::try_into(vtx).expect("valid index")] = -1;
+        locator[idx!(vtx)] = -1;
 
         let mut i = self.nnodes;
         if i > 0 {
@@ -287,14 +273,12 @@ where
                         j += 1;
                     }
                     heap[i] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
-                        i as isize;
+                    locator[idx!(heap[i].val)] = i as isize;
                     i = j;
                 } else if j + 1 < self.nnodes && heap[j + 1].key < key {
                     j += 1;
                     heap[i] = heap[j];
-                    locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")] =
-                        i as isize;
+                    locator[idx!(heap[i].val)] = i as isize;
                     i = j;
                 } else {
                     break;
@@ -303,7 +287,7 @@ where
 
             heap[i].key = key;
             heap[i].val = node;
-            locator[TryInto::<usize>::try_into(node).expect("valid index")] = i as isize;
+            locator[idx!(node)] = i as isize;
         }
 
         debug_assert!(self.check_heap());
@@ -314,7 +298,7 @@ where
     /* This function returns the item at the top of the queue. The item is not
     deleted from the queue. */
     /**************************************************************************/
-    pub fn see_top_val(&mut self) -> Option<VT> {
+    pub fn see_top_val(&mut self) -> Option<V> {
         if self.nnodes == 0 {
             None
         } else {
@@ -326,7 +310,7 @@ where
     /* This function returns the key of the top item. The item is not
     deleted from the queue. */
     /**************************************************************************/
-    pub fn see_top_key(&mut self) -> Option<KT> {
+    pub fn see_top_key(&mut self) -> Option<K> {
         if self.nnodes == 0 {
             None
         } else {
@@ -337,10 +321,8 @@ where
     /*************************************************************************/
     /* This function returns the key of a specific item */
     /**************************************************************************/
-    pub fn see_key(&self, node: VT) -> KT {
-        self.heap
-            [self.locator[TryInto::<usize>::try_into(node).expect("valid index")] as usize]
-            .key
+    pub fn see_key(&self, node: V) -> K {
+        self.heap[self.locator[idx!(node)] as usize].key
     }
 
     /*************************************************************************/
@@ -355,16 +337,13 @@ where
             return true;
         }
 
-        debug_assert!(locator[TryInto::<usize>::try_into(heap[0].val).expect("valid index")] == 0);
+        assert!(locator[idx!(heap[0].val)] == 0);
         for i in 1..nnodes {
-            debug_assert!(
-                locator[TryInto::<usize>::try_into(heap[i].val).expect("valid index")]
-                    == i as isize
-            );
-            debug_assert!(heap[i].key >= heap[(i - 1) / 2].key);
+            assert!(locator[idx!(heap[i].val)] == i as isize);
+            assert!(heap[i].key >= heap[(i - 1) / 2].key);
         }
         for i in 1..nnodes {
-            debug_assert!(heap[i].key >= heap[0].key);
+            assert!(heap[i].key >= heap[0].key);
         }
 
         let mut j = 0;
@@ -373,7 +352,7 @@ where
                 j += 1;
             }
         }
-        debug_assert!(j == nnodes, "{} {}", j, nnodes);
+        assert!(j == nnodes, "{} {}", j, nnodes);
 
         true
     }
@@ -419,13 +398,13 @@ pub fn select_queue(
 
     if *from != -1 {
         /* in case the desired queue is empty, select a queue from the same side */
-        if (queues[(2 * (*cnum) + (*from)) as usize]).length() == 0 {
+        if (queues[(2 * *cnum + *from) as usize]).length() == 0 {
             let mut i = 0;
             for ii in 0..ncon {
                 i = ii;
-                if (queues[(2 * i + (*from)) as usize]).length() > 0 {
-                    max = pwgts[((*from) * ncon + i) as usize] as real_t
-                        * pijbm[((*from) * ncon + i) as usize]
+                if (queues[(2 * i + *from) as usize]).length() > 0 {
+                    max = pwgts[(*from * ncon + i) as usize] as real_t
+                        * pijbm[(*from * ncon + i) as usize]
                         - ubfactors[(i) as usize];
                     *cnum = i;
                     break;
@@ -434,10 +413,10 @@ pub fn select_queue(
             i += 1;
             // for (i++; i<ncon; i++) {
             while i < ncon {
-                let tmp = pwgts[((*from) * ncon + i) as usize] as real_t
-                    * pijbm[((*from) * ncon + i) as usize]
+                let tmp = pwgts[(*from * ncon + i) as usize] as real_t
+                    * pijbm[(*from * ncon + i) as usize]
                     - ubfactors[i as usize];
-                if tmp > max && (queues[(2 * i + (*from)) as usize]).length() > 0 {
+                if tmp > max && (queues[(2 * i + *from) as usize]).length() > 0 {
                     max = tmp;
                     *cnum = i;
                 }
@@ -474,9 +453,10 @@ pub fn select_queue(
 #[cfg(test)]
 mod test {
     use super::IndexedPriorityQueue;
+    use std::collections::BinaryHeap;
 
     #[test]
-    fn basic() {
+    fn in_order() {
         let mut heap = IndexedPriorityQueue::new(10);
         for x in 0..10 {
             heap.insert(x, x);
@@ -489,15 +469,63 @@ mod test {
     }
 
     #[test]
-    fn basic_2() {
-        let mut heap = IndexedPriorityQueue::new(10);
-        for x in 0..10 {
-            heap.insert(x, 10 - x);
+    fn random_order() {
+        let mut rand = fastrand::Rng::with_seed(1);
+
+        let mut heap = IndexedPriorityQueue::new(100);
+        let mut truth = BinaryHeap::new();
+
+        let mut items = Vec::from_iter(0..100);
+        rand.shuffle(&mut items);
+        for x in 0..100 {
+            let k = items[x as usize];
+            heap.insert(x, k);
+            truth.push((99 - k, k)); // std::heap is min-heap
         }
-        let mut it = 0..10;
-        while let Some(k) = heap.get_top() {
-            assert_eq!(Some(9 - k), it.next());
+
+        for _ in 0..80 {
+            eprintln!(
+                "gk: {:>4?}  |  std: {:>4?}",
+                heap.see_top_key(),
+                truth.peek().map(|x| x.1)
+            );
+            assert_eq!(heap.see_top_key(), truth.peek().map(|x| x.1));
+            heap.get_top();
+            truth.pop();
         }
-        assert_eq!(it.next(), None);
+    }
+
+    #[test]
+    fn random_order_with_removes() {
+        let mut rand = fastrand::Rng::with_seed(1);
+
+        let mut heap = IndexedPriorityQueue::new(100);
+        let mut truth = BinaryHeap::new();
+
+        let mut items = Vec::from_iter(0..100);
+        rand.shuffle(&mut items);
+        for x in 0..35 {
+            let k = items[x as usize];
+            heap.insert(x, k);
+        }
+        for x in 35..100 {
+            let k = items[x as usize];
+            heap.insert(x, k);
+            truth.push((99 - k, k));
+        }
+        for x in 0..35 {
+            heap.delete(x);
+        }
+
+        for _ in 0..80 {
+            eprintln!(
+                "gk: {:>4?}  |  std: {:>4?}",
+                heap.see_top_key(),
+                truth.peek().map(|x| x.1)
+            );
+            assert_eq!(heap.see_top_key(), truth.peek().map(|x| x.1));
+            heap.get_top();
+            truth.pop();
+        }
     }
 }

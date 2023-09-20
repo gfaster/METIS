@@ -156,7 +156,7 @@ extern "C" {
         adjwgt: *mut idx_t,
         nparts: *mut idx_t,
         tpwgts: *mut real_t,
-        ubvec: *mut real_t,
+        ubvec: *const real_t, // only copied to internal ubfactors array
         options: *mut idx_t,
         edgecut: *mut idx_t,
         part: *mut idx_t,
@@ -641,12 +641,18 @@ pub struct graph_t {
     pub pwgts: *mut idx_t,
 
     /// Partition parameters
+    ///
+    /// size of boundary for Dal (see appendix)
     pub nbnd: idx_t,
 
     /// Partition parameters
+    ///
+    /// lptr of Dal (see appendix)
     pub bndptr: *mut idx_t,
 
     /// Partition parameters
+    ///
+    /// lind of Dal (see appendix)
     pub bndind: *mut idx_t,
 
     /* Bisection refinement parameters */

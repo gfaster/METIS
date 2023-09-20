@@ -68,3 +68,49 @@ ipqUpdate(queue_t *queue, value_t node, key_t newkey);
 
 It updates the key (which only determines the pop order) and moves it if
 applicable.
+
+## Direct Access List
+the format that the boundary list is stored in, changed by the `BNDInsert` and
+`BNDDelete` macros.
+
+This direct access list is really a way of storing a bounded set of integers
+with `O(1)` insert, delete, and access, but `O(U)` memory. It's stored as two
+slices, `lptr` (`bndptr`) and `lind` (`bndind`), along with an integer to keep
+track of the size.
+
+`lptr` keeps track of the location of elements by index, whereas `lind`
+stores the set contiguously. 
+
+Inserting an integer `x` into the set is easy: we push `x` to the end of `lind`
+and set `lptr[x]` to the size variable, which is then incremented.
+
+ex:
+```
+lind: [ 4,  0,  1,  0,  0]; // since size == 3 last 2 elements not in set
+lptr: [ 1,  2, -1, -1,  0]; // -1 means element isn't in set
+size = 3;
+// contents = {4, 0, 1}
+
+// insert 2
+lind: [ 4,  0,  1,  2,  0]; // appended to the end
+lptr: [ 1,  2,  3, -1,  0]; // lptr[2] set to position where 2 was appended
+size = 4;
+// contents = {4, 0, 1, 2}
+```
+
+Deletion is a swap-remove (see `Vec::swap_remove`), but we need to update the
+swapped value's `lptr` entry to reflect its new position.
+
+ex:
+```
+lind: [ 4,  0,  1,  0,  0]; // since size == 3 last 2 elements not in set
+lptr: [ 1,  2, -1, -1,  0]; // -1 means element isn't in set
+size = 3;
+// contents = {4, 0, 1}
+
+// remove 4
+// 4's spot in lind was taken by the one at the end
+lind: [ 1,  0,  1,  0,  0]; // now only first two elements are in set
+lptr: [ 1,  0, -1, -1, -1]; // set lptr[4] = -1 and lptr[1] = 0 (4's old pos)
+size = 2;
+```

@@ -77,12 +77,15 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
         // IFSET((*ctrl).dbglvl, METIS_DBG_TIME, gk_stopcputimer((*ctrl).RefTmr));
 
         /* Deal with contiguity constraints in the middle */
-        if contig != 0 && i == nlevels / 2 && FindPartitionInducedComponents(
+        if contig != 0
+            && i == nlevels / 2
+            && FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
                 ptr::null_mut(),
-            ) > (*ctrl).nparts {
+            ) > (*ctrl).nparts
+        {
             EliminateComponents(ctrl, graph);
 
             if IsBalanced(ctrl, graph, 0.02) == 0 {
@@ -210,9 +213,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
     eprintln!("Called ComputeKWayPartitionParams");
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
-    
-    
-    
+
     let mut nbnd: idx_t;
     let mut mincut: idx_t;
 
@@ -400,12 +401,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ProjectKWayPartition");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    
-    let mut nbnd: idx_t;
-    
 
-    
-    
+    let mut nbnd: idx_t;
 
     let dropedges = ctrl.dropedges;
 
@@ -692,8 +689,6 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ctrl: &mut ctrl_t = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
-    
-
     let nparts: idx_t = ctrl.nparts;
 
     let nvtxs = graph.nvtxs as usize;
@@ -809,6 +804,6 @@ pub extern "C" fn IsBalanced(
     graph: *mut graph_t,
     ffactor: real_t,
 ) -> std::ffi::c_int {
-    (ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors)
-        <= ffactor) as _
+    (ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors) <= ffactor)
+        as _
 }

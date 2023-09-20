@@ -25,7 +25,6 @@ pub fn Init2WayPartition(
 ) {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
-    
 
     get_graph_slices!(graph => tvwgt);
 
@@ -88,7 +87,6 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
     let mut ntpwgts = [0.5, 0.5];
-    
 
     let dbglvl: mdbglvl_et = ctrl.dbglvl;
     ifset!(

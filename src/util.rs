@@ -347,22 +347,22 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
 
 #[macro_export]
 macro_rules! BNDInsert {
-    ($n:expr, $lind:expr, $lptr:expr, $i:expr) => {
-        assert_eq!($lptr[$i], -1);
-        $lind[$n as usize] = $i as _;
-        $lptr[$i as usize] = $n as _;
+    ($n:expr, $bndind:expr, $bndptr:expr, $i:expr) => {
+        assert_eq!($bndptr[$i], -1);
+        $bndind[$n as usize] = $i as _;
+        $bndptr[$i as usize] = $n as _;
         $n += 1;
     };
 }
 
 #[macro_export]
 macro_rules! BNDDelete {
-    ($n:expr, $lind:expr, $lptr:expr, $i:expr) => {
-        assert_ne!($lptr[$i], -1);
-        $n -= 1;
-        $lind[$lptr[$i] as usize] = $lind[$n as usize];
-        $lptr[$lind[$n as usize] as usize] = $lptr[$i];
-        $lptr[$i] = -1;
+    ($nbnd:expr, $bndind:expr, $bndptr:expr, $i:expr) => {
+        assert_ne!($bndptr[$i], -1);
+        $nbnd -= 1;
+        $bndind[$bndptr[$i as usize] as usize] = $bndind[$nbnd as usize];
+        $bndptr[$bndind[$nbnd as usize] as usize] = $bndptr[$i as usize];
+        $bndptr[$i] = -1;
     };
 }
 

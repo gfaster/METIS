@@ -1,4 +1,8 @@
-#![allow(clippy::needless_range_loop, clippy::too_many_arguments, clippy::missing_safety_doc)]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::too_many_arguments,
+    clippy::missing_safety_doc
+)]
 
 #[macro_use]
 extern crate macros;
