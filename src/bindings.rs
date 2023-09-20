@@ -116,6 +116,9 @@ extern "C" {
     ) -> real_t;
     pub fn ComputeLoadImbalance(graph: *mut graph_t, nparts: idx_t, pijbm: *mut real_t) -> real_t;
 
+    pub fn SetupGraph_tvwgt(graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn SetupGraph_label(graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn CreateGraph() -> *mut graph_t;
 }
 
 // replacing c args with rust args (2 commands over visual region)
@@ -369,6 +372,8 @@ pub(crate) const BNDTYPE_BALANCE: std::ffi::c_int = 2;
 
 pub(crate) const OMODE_REFINE: std::ffi::c_int = 1;
 pub(crate) const OMODE_BALANCE: std::ffi::c_int = 2;
+
+pub(crate) const COMPRESSION_FRACTION: real_t = 0.85;
 
 #[repr(u32)]
 pub enum Optype {

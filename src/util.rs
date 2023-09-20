@@ -308,6 +308,11 @@ macro_rules! ifset {
             $cmd;
         }
     };
+    ($a:expr, $flag:expr, $cmd:expr,) => {
+        if $a & $flag != 0 {
+            $cmd;
+        }
+    };
 }
 
 /// Equivalent of MAKECSR in gk_macros.h

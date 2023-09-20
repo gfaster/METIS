@@ -229,24 +229,15 @@ can pick and choose for the second.
 After all functions are replaced, we need to declare the remaining in
 `bindings.rs`. Here's the best way I found to do it:
 
-1. Copy the identifier for every not found function to the `#[metis_decl]`
-   block in `bindings.rs`, one function per line.
+over each identifer that was just pasted into the bindings block, execute this
+```
+:exe ":norm *N:e src/proto.h\<Enter>nvibVy:e#\<Enter>Vp"
+```
 
-2. Record a macro that:
-    1. Yanks the identifier
-    2. Opens `proto.h`
-    3. Finds the yanked identifier
-    4. Yanks the lines used by the arguments (`vibVy`)
-    5. Returns to `bindings.rs` and pastes the yanked C declaration
-
-3. Merge multiline declarations to a single line and fix it.
-
-The last step can be accomplished with modified commands from step 2. Start
-by highlighting the new declarations and then execute:
+then fix the format by highlighting the new functions and executing this
 ```
 :'<,'>:g/\v\([^)]+$/join
-:'<,'>:g/\v\([^)]+$/join
-:'<,'>:g/\v\([^)]+$/join
+2@:
 :'<,'>:s/\v([,(] ?\w+ ?\**)([,)])/\1 _\2/g
 :'<,'>:s/\v(\w+) (\**)(\w*)([,)])/\3: \2\1\4/g
 :'<,'>:s/\V*/*mut /g

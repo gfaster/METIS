@@ -10,7 +10,16 @@
  * George
  */
 
+use std::ptr;
+
 use crate::*;
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct KeyVal {
+    key: idx_t,
+    val: idx_t,
+}
 
 /*************************************************************************/
 /* This function compresses a graph by merging identical vertices
@@ -32,43 +41,57 @@ pub extern "C" fn CompressGraph(
     cptr: *mut idx_t,
     cind: *mut idx_t,
 ) -> *mut graph_t {
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, cnvtxs, cnedges;
     // idx_t *cxadj, *cadjncy, *cvwgt, *mark, *map;
     // ikv_t *keys;
     // graph_t *graph=NULL;
 
-    mark = ismalloc(nvtxs, -1, "CompressGraph: mark");
-    map = ismalloc(nvtxs, -1, "CompressGraph: map");
-    keys = ikvmalloc(nvtxs, "CompressGraph: keys");
+    // mark = ismalloc(nvtxs, -1, "CompressGraph: mark");
+    // map = ismalloc(nvtxs, -1, "CompressGraph: map");
+    // keys = ikvmalloc(nvtxs, "CompressGraph: keys");
+    let nvtxs = nvtxs as usize;
+    let mark: Vec<idx_t> = vec![-1; nvtxs];
+    let map: Vec<idx_t> = vec![-1; nvtxs];
+    let keys = vec![KeyVal::default(); nvtxs];
+
+    mkslice!(xadj, nvtxs + 1);
+    mkslice!(adjncy, xadj[nvtxs]);
+    mkslice!(cptr, nvtxs);
+    mkslice!(cind, nvtxs);
+
+    let graph: *mut graph_t = ptr::null_mut();
 
     /* Compute a key for each adjacency list */
     for i in (0)..(nvtxs) {
-        k = 0;
+        let k = 0;
         for j in (xadj[i])..(xadj[i + 1]) {
-            k += adjncy[j];
+            k += adjncy[j as usize];
         }
-        keys[i].key = k + i; /* Add the diagonal entry as well */
-        keys[i].val = i;
+        keys[i].key = k + i as idx_t; /* Add the diagonal entry as well */
+        keys[i].val = i as idx_t;
     }
 
-    ikvsorti(nvtxs, keys);
+    // ikvsorti(nvtxs, keys);
+    keys.sort_unstable_by_key(|kv| kv.key);
 
-    l = cptr[0] = 0;
-    cnvtxs = 0;
+    cptr[0] = 0;
+    let mut l = 0;
+    let mut cnvtxs: usize = 0;
     for i in (0)..(nvtxs) {
-        ii = keys[i].val;
+        let ii = keys[i].val as usize;
         if (map[ii] == -1) {
-            mark[ii] = i; /* Add the diagonal entry */
+            mark[ii] = i as idx_t; /* Add the diagonal entry */
             for j in (xadj[ii])..(xadj[ii + 1]) {
-                mark[adjncy[j]] = i;
+                mark[adjncy[j as usize] as usize] = i as idx_t;
             }
 
-            map[ii] = cnvtxs;
-            cind[l] = ii;
+            map[ii] = cnvtxs as idx_t;
+            cind[l] = ii as idx_t;
             l += 1;
 
             for j in (i + 1)..(nvtxs) {
-                iii = keys[j].val;
+                let iii = keys[j].val as usize;
 
                 if (keys[i].key != keys[j].key
                     || xadj[ii + 1] - xadj[ii] != xadj[iii + 1] - xadj[iii])
@@ -78,84 +101,97 @@ pub extern "C" fn CompressGraph(
 
                 if (map[iii] == -1) {
                     /* Do a comparison if iii has not been mapped */
-                    for jj in (xadj[iii])..(xadj[iii + 1]) {
-                        if (mark[adjncy[jj]] != i) {
+                    let jj = xadj[iii];
+                    for jjj in (xadj[iii])..(xadj[iii + 1]) {
+                        jj = jjj;
+                        if (mark[adjncy[jj as usize] as usize] != i as idx_t) {
                             break;
                         }
                     }
 
                     if (jj == xadj[iii + 1]) {
                         /* Identical adjacency structure */
-                        map[iii] = cnvtxs;
-                        cind[l] = iii;
+                        map[iii] = cnvtxs as idx_t;
+                        cind[l] = iii as idx_t;
                         l += 1;
                     }
                 }
             }
 
             cnvtxs += 1;
-            cptr[cnvtxs] = l;
+            cptr[cnvtxs as usize] = l as idx_t;
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_INFO,
-        printf(
+        println!(
             "  Compression: reduction in # of vertices: {:}.\n",
             nvtxs - cnvtxs,
         ),
     );
 
-    if (cnvtxs < COMPRESSION_FRACTION * nvtxs) {
+    if (cnvtxs as real_t) < COMPRESSION_FRACTION * nvtxs as real_t {
         /* Sufficient compression is possible, so go ahead and create the
         compressed graph */
 
         graph = CreateGraph();
+        let graph = graph.as_mut().unwrap();
 
-        cnedges = 0;
+        let mut cnedges = 0;
         for i in (0)..(cnvtxs) {
-            ii = cind[cptr[i]];
+            let ii = cind[cptr[i as usize] as usize] as usize;
             cnedges += xadj[ii + 1] - xadj[ii];
         }
 
         /* Allocate memory for the compressed graph */
-        cxadj = graph.xadj = imalloc(cnvtxs + 1, "CompressGraph: xadj");
-        cvwgt = graph.vwgt = ismalloc(cnvtxs, 0, "CompressGraph: vwgt");
-        cadjncy = graph.adjncy = imalloc(cnedges, "CompressGraph: adjncy");
-        graph.adjwgt = ismalloc(cnedges, 1, "CompressGraph: adjwgt");
+        graph.xadj = imalloc(cnvtxs as usize + 1, "CompressGraph: xadj\0".as_ptr()) as _;
+        graph.vwgt = imalloc(cnvtxs as usize, "CompressGraph: vwgt\0".as_ptr()) as _;
+        graph.vwgt.write_bytes(0, cnvtxs as usize); // prolly unnecessary, but matches og
+        graph.adjncy = imalloc(cnedges as usize, "CompressGraph: adjncy\0".as_ptr()) as _;
+        mkslice_mut!(cxadj: graph->xadj, cnvtxs + 1);
+        mkslice_mut!(cvwgt: graph->vwgt, cnvtxs);
+        mkslice_mut!(cadjncy: graph->adjncy, cnedges);
+        {
+            graph.adjwgt = imalloc(cnedges as usize, "CompressGraph: adjwgt\0".as_ptr()) as _;
+            graph.adjwgt.write_bytes(1, cnedges as usize);
+        }
 
         /* Now go and compress the graph */
-        iset(nvtxs, -1, mark);
-        l = cxadj[0] = 0;
+        // iset(nvtxs, -1, mark);
+        mark.fill( -1);
+
+        let l = 0;
+        cxadj[0] = 0;
         for i in (0)..(cnvtxs) {
-            mark[i] = i; /* Remove any dioganal entries in the compressed graph */
+            mark[i] = i as idx_t; /* Remove any dioganal entries in the compressed graph */
             for j in (cptr[i])..(cptr[i + 1]) {
-                ii = cind[j];
+                let ii = cind[j as usize] as usize;
 
                 /* accumulate the vertex weights of the consistuent vertices */
-                cvwgt[i] += (if vwgt == NULL { 1 } else { vwgt[ii] });
+                cvwgt[i] += (if vwgt.is_null() { 1 } else { *vwgt.add(ii) });
 
                 /* generate the combined adjancency list */
                 for jj in (xadj[ii])..(xadj[ii + 1]) {
-                    k = map[adjncy[jj]];
-                    if (mark[k] != i) {
-                        mark[k] = i;
-                        cadjncy[l] = k;
+                    let k = map[adjncy[jj as usize] as usize] as usize;
+                    if (mark[k] != i as idx_t) {
+                        mark[k] = i as idx_t;
+                        cadjncy[l] = k as idx_t;
                         l += 1;
                     }
                 }
             }
-            cxadj[i + 1] = l;
+            cxadj[i + 1] = l as idx_t;
         }
 
-        graph.nvtxs = cnvtxs;
-        graph.nedges = l;
+        graph.nvtxs = cnvtxs as idx_t;
+        graph.nedges = l as idx_t;
         graph.ncon = 1;
 
         SetupGraph_tvwgt(graph);
         SetupGraph_label(graph);
-    }
+    };
 
     // gk_free((void **)&keys, &map, &mark, LTERM);
 
@@ -179,73 +215,93 @@ pub extern "C" fn PruneGraph(
     iperm: *mut idx_t,
     factor: real_t,
 ) -> *mut graph_t {
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, j, k, l, nlarge, pnvtxs, pnedges;
     // idx_t *pxadj, *padjncy, *padjwgt, *pvwgt;
     // idx_t *perm;
     // graph_t *graph=NULL;
 
-    perm = imalloc(nvtxs, "PruneGraph: perm");
+    let graph: *mut graph_t = ptr::null_mut();
 
-    factor = factor * xadj[nvtxs] / nvtxs;
+    let nvtxs = nvtxs as usize;
+    // let perm = imalloc(nvtxs, "PruneGraph: perm\0".as_ptr()) as _;
+    let mut perm: Vec<idx_t> = vec![0; nvtxs];
 
-    pnvtxs = pnedges = nlarge = 0;
+    mkslice!(xadj, nvtxs + 1);
+    mkslice!(adjncy, xadj[nvtxs]);
+    mkslice_mut!(iperm, nvtxs);
+
+    let factor = factor * (xadj[nvtxs] / nvtxs as idx_t) as real_t;
+
+    let mut pnvtxs: usize = 0;
+    let mut pnedges: usize = 0;
+    let mut nlarge: usize = 0;
     for i in (0)..(nvtxs) {
-        if (xadj[i + 1] - xadj[i] < factor) {
-            perm[i] = pnvtxs;
-            iperm[pnvtxs] = i;
+        if (((xadj[i + 1] - xadj[i]) as real_t) < factor) {
+            perm[i] = pnvtxs as idx_t;
+            iperm[pnvtxs] = i as idx_t;
             pnvtxs += 1;
-            pnedges += xadj[i + 1] - xadj[i];
+            pnedges += xadj[i + 1] as usize - xadj[i] as usize;
         } else {
             nlarge += 1;
-            perm[i] = nvtxs - nlarge;
-            iperm[nvtxs - nlarge] = i;
+            perm[i] = nvtxs as idx_t - nlarge as idx_t;
+            iperm[nvtxs - nlarge] = i as idx_t;
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_INFO,
-        printf("  Pruned {:} of {:} vertices.\n", nlarge, nvtxs),
+        println!("  Pruned {:} of {:} vertices.\n", nlarge, nvtxs),
     );
 
     if (nlarge > 0 && nlarge < nvtxs) {
         /* Prunning is possible, so go ahead and create the prunned graph */
         graph = CreateGraph();
+        let graph = graph.as_mut().unwrap();
 
         /* Allocate memory for the prunned graph*/
-        pxadj = graph.xadj = imalloc(pnvtxs + 1, "PruneGraph: xadj");
-        pvwgt = graph.vwgt = imalloc(pnvtxs, "PruneGraph: vwgt");
-        padjncy = graph.adjncy = imalloc(pnedges, "PruneGraph: adjncy");
-        graph.adjwgt = ismalloc(pnedges, 1, "PruneGraph: adjwgt");
+        graph.xadj = imalloc(pnvtxs + 1, "PruneGraph: xadj\0".as_ptr()) as _;
+        graph.vwgt = imalloc(pnvtxs, "PruneGraph: vwgt\0".as_ptr()) as _;
+        graph.adjncy = imalloc(pnedges, "PruneGraph: adjncy\0".as_ptr()) as _;
+        // graph.vwgt = ismalloc(pnedges, 1, "PruneGraph: adjwgt") as _;
+        graph.vwgt = imalloc(pnedges, "PruneGraph: adjwgt\0".as_ptr()) as _;
+        mkslice_mut!(pxadj: graph->xadj, pnvtxs + 1);
+        mkslice_mut!(pvwgt: graph->vwgt, pnvtxs);
+        mkslice_mut!(padjncy: graph->adjncy, pnedges);
+        mkslice_mut!(pvwgt: graph->vwgt, pnedges);
+        pvwgt.fill(1);
 
-        pxadj[0] = pnedges = l = 0;
+        pxadj[0] = 0;
+        pnedges = 0;
+        let mut l = 0;
         for i in (0)..(nvtxs) {
-            if (xadj[i + 1] - xadj[i] < factor) {
-                pvwgt[l] = (if vwgt == NULL { 1 } else { vwgt[i] });
+            if (((xadj[i + 1] - xadj[i]) as real_t) < factor) {
+                pvwgt[l] = (if vwgt.is_null() { 1 } else { *vwgt.add(i) });
 
                 for j in (xadj[i])..(xadj[i + 1]) {
-                    k = perm[adjncy[j]];
-                    if (k < pnvtxs) {
+                    let k = perm[adjncy[j as usize] as usize];
+                    if (k < pnvtxs as idx_t) {
                         padjncy[pnedges] = k;
                         pnedges += 1;
                     }
                 }
                 l += 1;
-                pxadj[l] = pnedges;
+                pxadj[l as usize] = pnedges as idx_t;
             }
         }
 
-        graph.nvtxs = pnvtxs;
-        graph.nedges = pnedges;
+        graph.nvtxs = pnvtxs as idx_t;
+        graph.nedges = pnedges as idx_t;
         graph.ncon = 1;
 
         SetupGraph_tvwgt(graph);
         SetupGraph_label(graph);
     } else if (nlarge > 0 && nlarge == nvtxs) {
-        IFSET(
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_INFO,
-            printf("  Pruning is ignored as it removes all vertices.\n"),
+            println!("  Pruning is ignored as it removes all vertices.\n")
         );
         nlarge = 0;
     }
