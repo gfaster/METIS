@@ -85,12 +85,6 @@ endef
 lib: $(BUILDDIR)/libmetis.a
 	@echo "complete"
 
-test: $(wildcard metis_test/src/*) $(wildcard metis_test/Cargo.*) metis_test/build.rs rust/bindings/bindings.rs $(BUILDDIR)/libmetis.a $(BUILDDIR)/libbindings.rlib
-	chmod 700 metis_test/src/bindings.rs
-	cp rust/bindings/bindings.rs metis_test/src/
-	chmod 400 metis_test/src/bindings.rs
-	cd metis_test; cargo test
-
 tags:
 	ctags $$(fdfind --no-ignore -ec -eh -E "rename.h" -E "gklib_rename.h" "" src include GKlib/build/install/include GKlib)
 

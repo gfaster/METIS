@@ -15,6 +15,12 @@ Check [`translation.md`](./translation.md) for my porting process.
 
 Check [`appendix.md`](./appendix.md) for some info on common functions used.
 
+## Goals
+
+My immediate goal is to get METIS ported to idiomatic Rust. This is a highly
+mechanical process that is fairly uninteresting. Once that is done, I want to
+try to add support for partitioning euclidian meshes.
+
 ##  Downloading METIS
 
 You can download METIS by simply cloning it using the command:

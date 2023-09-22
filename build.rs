@@ -1,4 +1,4 @@
-use std::{fs::read_dir, os::unix::prelude::OsStrExt};
+use std::{fs::read_dir, os::unix::prelude::OsStrExt, process::Command};
 
 use cc::Build;
 
@@ -30,6 +30,20 @@ fn main() {
         );
     }
 
+    let gklib_files: Vec<_> = read_dir("GKlib")
+        .expect("GKlib/ files exist")
+        .filter_map(|f| f.ok())
+        .filter(|f| f.file_name().as_bytes().ends_with(b".c"))
+        .map(|f| f.path())
+        .collect();
+
+    for file in &gklib_files {
+        println!(
+            "cargo:rerun-if-changed={}",
+            file.to_str().expect("files are valid utf-8")
+        );
+    }
+
     println!("cargo:rerun-if-changed=src/ported");
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -39,13 +53,25 @@ fn main() {
     }
 
     // panic!();
+    Command::new("pwd").spawn().unwrap().wait().unwrap();
 
     // dbg!(&files);
+    Build::new()
+        .files(gklib_files)
+        .compiler("gcc")
+        .include("GKlib")
+        .define("LINUX", "")
+        .define("_FILE_OFFSET_BITS", "64")
+        .flag("-fno-strict-aliasing")
+        .flag("-std=c99")
+        .warnings(false)
+        // .define("ASSERT", "1")
+        .compile("GKlib");
 
     Build::new()
         .files(files)
         .compiler("gcc")
-        .include("GKlib/build/install/include")
+        .include("GKlib/")
         .include("include")
         .include("src")
         .define("IDXTYPEWIDTH", "32")
@@ -59,8 +85,8 @@ fn main() {
         // .link_lib_modifier("-bundle")
         .compile("metis");
 
-    println!("cargo:rustc-link-search=GKlib/build/install/lib");
-    println!("cargo:rustc-link-lib=GKlib");
+    // println!("cargo:rustc-link-search=GKlib/build/install/lib");
+    // println!("cargo:rustc-link-lib=GKlib");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=GKlib");
 }
