@@ -121,7 +121,7 @@ extern "C" {
     pub fn CreateGraph() -> *mut graph_t;
 
 pub fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t;
-pub fn BetterBalanceKWay(ncon: idx_t, vwgt: *mut idx_t, itvwgt: *mut real_t, a1: idx_t, pt1: *mut idx_t, bm1: *mut real_t, a2: idx_t, pt2: *mut idx_t, bm2: *mut real_t) -> std::ffi::c_int;
+pub fn BetterBalanceKWay(ncon: idx_t, vwgt: *const idx_t, ubvec: *const real_t, a1: idx_t, pt1: *const idx_t, bm1: *const real_t, a2: idx_t, pt2: *const idx_t, bm2: *const real_t) -> std::ffi::c_int;
 pub fn KWayVolUpdate(ctrl: *mut ctrl_t, graph: *mut graph_t, v: idx_t, from: idx_t, to: idx_t, queue: *mut ipq_t, vstatus: *mut idx_t, r_nupd: *mut idx_t, updptr: *mut idx_t, updind: *mut idx_t, bndtype: idx_t, vmarker: *mut idx_t, pmarker: *mut idx_t, modind: *mut idx_t) -> std::ffi::c_void;
 
 }
@@ -481,7 +481,7 @@ pub struct ctrl_t {
     /// .1*(user-supplied prunning factor)
     pub pfactor: real_t,
 
-    /// The per-constraint ubfactors
+    /// The per-constraint unbalance factors
     pub ubfactors: *mut real_t,
 
     /// The target partition weights

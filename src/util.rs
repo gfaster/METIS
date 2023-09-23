@@ -318,6 +318,7 @@ macro_rules! ifset {
 /// Makes an index range from start and count. Also casts to usize.
 ///
 /// ```
+/// # use metis::cntrng;
 /// assert_eq!(cntrng!(3, 2), 3..5);
 /// ```
 #[macro_export]
@@ -545,6 +546,93 @@ macro_rules! mkslice {
         let $newvar: &[_] = std::slice::from_raw_parts($var, $len as usize);
     };
 }
+
+/// makes a slice or initialize a vec with a default value
+/// ```
+/// # use metis::slice_default;
+/// # unsafe {
+/// let v = vec![0, 1, 2];
+/// let len = v.len();
+/// let arr_v: *const i32 = v.as_ptr();
+/// let arr: *mut i32 = std::ptr::null_mut();
+/// slice_default!(arr_v, [0; len]);
+/// slice_default!(mut arr, [1; len]);
+///
+/// assert_eq!(arr_v, &[0, 1, 2]);
+/// assert_eq!(arr, &mut [1, 1, 1]);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! slice_default {
+    ($arr:ident, [$fill:expr; $len:expr]) => {
+        let arr_v;
+        let $arr = if $arr.is_null() {
+            arr_v = vec![0; $len as usize];
+            &arr_v[..]
+        } else {
+            std::slice::from_raw_parts($arr, $len as usize)
+        };
+    };
+
+    ($arr:ident, [$fill:expr; $len:expr]) => {
+        let arr_v;
+        let $arr = if $arr.is_null() {
+            arr_v = vec![$fill; $len as usize];
+            &arr_v[..]
+        } else {
+            std::slice::from_raw_parts($arr, $len as usize)
+        };
+    };
+
+    (mut $arr:ident, [$fill:expr; $len:expr]) => {
+        let mut arr_v;
+        let $arr = if $arr.is_null() {
+            arr_v = vec![$fill; $len as usize];
+            &mut arr_v[..]
+        } else {
+            std::slice::from_raw_parts_mut($arr, $len as usize)
+        };
+    };
+}
+    /*
+
+/// makes a slice or initialize a vec with a default value
+/// ```
+/// let v = vec![0, 1, 2];
+/// let arr_v: *mut i32 = v.as_ptr_mut();
+/// let arr: *mut i32 = std::ptr::null_mut();
+/// let len = v.len();
+///
+/// slice_default_mut!(arr_v, len => 0);
+/// slice_default_mut!(arr, len => 1);
+///
+/// assert_eq!(arr_v, &mut [0, 1, 2]);
+/// assert_eq!(arr, &mut [1, 1, 1]);
+/// ```
+#[macro_export]
+macro_rules! slice_default_mut {
+    // ($arr:ident, $len:expr) => {
+    //     let mut arr_v;
+    //     let $arr = if $arr.is_null() {
+    //         arr_v = vec![0; $len as usize];
+    //         &mut arr_v[..]
+    //     } else {
+    //         std::slice::from_raw_parts_mut($arr, $len as usize)
+    //     };
+    // };
+
+    ($arr:ident, $len:expr => $fill:expr) => {
+        let mut arr_v;
+        let $arr = if $arr.is_null() {
+            arr_v = vec![$fill; $len as usize];
+            &mut arr_v[..]
+        } else {
+            std::slice::from_raw_parts_mut($arr, $len as usize)
+        };
+    };
+}
+    */
+
 
 /// read a graph from a file in a simplified version of the format specified in the manual
 ///
