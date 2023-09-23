@@ -156,7 +156,7 @@ pub extern "C" fn CompressGraph(
 
         /* Now go and compress the graph */
         // iset(nvtxs, -1, mark);
-        mark.fill( -1);
+        mark.fill(-1);
 
         let mut l = 0;
         cxadj[0] = 0;

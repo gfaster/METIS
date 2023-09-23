@@ -20,7 +20,7 @@ Properly accounting for `->` replacement is done in a later step.
 ## 2. Convert function declarations
 first, run this command to make all function declarations one line
 ```
-g/\v^\w+ \**\w+\([^)]+$/norm vibVJ
+:g/\v^\w+ \**\w+\([^)]+$/norm vibVJ
 ```
 
 Then, to make the argument format correct

@@ -15,6 +15,7 @@ pub mod debug_rs;
 pub use debug_rs as debug;
 pub mod balance;
 pub mod compress;
+pub mod contig;
 pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
