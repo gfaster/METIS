@@ -139,10 +139,10 @@ Until I figure out for sure, **Don't use local `Vec`s for allocations made with
 `gk_malloc`**
 
 ```
-:%s/\viwspacemalloc\(ctrl, (.*)\);/vec![0; \1 as usize]/g
-:%s/\vrwspacemalloc\(ctrl, (.*)\);/vec![0.0; \1 as usize]/g
+:%s/\viset\(([^,]+), (-?\d), iwspacemalloc\(ctrl, .+\)\);/vec![\2; \1 as usize];/g
 
-:%s/\iset\((\w+), iwspacemalloc\(ctrl, (\w+)\)\);/vec![\1; \2 as usize]/g
+:%s/\viwspacemalloc\(ctrl, (.*)\);/vec![0; \1 as usize];/g
+:%s/\vrwspacemalloc\(ctrl, (.*)\);/vec![0.0; \1 as usize];/g
 ```
 Note there is no use of `rset` in the codebase.
 

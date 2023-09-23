@@ -65,7 +65,6 @@ fn main() {
         .flag("-fno-strict-aliasing")
         .flag("-std=c99")
         .warnings(false)
-        // .define("ASSERT", "1")
         .compile("GKlib");
 
     Build::new()
@@ -78,8 +77,6 @@ fn main() {
         .define("REALTYPEWIDTH", "32")
         .define("DMALLOC", "")
         .flag("-fno-strict-aliasing")
-        // .define("ASSERT", "1")
-        // .define("ASSERT2", "1")
         .warnings(false)
         // .pic(false)
         // .link_lib_modifier("-bundle")

@@ -28,7 +28,7 @@ extern "C" {
         pijbm: *mut real_t,
         ubvec: *mut real_t,
     ) -> real_t;
-    pub fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t;
+    pub fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t;
     pub fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn FindPartitionInducedComponents(

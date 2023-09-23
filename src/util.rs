@@ -315,6 +315,21 @@ macro_rules! ifset {
     };
 }
 
+/// Makes an index range from start and count. Also casts to usize.
+///
+/// ```
+/// assert_eq!(cntrng!(3, 2), 3..5);
+/// ```
+#[macro_export]
+macro_rules! cntrng {
+    ($start:expr, $cnt:expr) => {
+        {
+            let start = $start as usize;
+            start..(start + $cnt as usize)
+        }
+    };
+}
+
 /// Equivalent of MAKECSR in gk_macros.h
 ///
 /// n is the length of the slice, but it's often used shorter in METIS
