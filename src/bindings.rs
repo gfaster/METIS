@@ -119,6 +119,11 @@ extern "C" {
     pub fn SetupGraph_tvwgt(graph: *mut graph_t) -> std::ffi::c_void;
     pub fn SetupGraph_label(graph: *mut graph_t) -> std::ffi::c_void;
     pub fn CreateGraph() -> *mut graph_t;
+
+pub fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t;
+pub fn BetterBalanceKWay(ncon: idx_t, vwgt: *mut idx_t, itvwgt: *mut real_t, a1: idx_t, pt1: *mut idx_t, bm1: *mut real_t, a2: idx_t, pt2: *mut idx_t, bm2: *mut real_t) -> std::ffi::c_int;
+pub fn KWayVolUpdate(ctrl: *mut ctrl_t, graph: *mut graph_t, v: idx_t, from: idx_t, to: idx_t, queue: *mut ipq_t, vstatus: *mut idx_t, r_nupd: *mut idx_t, updptr: *mut idx_t, updind: *mut idx_t, bndtype: idx_t, vmarker: *mut idx_t, pmarker: *mut idx_t, modind: *mut idx_t) -> std::ffi::c_void;
+
 }
 
 // replacing c args with rust args (2 commands over visual region)
@@ -133,6 +138,7 @@ pub const METIS_VER_SUBMINOR: u32 = 0;
 pub const METIS_NOPTIONS: u32 = 40;
 pub type idx_t = i32;
 pub type real_t = f32;
+pub type ipq_t = std::ffi::c_void;
 
 // gklib functions are not renamed
 extern "C" {
@@ -746,6 +752,7 @@ pub struct vnbr_t {
 
 /// This data structure stores cut-based k-way refinement info about an
 /// adjacent subdomain for a given vertex.
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct cnbr_t {
     /// The partition ID

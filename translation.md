@@ -266,8 +266,8 @@ an iterator.
 This replace is probably fine:
 
 ```
-:%s/\vMAKECSR\(.{-},(.{-}),(.{-})\)/util::make_csr(\1, \2)/I
-:%s/\SHIFT\(.{-},(.{-}),(.{-})\)/util::shift_csr(\1, \2)/I
+:%s/\vMAKECSR\(\w{-},(.{-}),(.{-})\);/util::make_csr(\1, &mut \2);/I
+:%s/\vSHIFTCSR\(\w{-},(.{-}),(.{-})\);/util::shift_csr(\1, &mut \2);/I
 ```
 
 The first argument in `util::make_csr` and `util::shift_csr` is possibly
@@ -288,7 +288,7 @@ Replacing `iset` calls that aren't attached to any given `malloc` call:
 
 Replacing `icopy` calls (detailed in appendix)
 ```
-:s/\vicopy\(.*,(.*),(.*)\);/\/\/ &\r\2.copy_from_slice(&\1);/
+:s/\vicopy\(.*,(.*),(.*)\);/\/\/ &\r\2.copy_from_slice(\&\1);/
 ```
 
 ## 9. Everything else
