@@ -3,10 +3,14 @@
 
 use std::ptr;
 
-use crate::bindings::{idx_t, METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK};
+use crate::bindings::{idx_t, real_t, METIS_PartGraphRecursive, METIS_NOPTIONS, METIS_OK};
 use crate::kmetis::METIS_PartGraphKway;
 
 use crate::util::{create_dummy_weights, verify_part};
+
+/// function signature of METIS_PartGraphKway, METIS_PartGraphRecursive
+type PartSig = unsafe extern "C" fn(*mut idx_t, *mut idx_t, *mut idx_t, *mut idx_t, *mut idx_t, *mut idx_t, *mut idx_t, *mut idx_t, *mut real_t, *const real_t, *mut idx_t, *mut idx_t, *mut idx_t) -> idx_t;
+
 
 #[test]
 fn basic_part_graph_recursive() {
@@ -90,6 +94,7 @@ fn part_graph_and_verify(
     nparts: idx_t,
     use_vwgt: bool,
     use_adjwgt: bool,
+    partfn: PartSig
 ) {
     let (mut xadj, mut adjncy) = crate::util::read_graph(&mut std::io::Cursor::new(
         include_bytes!("../graphs/4elt_rs.graph"),
@@ -115,7 +120,7 @@ fn part_graph_and_verify(
     let mut objval = 0;
 
     let res = unsafe {
-        METIS_PartGraphKway(
+        partfn(
             &mut (xadj.len() as idx_t - 1) as *mut idx_t,
             &mut ncon as *mut _,
             xadj.as_mut_ptr(),
@@ -154,137 +159,232 @@ macro_rules! part_test {
     ncon: $ncon:literal,
     vwgt: $use_vwgt:literal,
     adjwgt: $use_adjwgt:literal,
+    partfn: $partfn:ident,
     ) => {
         #[test]
         fn $name() {
             let mut options = $options;
-            part_graph_and_verify($ncon, &mut options, $nparts, $use_vwgt, $use_adjwgt);
+            part_graph_and_verify($ncon, &mut options, $nparts, $use_vwgt, $use_adjwgt, $partfn);
         }
     };
 }
 
-part_test! {
-    name: large_kway_1con_vwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 1,
-    vwgt: true,
-    adjwgt: false,
+macro_rules! part_test_set {
+(
+    set_name: $name:ident,
+    options: $options:expr,
+    partfn: $partfn:ident,
+    ) => {
+        mod $name {
+            use super::*;
+
+            part_test! {
+                name: large_1con_vwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_2con_vwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_1con_vwgt_adjwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: true,
+                adjwgt: true,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_2con_vwgt_adjwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: true,
+                adjwgt: true,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_halve,
+                options: $options,
+                nparts: 2,
+                ncon: 1,
+                vwgt: false,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_1con_adjwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: false,
+                adjwgt: true,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_2con_adjwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: false,
+                adjwgt: true,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_vol_basic,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: false,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_vol_vwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_vol_2con_vwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_edge_node,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: false,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_edge_node_vwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 1,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_edge_node_vwgt_2con,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: true,
+                adjwgt: false,
+                partfn: $partfn,
+            }
+
+            part_test! {
+                name: large_edge_node_vwgt_2con_adjwgt,
+                options: $options,
+                nparts: 20,
+                ncon: 2,
+                vwgt: true,
+                adjwgt: true,
+                partfn: $partfn,
+            }
+        }
+    };
 }
 
-part_test! {
-    name: large_kway_2con_vwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 2,
-    vwgt: true,
-    adjwgt: false,
+
+
+// this could be shrunk but it works
+macro_rules! part_test_hyper_set {
+    ($partfn:ident as $name:ident => [$({$($first_opt:ident),*}),*]) => {
+        mod $name {
+            #![allow(non_snake_case, unused_imports)]
+            use super::*;
+            part_test_hyper_set!(@call_for $partfn : ($(($($first_opt),*)),*) @ ());
+        }
+    };
+    (@call $partfn:ident, $name:ident: ($($option:ident),*)) => {
+        // $(part_test_hyper_set!(@dbg $option));*
+        part_test_set!(
+            set_name: $name,
+            options: make_options!($($option)*),
+            partfn: $partfn,
+        );
+    };
+    (@call_for $partfn:ident: ($first:tt $(, $rest:tt)*) @ $keep:tt) => {
+                // $(part_test_hyper_set!(@dbg $rest))*;
+                // part_test_hyper_set!(@dbg $keep);
+        part_test_hyper_set!(@call_for_inner $partfn: $first @ ($($rest),*) @ $keep);
+    };
+    (@call_for_inner $partfn:ident: ($($iter:ident),*) @ () @ $keep:tt) => {
+        $(
+        // mod $iter {
+        //     use super::*;
+        // part_test_hyper_set!(@dbg $iter);
+            part_test_hyper_set!(@rejoin_call $partfn, $iter: $keep);
+        // }
+        )*
+    };
+    (@call_for_inner $partfn:ident: ($($iter:ident),*) @ $rest:tt @ $keep:tt) => {
+        $(
+            mod $iter {
+                use super::*;
+        // part_test_hyper_set!(@dbg $keep);
+                part_test_hyper_set!(@rejoin $partfn: $rest @ ($iter, $keep));
+            }
+        )*
+    };
+    (@rejoin $partfn:ident: $rest:tt @ ($parent:ident, ($($keep:ident),*))) => {
+        // part_test_hyper_set!(@dbg $parent);
+        // part_test_hyper_set!(@dbg $rest);
+        part_test_hyper_set!(@call_for $partfn: $rest @ ($parent $(, $keep)*));
+    };
+    (@rejoin_call $partfn:ident, $name:ident: ($($keep:ident),*)) => {
+        part_test_hyper_set!(@call $partfn, $name: ($name $(, $keep)*));
+    };
+    (@dbg $var:expr) => {
+    part_test_hyper_set!(@dbg_inner $var);
+    };
+    (@dbg_inner a) => {
+    };
 }
 
-part_test! {
-    name: large_kway_1con_vwgt_adjwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 1,
-    vwgt: true,
-    adjwgt: true,
-}
+// TODO: test graphs with odd degree (very high, power law)
+// I suspect problems if there is vertex degree > nparts
 
-part_test! {
-    name: large_kway_2con_vwgt_adjwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 2,
-    vwgt: true,
-    adjwgt: true,
-}
+// Kmetis only allows Grow and Rb initial partitioning
+part_test_hyper_set!(METIS_PartGraphKway as kway => [{Cut, Vol}, {Grow, Rb}, {Rm, Shem}, {Contig, None}]);
 
-part_test! {
-    name: large_kway_halve,
-    options: make_options!(Cut Grow),
-    nparts: 2,
-    ncon: 1,
-    vwgt: false,
-    adjwgt: false,
-}
+// Communication volume is illegal on PMETIS routines
+// Edge and Node initial partitioning also illegal in PMETIS
+part_test_hyper_set!(METIS_PartGraphRecursive as recursive => [{Cut}, {Grow, Random}, {Rm, Shem}]);
 
-part_test! {
-    name: large_kway_1con_adjwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 1,
-    vwgt: false,
-    adjwgt: true,
-}
-
-part_test! {
-    name: large_kway_2con_adjwgt,
-    options: make_options!(Cut Grow),
-    nparts: 20,
-    ncon: 2,
-    vwgt: false,
-    adjwgt: true,
-}
-
-part_test! {
-    name: large_kway_vol_basic,
-    options: make_options!(Vol Grow),
-    nparts: 20,
-    ncon: 1,
-    vwgt: false,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_vol_vwgt,
-    options: make_options!(Vol Grow),
-    nparts: 20,
-    ncon: 1,
-    vwgt: true,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_vol_2con_vwgt,
-    options: make_options!(Vol Grow),
-    nparts: 20,
-    ncon: 2,
-    vwgt: true,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_edge_node,
-    options: make_options!(Cut Node),
-    nparts: 20,
-    ncon: 1,
-    vwgt: false,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_edge_node_vwgt,
-    options: make_options!(Cut Node),
-    nparts: 20,
-    ncon: 1,
-    vwgt: true,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_edge_node_vwgt_2con,
-    options: make_options!(Cut Node),
-    nparts: 20,
-    ncon: 2,
-    vwgt: true,
-    adjwgt: false,
-}
-
-part_test! {
-    name: large_kway_edge_node_vwgt_2con_adjwgt,
-    options: make_options!(Cut Node),
-    nparts: 20,
-    ncon: 2,
-    vwgt: true,
-    adjwgt: true,
-}

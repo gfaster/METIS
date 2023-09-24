@@ -40,14 +40,14 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
     /* Deal with contiguity constraints at the beginning */
     if contig != 0
-        && FindPartitionInducedComponents(
+        && contig::FindPartitionInducedComponents(
             graph,
             (*graph).where_,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
         ) > (*ctrl).nparts
     {
-        EliminateComponents(ctrl, graph);
+        contig::EliminateComponents(ctrl, graph);
 
         ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
         Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
@@ -79,14 +79,14 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
         /* Deal with contiguity constraints in the middle */
         if contig != 0
             && i == nlevels / 2
-            && FindPartitionInducedComponents(
+            && contig::FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
                 ptr::null_mut(),
             ) > (*ctrl).nparts
         {
-            EliminateComponents(ctrl, graph);
+            contig::EliminateComponents(ctrl, graph);
 
             if IsBalanced(ctrl, graph, 0.02) == 0 {
                 (*ctrl).contig = 1;
@@ -125,10 +125,10 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     /* Deal with contiguity requirement at the end */
     (*ctrl).contig = contig;
     if contig != 0
-        && FindPartitionInducedComponents(graph, (*graph).where_, ptr::null_mut(), ptr::null_mut())
+        && contig::FindPartitionInducedComponents(graph, (*graph).where_, ptr::null_mut(), ptr::null_mut())
             > (*ctrl).nparts
     {
-        EliminateComponents(ctrl, graph);
+        contig::EliminateComponents(ctrl, graph);
     }
 
     if IsBalanced(ctrl, graph, 0.0) == 0 {
@@ -141,7 +141,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
     if (*ctrl).contig != 0 {
         assert!(
-            FindPartitionInducedComponents(
+            contig::FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
@@ -208,6 +208,8 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 }
 
 /// This function computes the initial id/ed  for cut-based partitioning
+///
+/// I suspect bug in this function (volume)
 #[metis_func]
 pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     eprintln!("Called ComputeKWayPartitionParams");
@@ -230,7 +232,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
     nbnd = 0;
     mincut = 0;
 
-    /* Compute pwgts (Gavin: parition weights?) */
+    /* Compute pwgts (partition weights) */
     if ncon == 1 {
         for i in 0..(nvtxs as usize) {
             assert!(where_[i] >= 0 && where_[i] < nparts);
@@ -350,34 +352,39 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
                         myrinfo.ned += 1;
                     }
                 }
-
+                debug_assert_eq!(myrinfo.nnbrs, 0);
                 /* Time to compute the particular external degrees */
                 if myrinfo.ned > 0 {
                     mincut += myrinfo.ned;
 
                     myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-                    let mynbrs = slice::from_raw_parts_mut(
+                    let mut mynbrs = slice::from_raw_parts_mut(
                         ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                        myrinfo.nnbrs as usize,
+                        myrinfo.nnbrs as usize + 1,
                     );
 
-                    for j in xadj[0]..xadj[i + 1] {
+                    for j in xadj[i]..xadj[i + 1] {
                         let j = j as usize;
                         let other = where_[adjncy[j] as usize];
                         if me != other {
                             let mut k = 0;
-                            for kk in 0..(myrinfo.nnbrs as usize) {
-                                k = kk; // used after loop
+                            while k < (myrinfo.nnbrs as usize) {
                                 if mynbrs[k].pid == other {
                                     mynbrs[k].ned += 1;
                                     break;
                                 }
+                                k += 1;
                             }
+                            // add as neighbor if not encountered
                             if k == myrinfo.nnbrs as usize {
                                 mynbrs[k].gv = 0;
                                 mynbrs[k].pid = other;
                                 mynbrs[k].ned = 1;
                                 myrinfo.nnbrs += 1;
+                                mynbrs = slice::from_raw_parts_mut(
+                                    ctrl.vnbrpool.add(myrinfo.inbr as usize),
+                                    myrinfo.nnbrs as usize + 1,
+                                );
                             }
                         }
                     }
@@ -389,7 +396,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             graph.mincut = mincut / 2;
 
             ComputeKWayVolGains(ctrl, graph);
-            assert!(graph.minvol == ComputeVolume(graph, graph.where_));
+            debug_assert_eq!(graph.minvol, ComputeVolume(graph, graph.where_));
         }
         _ => panic!("Unknown objtype of {}", ctrl.objtype),
     }
@@ -557,16 +564,18 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     /* Potentially an interface node */
                     myrinfo.inbr = vnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
                     // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
-                    let mynbrs = slice::from_raw_parts_mut(
-                        ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                        nvtxs as usize - myrinfo.inbr as usize,
-                    );
+                    debug_assert!(myrinfo.inbr >= 0);
 
                     let me = where_[i];
                     let mut tid = 0;
                     let mut ted = 0;
                     for j in istart..iend {
                         let other = where_[adjncy[j] as usize];
+                        let mynbrs = slice::from_raw_parts_mut(
+                            ctrl.vnbrpool.add(myrinfo.inbr as usize),
+                            // (nvtxs - myrinfo.inbr) as usize,
+                            myrinfo.nnbrs as usize + 1
+                        );
                         if me == other {
                             tid += 1;
                         } else {
@@ -591,6 +600,11 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                         ctrl.nbrpoolcpos -= (nparts as usize).min(iend - istart);
                         myrinfo.inbr = -1;
                     } else {
+                        let mynbrs = slice::from_raw_parts_mut(
+                            ctrl.vnbrpool.add(myrinfo.inbr as usize),
+                            // (nvtxs - myrinfo.inbr) as usize,
+                            myrinfo.nnbrs as usize + 1
+                        );
                         for j in 0..myrinfo.nnbrs {
                             htable[mynbrs[j as usize].pid as usize] = -1;
                         }
@@ -699,6 +713,7 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     bndptr.fill(-1);
 
     // ophtable = iset(nparts, -1, iwspacemalloc(ctrl, nparts));
+    // other partition h_____ table? Referred to as "marker vector"
     let mut ophtable: Vec<idx_t> = vec![-1; nparts as usize];
 
     /* Compute the volume gains */
@@ -715,7 +730,9 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
             let mynbrs = slice::from_raw_parts_mut(
                 ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                ctrl.nbrpoolsize - myrinfo.inbr as usize,
+                // changing this to debug segfaults - majority of tests fail in this file
+                // ctrl.nbrpoolsize - myrinfo.inbr as usize,
+                myrinfo.nnbrs as usize + 1,
             );
 
             graph.minvol += myrinfo.nnbrs * vsize[i];
@@ -745,7 +762,13 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     }
                 } else {
                     let me = me as usize;
-                    assert!(ophtable[me] != -1);
+                    assert!(ophtable[me] != -1,
+                        concat!(
+                            "vtx {i} is adj to vtx {ii} but {ii}'s neighboring subdomains' ",
+                            "partitions do not include {i}'s (part = {me}).\n",
+                            "vtx {ii}'s neighbors' partitions are {nbr:?}",
+                        ),
+                        i=i, ii=ii, me=me, nbr=(onbrs.iter().map(|d| d.pid).collect::<Vec<_>>()));
 
                     if (onbrs[ophtable[me] as usize]).ned == 1 {
                         /* I'm the only connection of 'ii' in 'me' */

@@ -28,7 +28,7 @@ use crate::*;
 /* This function is the entry point for MCKMETIS */
 /*************************************************************************/
 #[metis_func]
-pub fn METIS_PartGraphKway(
+pub extern "C" fn METIS_PartGraphKway(
     nvtxs: *mut idx_t,
     ncon: *mut idx_t,
     xadj: *mut idx_t,
@@ -38,7 +38,7 @@ pub fn METIS_PartGraphKway(
     adjwgt: *mut idx_t,
     nparts: *mut idx_t,
     tpwgts: *mut real_t,
-    ubvec: *mut real_t,
+    ubvec: *const real_t,
     options: *mut idx_t,
     objval: *mut idx_t,
     part: *mut idx_t,
@@ -87,7 +87,7 @@ pub fn METIS_PartGraphKway(
     };
 
     /* take care contiguity requests for disconnected graphs */
-    if ctrl.contig != 0 && IsConnected(graph, 0) == 0 {
+    if ctrl.contig != 0 && contig::IsConnected(graph, 0) == 0 {
         panic!(
             "METIS Error: A contiguous partition is requested for a non-contiguous input graph."
         );

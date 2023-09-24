@@ -29,14 +29,7 @@ extern "C" {
         ubvec: *mut real_t,
     ) -> real_t;
     pub fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t;
-    pub fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn FindPartitionInducedComponents(
-        graph: *mut graph_t,
-        where_: *mut idx_t,
-        cptr: *mut idx_t,
-        cind: *mut idx_t,
-    ) -> idx_t;
 
     pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
@@ -53,7 +46,6 @@ extern "C" {
         ffactor: real_t,
         omode: idx_t,
     ) -> std::ffi::c_void;
-    pub fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t;
     pub fn isrand(seed: idx_t) -> std::ffi::c_void;
     pub fn SetupGraph(
         ctrl: *mut ctrl_t,
@@ -381,6 +373,7 @@ pub(crate) const OMODE_BALANCE: std::ffi::c_int = 2;
 
 pub(crate) const COMPRESSION_FRACTION: real_t = 0.85;
 
+/// unused except in binaries
 #[repr(u32)]
 pub enum Optype {
     Kmetis = METIS_OP_KMETIS,
@@ -388,17 +381,37 @@ pub enum Optype {
     Pmetis = METIS_OP_PMETIS,
 }
 
+/// Fun fact: this mean "Objective Type", not "Object Type"
 #[repr(u32)]
 pub enum Objtype {
     Cut = METIS_OBJTYPE_CUT,
     Vol = METIS_OBJTYPE_VOL,
-    Node = METIS_OBJTYPE_NODE,
+    // basically unused
+    // Node = METIS_OBJTYPE_NODE,
 }
 
 #[repr(u32)]
 pub enum Iptype {
     Grow = METIS_IPTYPE_GROW,
     Random = METIS_IPTYPE_RANDOM,
+    Edge = METIS_IPTYPE_EDGE,
+    Node = METIS_IPTYPE_NODE,
+    Rb = METIS_IPTYPE_METISRB,
+}
+
+/// only used in node recursive dissection
+#[repr(u32)]
+pub enum Rtype {
+    Greedy = METIS_RTYPE_GREEDY,
+    Fm = METIS_RTYPE_FM,
+    Sep2Sided = METIS_RTYPE_SEP2SIDED,
+    Sep1Sided = METIS_RTYPE_SEP1SIDED,
+}
+
+#[repr(u32)]
+pub enum Ctype {
+    Rm = METIS_CTYPE_RM,
+    Shem = METIS_CTYPE_SHEM,
 }
 
 /// we won't be using core

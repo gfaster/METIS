@@ -1,12 +1,93 @@
 #![allow(clippy::let_and_return)]
 
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::format_ident;
-use syn::{ItemFn, Token};
+use syn::{ItemFn, Token, Visibility};
 
 #[proc_macro_attribute]
-pub fn metis_func(_input: TokenStream, annotated_item: TokenStream) -> TokenStream {
-    let mut item_fn = syn::parse_macro_input!(annotated_item as ItemFn);
+pub fn metis_func(input: TokenStream, annotated_item: TokenStream) -> TokenStream {
+    let item_fn = syn::parse_macro_input!(annotated_item as ItemFn);
+    if input.is_empty() {
+        metis_func_normal(item_fn)
+    } else {
+        let directive = syn::parse_macro_input!(input as Ident);
+        let directive_text = directive.to_string();
+        if directive_text != "disabled" {
+            panic!("unknown directive {directive_text} (try \"disabled\")");
+        }
+        metis_func_disabled(item_fn, directive.span())
+    }
+}
+fn metis_func_disabled(item_fn: ItemFn, directive_span: Span) -> TokenStream {
+    let mut item_fn = item_fn;
+    let fn_name = &item_fn.sig.ident;
+
+    let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {
+        attrs: item_fn.attrs.clone(),
+        vis: syn::parse_quote!(pub),
+        sig: item_fn.sig.clone(),
+        semi_token: Token![;](proc_macro2::Span::call_site()),
+    };
+    foreign.sig.ident = format_ident!("libmetis__{}", fn_name);
+    // foreign.sig.ident = item_fn.sig.ident.clone();
+    foreign.sig.ident.set_span(fn_name.span());
+    foreign.sig.abi = None;
+    foreign.sig.unsafety = None;
+
+
+    // let link_func = format!("libmetis__{}", fn_name);
+
+    item_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
+    item_fn.vis = Visibility::Inherited;
+
+    let sig = item_fn.sig.clone();
+    let call = foreign.sig.ident.clone();
+    let name = fn_name.to_string();
+
+    let args_dec: Vec<_> = item_fn
+        .sig
+        .inputs
+        .iter()
+        .map(|i| match i {
+            syn::FnArg::Typed(syn::PatType { pat, .. }) => pat,
+            _ => panic!("metis extern functions can't take self"),
+        })
+        .collect();
+
+    let dual_link_err = quote::quote_spanned!{directive_span=>
+        #[cfg(not(feature = "dual_link"))]
+        compile_error!(concat!(#name, " is disabled and requires dual_link"));
+    };
+
+    // foreign block is so ab_tests can still call out to those functions
+    let output: TokenStream = quote::quote! {
+        extern "C" {
+            #[allow(clippy::too_many_arguments)]
+            #foreign
+        }
+
+        #dual_link_err
+
+        #[allow(non_snake_case, clippy::too_many_arguments)]
+        pub #sig {
+            #call ( #(#args_dec),*)
+        }
+
+
+        #[cfg(any())]
+        #[allow(non_snake_case, clippy::too_many_arguments, dead_code)]
+        #item_fn
+    }
+    .into();
+
+    // eprintln!("{}", output);
+
+    output
+}
+
+fn metis_func_normal(item_fn: ItemFn) -> TokenStream {
+    let mut item_fn = item_fn;
     let fn_name = &item_fn.sig.ident;
 
     let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {

@@ -88,6 +88,8 @@
 /*-------------------------------------------------------------
  * ASSERTS that cannot be turned off!
  *-------------------------------------------------------------*/
+void trigger_panic(char *msg);
+
 #define GKASSERT(expr)                                          \
     if (!(expr)) {                                               \
         printf("***ASSERTION failed on line %d of file %s: " #expr "\n", \
@@ -136,12 +138,14 @@
 /*-------------------------------------------------------------
  * Program Assertions
  *-------------------------------------------------------------*/
+
 #ifndef NDEBUG
 #   define ASSERT(expr)                                          \
     if (!(expr)) {                                               \
-        printf("***ASSERTION failed on line %d of file %s: " #expr "\n", \
+        char * panic_str = malloc(1024); \
+        snprintf(panic_str, 1024, "***ASSERTION failed on line %d of file %s: " #expr "\n", \
               __LINE__, __FILE__);                               \
-        assert(expr);                                                \
+        trigger_panic(panic_str); \
     }
 
 #   define ASSERTP(expr,msg)                                          \

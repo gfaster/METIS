@@ -867,11 +867,11 @@ pub extern "C" fn MoveGroupContigForVol(
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
         let mut k = 0;
-        for kk in (0)..(myrinfo.nnbrs as usize) {
-            k = kk;
+        while k < myrinfo.nnbrs as usize {
             if mynbrs[k].pid == to {
                 break;
             }
+            k += 1;
         }
         if k as idx_t == myrinfo.nnbrs {
             if myrinfo.nid > 0 {
@@ -890,11 +890,11 @@ pub extern "C" fn MoveGroupContigForVol(
                     /* Same subdomain vertex: Decrease the gain if 'to' is a new neighbor. */
 
                     let mut l = 0;
-                    for ll in (0)..(orinfo.nnbrs) {
-                        l = ll;
+                    while l < orinfo.nnbrs {
                         if onbrs[l as usize].pid == to {
                             break;
                         }
+                        l += 1;
                     }
                     if l == orinfo.nnbrs {
                         xgain -= vsize[ii];
@@ -902,16 +902,16 @@ pub extern "C" fn MoveGroupContigForVol(
                 } else {
                     /* Remote vertex: increase if 'to' is a new subdomain */
                     {
-                    let mut l = 0;
-                    for ll in (0)..(orinfo.nnbrs) {
-                        l = ll;
-                        if onbrs[l as usize].pid == to {
-                            break;
+                        let mut l = 0;
+                        while l < orinfo.nnbrs {
+                            if onbrs[l as usize].pid == to {
+                                break;
+                            }
+                            l += 1;
                         }
-                    }
-                    if l == orinfo.nnbrs {
-                        xgain -= vsize[ii];
-                    }
+                        if l == orinfo.nnbrs {
+                            xgain -= vsize[ii];
+                        }
                     }
 
                     /* Remote vertex: decrease if i is the only connection to 'from' */
@@ -938,8 +938,9 @@ pub extern "C" fn MoveGroupContigForVol(
             get_graph_slices!(graph => vwgt);
             get_graph_slices_mut!(ctrl, graph => pwgts);
             let ncon = graph.ncon;
-            blas::iaxpy( ncon as usize, 1, &vwgt [cntrng!(i as idx_t * ncon, ncon)], 1, &mut pwgts[cntrng!(to * ncon, ncon)], 1,);
-            blas::iaxpy( ncon as usize, -1, &vwgt [cntrng!(i as idx_t * ncon, ncon)], 1,&mut pwgts[cntrng!(to * ncon, ncon)], 1,);
+            let i = i as idx_t;
+            blas::iaxpy( ncon as usize, 1, &vwgt [cntrng!(i * ncon, ncon)], 1, &mut pwgts[cntrng!(to * ncon, ncon)], 1,);
+            blas::iaxpy( ncon as usize, -1, &vwgt [cntrng!(i * ncon, ncon)], 1,&mut pwgts[cntrng!(from * ncon, ncon)], 1,);
         }
 
         /* Update the id/ed/gains/bnd of potentially affected nodes */
