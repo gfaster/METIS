@@ -313,6 +313,9 @@ macro_rules! slice_len {
     ($ctrl:expr, $graph:expr, invtvwgt) => {
         $graph.ncon
     };
+    ($ctrl:expr, $graph:expr, label) => {
+        $graph.nvtxs
+    };
 }
 
 #[macro_export]

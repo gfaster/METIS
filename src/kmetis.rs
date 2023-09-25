@@ -242,7 +242,7 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     match ctrl.objtype {
         METIS_OBJTYPE_CUT | METIS_OBJTYPE_VOL => {
             options[METIS_OPTION_NCUTS as usize] = ctrl.nIparts;
-            status = METIS_PartGraphRecursive(
+            status = pmetis::METIS_PartGraphRecursive(
                 &mut graph.nvtxs,
                 &mut graph.ncon,
                 graph.xadj,

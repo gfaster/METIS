@@ -43,7 +43,7 @@ fn main() {
     let mut options = [-1; METIS_NOPTIONS as usize];
 
     let _res = unsafe {
-        METIS_PartGraphRecursive(
+        pmetis::METIS_PartGraphRecursive(
             &mut nvtxs as *mut _,
             &mut ncon as *mut _,
             xadj.as_mut_ptr(),
@@ -78,7 +78,7 @@ fn playground_can_utilize_lib() {
     let mut options = [-1; METIS_NOPTIONS as usize];
 
     let res = unsafe {
-        METIS_PartGraphRecursive(
+        pmetis::METIS_PartGraphRecursive(
             &mut nvtxs as *mut _,
             &mut ncon as *mut _,
             xadj.as_mut_ptr(),

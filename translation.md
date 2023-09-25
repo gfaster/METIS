@@ -130,10 +130,10 @@ is the end of the first pass.
 
 METIS handles local heap allocations (that are freed at end of scope) as follows:
 ```C
-WSPACEPUSH;
+WCOREPUSH;
 var = iwspacemalloc(ctrl, cnt);
 // ...
-WSPACEPOP;
+WCOREPOP;
 ```
 All workspace allocations will be freed at end of scope. I'm not quite sure if
 this is the case for `imalloc` (wrapper for `gk_malloc`), but I don't quite
@@ -202,6 +202,9 @@ mkslice!(cwhere: cgraph->where_, nvtxs);
 
 ## 8. Replacing function calls
 first, we want to replace function calls to existing modules with their qualified syntax:
+
+for example: 
+
 ```rust
 ProjectKWayPartition( /* ... */ );
 ```

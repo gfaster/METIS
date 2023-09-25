@@ -85,8 +85,8 @@ use crate::*;
 
 */
 /*************************************************************************/
-#[metis_func]
-pub extern "C" fn METIS_PartGraphRecursive(
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn METIS_PartGraphRecursive(
     nvtxs: *mut idx_t,
     ncon: *mut idx_t,
     xadj: *mut idx_t,
@@ -96,25 +96,26 @@ pub extern "C" fn METIS_PartGraphRecursive(
     adjwgt: *mut idx_t,
     nparts: *mut idx_t,
     tpwgts: *mut real_t,
-    ubvec: *mut real_t,
+    ubvec: *const real_t,
     options: *mut idx_t,
     objval: *mut idx_t,
     part: *mut idx_t,
-) -> int {
+) -> std::ffi::c_int {
     // int sigrval=0, renumber=0;
     // graph_t *graph;
     // ctrl_t *ctrl;
 
     /* set up malloc cleaning code and signal catchers */
-    if (!gk_malloc_init()) {
+    if (gk_malloc_init() != 0) {
         return METIS_ERROR_MEMORY;
     }
 
     /* set up the run parameters */
-    ctrl = SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
-    if (!ctrl) {
+    let ctrl = SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
+    if (ctrl.is_null()) {
         return METIS_ERROR_INPUT;
     }
+    let ctrl = ctrl.as_mut().unwrap();
 
     /* if required, change the numbering to 0 */
     // no.
@@ -124,32 +125,34 @@ pub extern "C" fn METIS_PartGraphRecursive(
     // }
 
     /* set up the graph */
-    graph = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph = graph.as_mut().unwrap();
 
     /* allocate workspace memory */
     AllocateWorkSpace(ctrl, graph);
 
     /* start the partitioning */
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.TotalTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.TotalTmr));
 
-    iset(*nvtxs, 0, part);
+    // iset(*nvtxs, 0, part);
+    mkslice_mut!(part, *nparts);
+    part.fill(0);
     *objval = (if *nparts == 1 {
         0
     } else {
-        MlevelRecursiveBisection(ctrl, graph, *nparts, part, ctrl.tpwgts, 0)
+        MlevelRecursiveBisection(ctrl, graph, *nparts, part.as_mut_ptr(), ctrl.tpwgts, 0)
     });
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.TotalTmr));
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.TotalTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    FreeCtrl(&ctrl);
+    FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
 
-    gk_siguntrap();
-    gk_malloc_cleanup(0);
+    // gk_malloc_cleanup(0);
 
-    return metis_rcode(sigrval);
+    return util::metis_rcode(0);
 }
 
 /*************************************************************************/
@@ -165,80 +168,125 @@ pub extern "C" fn MlevelRecursiveBisection(
     tpwgts: *mut real_t,
     fpart: idx_t,
 ) -> idx_t {
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, j, nvtxs, ncon, objval;
     // idx_t *label, *where_;
     // graph_t *lgraph, *rgraph;
     // real_t wsum, *tpwgts2;
 
-    if ((nvtxs = graph.nvtxs) == 0) {
-        printf(concat!(
+    let nparts = nparts as usize;
+    let nvtxs = graph.nvtxs as usize;
+    if (nvtxs == 0) {
+        print!(concat!(
             "\t***Cannot bisect a graph with 0 vertices!\n",
             "\t***You are trying to partition a graph into too many parts!\n"
         ));
         return 0;
     }
 
-    ncon = graph.ncon;
+    let ncon = graph.ncon as usize;
+
+    mkslice_mut!(part, nparts as usize);
 
     /* determine the weights of the two partitions as a function of the weight of the
     target partition weights */
-    WCOREPUSH;
-    tpwgts2 = rwspacemalloc(ctrl, 2 * ncon);
+    // WCOREPUSH;
+    let mut tpwgts2 = vec![0.0; 2 * ncon as usize];
+    mkslice_mut!(tpwgts, ncon * ctrl.nparts as usize);
     for i in (0)..(ncon) {
-        tpwgts2[i] = rsum((nparts >> 1), tpwgts + i, ncon);
+        // tpwgts2[i] = rsum((nparts >> 1), tpwgts + i, ncon);
+        tpwgts2[i] = tpwgts[i..]
+            .iter()
+            .step_by(ncon)
+            .take((nparts as usize) >> 1)
+            .sum();
         tpwgts2[ncon + i] = 1.0 - tpwgts2[i];
     }
 
     /* perform the bisection */
-    objval = MultilevelBisect(ctrl, graph, tpwgts2);
+    let mut objval = MultilevelBisect(ctrl, graph, tpwgts2.as_mut_ptr());
 
-    WCOREPOP;
+    // WCOREPOP;
 
-    label = graph.label;
-    where_ = graph.where_;
+    // label = graph.label;
+    // where_ = graph.where_;
+    get_graph_slices_mut!(graph => label where_);
     for i in (0)..(nvtxs) {
-        part[label[i]] = where_[i] + fpart;
+        part[label[i] as usize] = where_[i] + fpart;
     }
 
+    let mut lgraph: *mut graph_t = std::ptr::null_mut();
+    let mut rgraph: *mut graph_t = std::ptr::null_mut();
+
     if (nparts > 2) {
-        SplitGraphPart(ctrl, graph, &lgraph, &rgraph);
+        SplitGraphPart(
+            ctrl,
+            graph,
+            &mut lgraph as *mut *mut graph_t,
+            &mut rgraph as *mut *mut graph_t,
+        );
     }
 
     /* Free the memory of the top level graph */
-    FreeGraph(&graph);
+    FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
 
     /* Scale the fractions in the tpwgts according to the true weight */
     for i in (0)..(ncon) {
-        wsum = rsum((nparts >> 1), tpwgts + i, ncon);
-        rscale((nparts >> 1), 1.0 / wsum, tpwgts + i, ncon);
-        rscale(
-            nparts - (nparts >> 1),
-            1.0 / (1.0 - wsum),
-            tpwgts + (nparts >> 1) * ncon + i,
-            ncon,
-        );
+        // wsum = rsum((nparts >> 1), tpwgts + i, ncon);
+        let wsum: real_t = tpwgts[i..]
+            .iter()
+            .step_by(ncon)
+            .take((nparts as usize) >> 1)
+            .sum();
+        // rscale((nparts >> 1), 1.0 / wsum, tpwgts + i, ncon);
+        tpwgts[i..]
+            .iter_mut()
+            .step_by(ncon)
+            .take((nparts as usize) >> 1)
+            .map(|w| *w *= 1.0 / wsum)
+            .last();
+        // rscale(
+        //     nparts - (nparts >> 1),
+        //     1.0 / (1.0 - wsum),
+        //     tpwgts + (nparts >> 1) * ncon + i,
+        //     ncon,
+        // );
+        tpwgts[((nparts >> 1) * ncon + i)..]
+            .iter_mut()
+            .step_by(ncon)
+            .take(nparts - (nparts >> 1))
+            .map(|w| *w *= 1.0 / (1.0 - wsum))
+            .last();
     }
 
     /* Do the recursive call */
     if (nparts > 3) {
-        objval += MlevelRecursiveBisection(ctrl, lgraph, (nparts >> 1), part, tpwgts, fpart);
+        objval += MlevelRecursiveBisection(
+            ctrl,
+            lgraph,
+            (nparts >> 1) as idx_t,
+            part.as_mut_ptr(),
+            tpwgts.as_mut_ptr(),
+            fpart,
+        );
         objval += MlevelRecursiveBisection(
             ctrl,
             rgraph,
-            nparts - (nparts >> 1),
-            part,
-            tpwgts + (nparts >> 1) * ncon,
-            fpart + (nparts >> 1),
+            (nparts - (nparts >> 1)) as idx_t,
+            part.as_mut_ptr(),
+            tpwgts[((nparts >> 1) * ncon)..].as_mut_ptr(),
+            (fpart as usize + (nparts >> 1)) as idx_t,
         );
     } else if (nparts == 3) {
-        FreeGraph(&lgraph);
+        FreeGraph(&mut lgraph as *mut *mut graph_t);
         objval += MlevelRecursiveBisection(
             ctrl,
             rgraph,
-            nparts - (nparts >> 1),
-            part,
-            tpwgts + (nparts >> 1) * ncon,
-            fpart + (nparts >> 1),
+            (nparts - (nparts >> 1)) as idx_t,
+            part.as_mut_ptr(),
+            tpwgts[(nparts >> 1) * ncon..].as_mut_ptr(),
+            (fpart as usize + (nparts >> 1)) as idx_t,
         );
     }
 
@@ -254,32 +302,42 @@ pub extern "C" fn MultilevelBisect(
     graph: *mut graph_t,
     tpwgts: *mut real_t,
 ) -> idx_t {
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, niparts, bestobj=0, curobj=0, *bestwhere_=NULL;
     // graph_t *cgraph;
     // real_t bestbal=0.0, curbal=0.0;
 
     Setup2WayBalMultipliers(ctrl, graph, tpwgts);
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
+    let mut bestobj = 0;
+
+    let mut bestwhere_: Vec<_>;
     if (ctrl.ncuts > 1) {
-        bestwhere_ = iwspacemalloc(ctrl, graph.nvtxs);
+        bestwhere_ = vec![0; graph.nvtxs as usize];
+    } else {
+        bestwhere_ = vec![];
     }
 
+    let mut bestbal = 0.0;
+    let mut curobj = 0;
     for i in (0)..(ctrl.ncuts) {
         let cgraph = CoarsenGraph(ctrl, graph);
+        let cgraph = cgraph.as_mut().unwrap();
 
         let niparts = (if cgraph.nvtxs <= ctrl.CoarsenTo {
             SMALLNIPARTS
         } else {
             LARGENIPARTS
         });
-        Init2WayPartition(ctrl, cgraph, tpwgts, niparts);
+        initpart::Init2WayPartition(ctrl, cgraph, tpwgts, niparts);
 
         Refine2Way(ctrl, graph, cgraph, tpwgts);
 
         curobj = graph.mincut;
-        curbal = ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
+        let curbal = ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
 
         if (i == 0
             || (curbal <= 0.0005 && bestobj > curobj)
@@ -288,7 +346,9 @@ pub extern "C" fn MultilevelBisect(
             bestobj = curobj;
             bestbal = curbal;
             if (i < ctrl.ncuts - 1) {
-                icopy(graph.nvtxs, graph.where_, bestwhere_);
+                // icopy(graph.nvtxs, graph.where_, bestwhere_);
+                get_graph_slices!(graph => where_);
+                bestwhere_.copy_from_slice(where_);
             }
         }
 
@@ -302,11 +362,14 @@ pub extern "C" fn MultilevelBisect(
     }
 
     if (bestobj != curobj) {
-        icopy(graph.nvtxs, bestwhere_, graph.where_);
+        // icopy(graph.nvtxs, bestwhere_, graph.where_);
+        get_graph_slices_mut!(graph => where_);
+        where_.copy_from_slice(&bestwhere_);
+
         Compute2WayPartitionParams(ctrl, graph);
     }
 
-    WCOREPOP;
+    // WCOREPOP;
 
     return bestobj;
 }
@@ -320,7 +383,9 @@ pub extern "C" fn SplitGraphPart(
     graph: *mut graph_t,
     r_lgraph: *mut *mut graph_t,
     r_rgraph: *mut *mut graph_t,
-) -> void {
+) -> () {
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, j, k, l, istart, iend, mypart, nvtxs, ncon, snvtxs[2], snedges[2];
     // idx_t *xadj, *vwgt, *adjncy, *adjwgt, *label, *where_, *bndptr;
     // idx_t *sxadj[2], *svwgt[2], *sadjncy[2], *sadjwgt[2], *slabel[2];
@@ -328,105 +393,133 @@ pub extern "C" fn SplitGraphPart(
     // idx_t *auxadjncy, *auxadjwgt;
     // graph_t *lgraph, *rgraph;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.SplitTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.SplitTmr));
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    label = graph.label;
-    where_ = graph.where_;
-    bndptr = graph.bndptr;
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon;
 
-    ASSERT(bndptr != NULL);
+    assert!(!graph.bndptr.is_null());
 
-    rename = iwspacemalloc(ctrl, nvtxs);
+    get_graph_slices!(graph => xadj vwgt adjncy adjwgt where_ bndptr label);
 
-    snvtxs[0] = snvtxs[1] = snedges[0] = snedges[1] = 0;
+    let mut rename = vec![0; nvtxs as usize];
+
+    let mut snvtxs = [0, 0];
+    let mut snedges = [0, 0];
     for i in (0)..(nvtxs) {
-        k = where_[i];
+        let k = where_[i] as usize;
         rename[i] = snvtxs[k];
         snvtxs[k] += 1;
         snedges[k] += xadj[i + 1] - xadj[i];
     }
 
-    lgraph = SetupSplitGraph(graph, snvtxs[0], snedges[0]);
-    sxadj[0] = lgraph.xadj;
-    svwgt[0] = lgraph.vwgt;
-    sadjncy[0] = lgraph.adjncy;
-    sadjwgt[0] = lgraph.adjwgt;
-    slabel[0] = lgraph.label;
+    let lgraph = SetupSplitGraph(graph, snvtxs[0], snedges[0]);
+    // sxadj[0] = lgraph.xadj;
+    // svwgt[0] = lgraph.vwgt;
+    // sadjncy[0] = lgraph.adjncy;
+    // sadjwgt[0] = lgraph.adjwgt;
+    // slabel[0] = lgraph.label;
 
-    rgraph = SetupSplitGraph(graph, snvtxs[1], snedges[1]);
-    sxadj[1] = rgraph.xadj;
-    svwgt[1] = rgraph.vwgt;
-    sadjncy[1] = rgraph.adjncy;
-    sadjwgt[1] = rgraph.adjwgt;
-    slabel[1] = rgraph.label;
+    let rgraph = SetupSplitGraph(graph, snvtxs[1], snedges[1]);
+    // sxadj[1] = rgraph.xadj;
+    // svwgt[1] = rgraph.vwgt;
+    // sadjncy[1] = rgraph.adjncy;
+    // sadjwgt[1] = rgraph.adjwgt;
+    // slabel[1] = rgraph.label;
+    let sxadj = {
+        [
+            std::slice::from_raw_parts_mut((*lgraph).xadj, snvtxs[0] as usize + 1),
+            std::slice::from_raw_parts_mut((*rgraph).xadj, snvtxs[1] as usize + 1),
+        ]
+    };
+    let svwgt = {
+        [
+            std::slice::from_raw_parts_mut((*lgraph).vwgt, (snvtxs[0] * ctrl.ncon) as usize),
+            std::slice::from_raw_parts_mut((*rgraph).vwgt, (snvtxs[1] * ctrl.ncon) as usize),
+        ]
+    };
+    let sadjncy = {
+        [
+            std::slice::from_raw_parts_mut((*lgraph).adjncy, snedges[0] as usize),
+            std::slice::from_raw_parts_mut((*rgraph).adjncy, snedges[1] as usize),
+        ]
+    };
+    let sadjwgt = {
+        [
+            std::slice::from_raw_parts_mut((*lgraph).adjwgt, snedges[0] as usize),
+            std::slice::from_raw_parts_mut((*rgraph).adjwgt, snedges[1] as usize),
+        ]
+    };
+    let slabel = {
+        [
+            std::slice::from_raw_parts_mut((*lgraph).label, snvtxs[0] as usize),
+            std::slice::from_raw_parts_mut((*rgraph).label, snvtxs[1] as usize),
+        ]
+    };
 
-    snvtxs[0] = snvtxs[1] = snedges[0] = snedges[1] = 0;
-    sxadj[0][0] = sxadj[1][0] = 0;
+    let mut snvtxs = [0, 0];
+    let mut snedges = [0, 0];
     for i in (0)..(nvtxs) {
-        mypart = where_[i];
+        let mypart = where_[i] as usize;
 
-        istart = xadj[i];
-        iend = xadj[i + 1];
+        let istart = xadj[i];
+        let iend = xadj[i + 1];
         if (bndptr[i] == -1) {
             /* This is an interior vertex */
-            auxadjncy = sadjncy[mypart] + snedges[mypart] - istart;
-            auxadjwgt = sadjwgt[mypart] + snedges[mypart] - istart;
+            let auxadjncy = &mut sadjncy[mypart][(snedges[mypart] - istart) as usize..];
+            let auxadjwgt = &mut sadjwgt[mypart][(snedges[mypart] - istart) as usize..];
             for j in (istart)..(iend) {
+                let j = j as usize;
                 auxadjncy[j] = adjncy[j];
                 auxadjwgt[j] = adjwgt[j];
             }
             snedges[mypart] += iend - istart;
         } else {
-            auxadjncy = sadjncy[mypart];
-            auxadjwgt = sadjwgt[mypart];
-            l = snedges[mypart];
+            // auxadjncy = sadjncy[mypart];
+            // auxadjwgt = sadjwgt[mypart];
+            let mut l = snedges[mypart] as usize;
             for j in (istart)..(iend) {
-                k = adjncy[j];
-                if (where_[k] == mypart) {
-                    auxadjncy[l] = k;
-                    auxadjwgt[l] = adjwgt[j];
+                let k = adjncy[j as usize];
+                if (where_[k as usize] == mypart as idx_t) {
+                    sadjncy[mypart][l] = k;
+                    sadjwgt[mypart][l] = adjwgt[j as usize];
                     l += 1
                 }
             }
-            snedges[mypart] = l;
+            snedges[mypart] = l as idx_t;
         }
 
         /* copy vertex weights */
         for k in (0)..(ncon) {
-            svwgt[mypart][snvtxs[mypart] * ncon + k] = vwgt[i * ncon + k];
+            svwgt[mypart][(snvtxs[mypart] * ncon + k) as usize] =
+                vwgt[(i as idx_t * ncon + k) as usize];
         }
 
-        slabel[mypart][snvtxs[mypart]] = label[i];
+        slabel[mypart][snvtxs[mypart] as usize] = label[i];
         snvtxs[mypart] += 1;
-        sxadj[mypart][snvtxs[mypart]] = snedges[mypart];
+        sxadj[mypart][snvtxs[mypart] as usize] = snedges[mypart];
     }
 
     for mypart in (0)..(2) {
-        iend = sxadj[mypart][snvtxs[mypart]];
-        auxadjncy = sadjncy[mypart];
-        for i in (0)..(iend) {
-            auxadjncy[i] = rename[auxadjncy[i]];
+        let iend = sxadj[mypart][snvtxs[mypart] as usize];
+        // let auxadjncy = &mut sadjncy[mypart];
+        for i in (0)..(iend as usize) {
+            sadjncy[mypart][i] = rename[sadjncy[mypart][i] as usize];
         }
     }
 
-    lgraph.nedges = snedges[0];
-    rgraph.nedges = snedges[1];
+    (*lgraph).nedges = snedges[0];
+    (*rgraph).nedges = snedges[1];
 
     SetupGraph_tvwgt(lgraph);
     SetupGraph_tvwgt(rgraph);
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.SplitTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.SplitTmr));
 
     *r_lgraph = lgraph;
     *r_rgraph = rgraph;
 
-    WCOREPOP;
+    // WCOREPOP;
 }

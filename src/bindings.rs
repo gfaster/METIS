@@ -141,6 +141,14 @@ extern "C" {
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
 
+    pub fn Refine2Way(
+        ctrl: *mut ctrl_t,
+        orggraph: *mut graph_t,
+        graph: *mut graph_t,
+        rtpwgts: *mut real_t,
+    ) -> std::ffi::c_void;
+    pub fn SetupSplitGraph(graph: *mut graph_t, snvtxs: idx_t, snedges: idx_t) -> *mut graph_t;
+
 }
 
 // replacing c args with rust args (2 commands over visual region)
@@ -166,23 +174,23 @@ extern "C" {
 }
 
 // these don't need metis_decl attrib since they are the public API
-extern "C" {
-    pub fn METIS_PartGraphRecursive(
-        nvtxs: *mut idx_t,
-        ncon: *mut idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        vsize: *mut idx_t,
-        adjwgt: *mut idx_t,
-        nparts: *mut idx_t,
-        tpwgts: *mut real_t,
-        ubvec: *const real_t, // only copied to internal ubfactors array
-        options: *mut idx_t,
-        edgecut: *mut idx_t,
-        part: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
+// extern "C" {
+//     pub fn METIS_PartGraphRecursive(
+//         nvtxs: *mut idx_t,
+//         ncon: *mut idx_t,
+//         xadj: *mut idx_t,
+//         adjncy: *mut idx_t,
+//         vwgt: *mut idx_t,
+//         vsize: *mut idx_t,
+//         adjwgt: *mut idx_t,
+//         nparts: *mut idx_t,
+//         tpwgts: *mut real_t,
+//         ubvec: *const real_t, // only copied to internal ubfactors array
+//         options: *mut idx_t,
+//         edgecut: *mut idx_t,
+//         part: *mut idx_t,
+//     ) -> ::std::os::raw::c_int;
+// }
 // extern "C" {
 //     pub fn METIS_PartGraphKway(
 //         nvtxs: *mut idx_t,
@@ -397,6 +405,9 @@ pub(crate) const OMODE_REFINE: std::ffi::c_int = 1;
 pub(crate) const OMODE_BALANCE: std::ffi::c_int = 2;
 
 pub(crate) const COMPRESSION_FRACTION: real_t = 0.85;
+
+pub(crate) const LARGENIPARTS: idx_t = 7;
+pub(crate) const SMALLNIPARTS: idx_t = 5;
 
 /// unused except in binaries
 #[repr(u32)]
