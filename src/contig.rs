@@ -249,7 +249,7 @@ pub extern "C" fn IsConnectedSubdomain(
             if where_[i] == pid {
                 break;
             }
-            i+= 1;
+            i += 1;
         }
         touched[i as usize] = 1;
         queue[0] = i;
@@ -270,7 +270,7 @@ pub extern "C" fn IsConnectedSubdomain(
                 if where_[i] == pid && touched[i] == 0 {
                     break;
                 }
-                i+=1;
+                i += 1;
             }
             queue[last] = i;
             last += 1;
@@ -683,7 +683,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                                 cptr.as_mut_ptr(),
                                 cind.as_mut_ptr(),
                             );
-                        },
+                        }
 
                         METIS_OBJTYPE_VOL => {
                             MoveGroupContigForVol(
@@ -697,7 +697,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                                 pmarker.as_mut_ptr(),
                                 modind.as_mut_ptr(),
                             );
-                        },
+                        }
 
                         _ => panic!("Unknown objtype {}", ctrl.objtype),
                     }
@@ -902,10 +902,7 @@ pub extern "C" fn MoveGroupContigForVol(
     let gid = gid as usize;
 
     debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    debug_assert_eq!(
-        ComputeVolume(graph, where_.as_ptr()),
-        graph.minvol,
-    );
+    debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
 
     for iii in (ptr[gid])..(ptr[gid + 1]) {
         let i = ind[iii as usize] as usize;
@@ -1044,8 +1041,5 @@ pub extern "C" fn MoveGroupContigForVol(
     }
 
     assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    assert_eq!(
-        ComputeVolume(graph, where_.as_ptr()),
-        graph.minvol,
-    );
+    assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
 }

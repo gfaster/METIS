@@ -168,8 +168,7 @@ pub fn metis_decl(_input: TokenStream, annotated_item: TokenStream) -> TokenStre
             let args = &item_fn.sig.inputs;
             let ret_type = &item_fn.sig.output;
 
-            ext_signature.sig.ident =
-                syn::Ident::new(&link_func_str, rust_func.span());
+            ext_signature.sig.ident = syn::Ident::new(&link_func_str, rust_func.span());
             ext_signature.vis = syn::Visibility::Inherited;
             let extern_decl: TokenStream = quote::quote! {
                 extern "C" {

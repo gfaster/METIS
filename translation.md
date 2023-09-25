@@ -4,16 +4,17 @@ I recommend recording a macro that yanks and executes a command from this
 document.
 
 ## 1. Replace most necessary tokens
-At the top of the file, add the following line:
-```rust
-use crate::*;
-```
 
-Then run these commands
+First, run these commands
 ```
 :%s/where/where_/g
 :%s/->/./g
 :%s/\/\*!/\/*
+```
+
+Then, at the top of the file, replace the include with:
+```rust
+use crate::*;
 ```
 Properly accounting for `->` replacement is done in a later step.
 
@@ -62,6 +63,10 @@ let ctrl = ctrl.as_mut().unwrap();
 ```
 - for blocks of graph pointer references, use the `get_graph_slices` and
   `get_graph_slices_mut` macros.
+
+```
+:g/\v^  (int|(\w*_t)) /norm gcc
+```
 
 Convert:
 ```c
@@ -305,3 +310,8 @@ with some simple style things like `if` statement parentheses.
 
 - we use a ton of casting to `usize`, but remember that `idx_t` is signed and
   often negative
+
+- often a loop iterator is used outside the loop, typically to do something if
+  it didn't break. A for loop cannot be used here because the iterator will not
+  ever equal the end bounds, even if it reaches the end. Use a while loop with
+  increment at the end of the block.

@@ -529,7 +529,7 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
                     mynbrs[k].ed += ($ewgt);
                     break;
                 }
-                k+=1;
+                k += 1;
             }
             if (k == $myrinfo.nnbrs as usize) {
                 mynbrs[k].pid = $to;

@@ -20,6 +20,7 @@ pub mod contig;
 pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
+pub mod pmetis;
 
 pub(crate) mod blas;
 pub(crate) mod pqueue;
