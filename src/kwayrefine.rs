@@ -125,8 +125,12 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     /* Deal with contiguity requirement at the end */
     (*ctrl).contig = contig;
     if contig != 0
-        && contig::FindPartitionInducedComponents(graph, (*graph).where_, ptr::null_mut(), ptr::null_mut())
-            > (*ctrl).nparts
+        && contig::FindPartitionInducedComponents(
+            graph,
+            (*graph).where_,
+            ptr::null_mut(),
+            ptr::null_mut(),
+        ) > (*ctrl).nparts
     {
         contig::EliminateComponents(ctrl, graph);
     }
@@ -326,9 +330,8 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             {
                 // memset((*graph).vkrinfo, 0, sizeof(vkrinfo_t) * nvtxs);
                 // cnbrpool operations may realloc, so we can't leave this be
-                let amyrinfo: &mut [vkrinfo_t] =
-                    slice::from_raw_parts_mut(graph.vkrinfo, nvtxs as usize);
-                amyrinfo.fill_with(std::default::Default::default);
+                get_graph_slices_mut!(graph => vkrinfo);
+                vkrinfo.fill_with(std::default::Default::default);
             }
             // memset((*graph).ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
             // vkrinfo_t * myrinfo;
@@ -574,7 +577,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                         let mynbrs = slice::from_raw_parts_mut(
                             ctrl.vnbrpool.add(myrinfo.inbr as usize),
                             // (nvtxs - myrinfo.inbr) as usize,
-                            myrinfo.nnbrs as usize + 1
+                            myrinfo.nnbrs as usize + 1,
                         );
                         if me == other {
                             tid += 1;
@@ -603,7 +606,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                         let mynbrs = slice::from_raw_parts_mut(
                             ctrl.vnbrpool.add(myrinfo.inbr as usize),
                             // (nvtxs - myrinfo.inbr) as usize,
-                            myrinfo.nnbrs as usize + 1
+                            myrinfo.nnbrs as usize + 1,
                         );
                         for j in 0..myrinfo.nnbrs {
                             htable[mynbrs[j as usize].pid as usize] = -1;
@@ -762,13 +765,18 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     }
                 } else {
                     let me = me as usize;
-                    assert!(ophtable[me] != -1,
+                    assert!(
+                        ophtable[me] != -1,
                         concat!(
                             "vtx {i} is adj to vtx {ii} but {ii}'s neighboring subdomains' ",
                             "partitions do not include {i}'s (part = {me}).\n",
                             "vtx {ii}'s neighbors' partitions are {nbr:?}",
                         ),
-                        i=i, ii=ii, me=me, nbr=(onbrs.iter().map(|d| d.pid).collect::<Vec<_>>()));
+                        i = i,
+                        ii = ii,
+                        me = me,
+                        nbr = (onbrs.iter().map(|d| d.pid).collect::<Vec<_>>())
+                    );
 
                     if (onbrs[ophtable[me] as usize]).ned == 1 {
                         /* I'm the only connection of 'ii' in 'me' */

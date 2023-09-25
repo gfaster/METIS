@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::idx_t;
 
 /// ?axpy routine - standard to Level 1 BLAS routines

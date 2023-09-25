@@ -27,8 +27,8 @@ use crate::*;
 /*************************************************************************/
 /* This function is the entry point for MCKMETIS */
 /*************************************************************************/
-#[metis_func]
-pub extern "C" fn METIS_PartGraphKway(
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn METIS_PartGraphKway(
     nvtxs: *mut idx_t,
     ncon: *mut idx_t,
     xadj: *mut idx_t,

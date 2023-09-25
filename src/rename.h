@@ -111,6 +111,9 @@
 /* kmetis.c */
 #define MlevelKWayPartitioning		libmetis__MlevelKWayPartitioning
 #define InitKWayPartitioning            libmetis__InitKWayPartitioning
+#define BlockKWayPartitioning           libmetis__BlockKWayPartitioning
+#define GrowMultisection                libmetis__GrowMultisection
+#define BalanceAndRefineLP              libmetis__BalanceAndRefineLP
 
 /* kwayfm.c */
 #define Greedy_KWayOptimize		libmetis__Greedy_KWayOptimize

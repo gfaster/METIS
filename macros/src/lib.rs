@@ -35,7 +35,6 @@ fn metis_func_disabled(item_fn: ItemFn, directive_span: Span) -> TokenStream {
     foreign.sig.abi = None;
     foreign.sig.unsafety = None;
 
-
     // let link_func = format!("libmetis__{}", fn_name);
 
     item_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
@@ -55,9 +54,9 @@ fn metis_func_disabled(item_fn: ItemFn, directive_span: Span) -> TokenStream {
         })
         .collect();
 
-    let dual_link_err = quote::quote_spanned!{directive_span=>
-        #[cfg(not(feature = "dual_link"))]
-        compile_error!(concat!(#name, " is disabled and requires dual_link"));
+    let dual_link_err = quote::quote_spanned! {directive_span=>
+        #[cfg(not(any(feature = "dual_link", feature = "no_rs")))]
+        compile_error!(concat!(#name, " is disabled and requires dual_link or no_rs features"));
     };
 
     // foreign block is so ab_tests can still call out to those functions
@@ -105,14 +104,33 @@ fn metis_func_normal(item_fn: ItemFn) -> TokenStream {
 
     item_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
 
+    let sig = item_fn.sig.clone();
+    let call = foreign.sig.ident.clone();
+    let args_dec: Vec<_> = item_fn
+        .sig
+        .inputs
+        .iter()
+        .map(|i| match i {
+            syn::FnArg::Typed(syn::PatType { pat, .. }) => pat,
+            _ => panic!("metis extern functions can't take self"),
+        })
+        .collect();
+
     // foreign block is so ab_tests can still call out to those functions
     let output: TokenStream = quote::quote! {
-        #[cfg(feature = "dual_link")]
+        #[cfg(any(feature = "dual_link", feature = "no_rs"))]
         extern "C" {
             #[allow(clippy::too_many_arguments)]
             #foreign
         }
 
+        #[cfg(feature = "no_rs")]
+        #[allow(non_snake_case, clippy::too_many_arguments)]
+        pub #sig {
+            #call ( #(#args_dec),*)
+        }
+
+        #[cfg(not(feature = "no_rs"))]
         #[cfg_attr(not(feature = "dual_link"), export_name = #link_func)]
         #[allow(non_snake_case, clippy::too_many_arguments)]
         #item_fn
@@ -151,7 +169,7 @@ pub fn metis_decl(_input: TokenStream, annotated_item: TokenStream) -> TokenStre
             let ret_type = &item_fn.sig.output;
 
             ext_signature.sig.ident =
-                syn::Ident::new(&link_func_str, proc_macro2::Span::call_site());
+                syn::Ident::new(&link_func_str, rust_func.span());
             ext_signature.vis = syn::Visibility::Inherited;
             let extern_decl: TokenStream = quote::quote! {
                 extern "C" {
@@ -210,7 +228,7 @@ pub fn ab_test_basic(input: TokenStream, annotated_item: TokenStream) -> TokenSt
 
     let output = quote::quote! {
         mod #mod_name {
-            #[cfg_attr(not(feature = "dual_link"), ignore)]
+            #[cfg_attr(not(feature = "dual_link"), ignore = "requires dual_link")]
             #[test]
             #original_fn_decl {
                 #[cfg(feature = "dual_link")]

@@ -8,7 +8,7 @@
 \version $Id: contig.c 10513 2011-07-07 22:06:03Z karypis $
 */
 
-use core::{slice, ptr};
+use core::{ptr, slice};
 
 use crate::*;
 
@@ -62,8 +62,8 @@ pub extern "C" fn FindPartitionInducedComponents(
 
     /* Find the connected componends induced by the partition */
     let mut ncmps: idx_t = -1;
-    let mut first= 0;
-    let mut last= 0;
+    let mut first = 0;
+    let mut last = 0;
     let mut me = 0;
     let mut nleft = nvtxs;
     while nleft > 0 {
@@ -145,12 +145,14 @@ pub extern "C" fn ComputeBFSOrdering(
     // perm = iincset(nvtxs, 0, vec![0; nvtxs) as usize];
     let mut perm = Vec::from_iter(0..(nvtxs as idx_t));
 
-
     mkslice_mut!(bfsperm, nvtxs);
     // iincset(nvtxs, 0, bfsperm); /* this array will also store the vertices
     //                             still to be processed */
-    bfsperm.iter_mut().enumerate().map(|(i, v)| *v = i as idx_t).last();
-
+    bfsperm
+        .iter_mut()
+        .enumerate()
+        .map(|(i, v)| *v = i as idx_t)
+        .last();
 
     /* Find the connected componends induced by the partition */
     let mut first = 0;
@@ -194,7 +196,8 @@ pub extern "C" fn ComputeBFSOrdering(
 pub extern "C" fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t {
     // idx_t ncmps;
 
-    let ncmps = FindPartitionInducedComponents(graph, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+    let ncmps =
+        FindPartitionInducedComponents(graph, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
 
     if ncmps != 1 && report != 0 {
         println!(
@@ -240,16 +243,18 @@ pub extern "C" fn IsConnectedSubdomain(
         }
     }
 
-    let mut i = 0;
-    for ii in (0)..(nvtxs) {
-        i = ii;
-        if where_[i] == pid {
-            break;
+    {
+        let mut i = 0;
+        while i < nvtxs {
+            if where_[i] == pid {
+                break;
+            }
+            i+= 1;
         }
+        touched[i as usize] = 1;
+        queue[0] = i;
     }
 
-    touched[i as usize] = 1;
-    queue[0] = i;
     let mut first = 0;
     let mut last = 1;
 
@@ -260,17 +265,19 @@ pub extern "C" fn IsConnectedSubdomain(
             /* Find another starting vertex */
             ncmps += 1;
             cptr[ncmps] = first;
-            for i in (0)..(nvtxs) {
+            let mut i = 0;
+            while i < nvtxs {
                 if where_[i] == pid && touched[i] == 0 {
                     break;
                 }
+                i+=1;
             }
             queue[last] = i;
             last += 1;
             touched[i] = 1;
         }
 
-        i = queue[first];
+        let i = queue[first];
         first += 1;
         for j in (xadj[i])..(xadj[i + 1]) {
             let k = adjncy[j as usize] as usize;
@@ -287,8 +294,7 @@ pub extern "C" fn IsConnectedSubdomain(
     if ncmps > 1 && report != 0 {
         println!(
             "The graph has {:} connected components in partition {:}:\t",
-            ncmps,
-            pid,
+            ncmps, pid,
         );
         get_graph_slices!(graph => vwgt);
         for i in (0)..(ncmps) {
@@ -307,8 +313,6 @@ pub extern "C" fn IsConnectedSubdomain(
         println!("\n");
     }
 
-    // panic!("gk_free((void **)&touched, &queue, &cptr, LTERM)");
-
     // return (ncmps == 1 ? 1 : 0);
     if ncmps == 1 {
         1
@@ -317,14 +321,12 @@ pub extern "C" fn IsConnectedSubdomain(
     }
 }
 
-/*************************************************************************/
-/* This function identifies the number of connected components in a graph
-    that result after removing the vertices that belong to the vertex
-    separator (i.e., graph.where_[i] == 2).
-    The connected component memberships are returned in the CSR-style
-    pair of arrays cptr, cind.
-*/
-/**************************************************************************/
+/// This function identifies the number of connected components in a graph
+/// that result after removing the vertices that belong to the vertex
+/// separator (i.e., graph.where_[i] == 2).
+///
+/// The connected component memberships are returned in the CSR-style
+/// pair of arrays cptr, cind.
 #[metis_func]
 pub extern "C" fn FindSepInducedComponents(
     _ctrl: *mut ctrl_t,
@@ -364,16 +366,16 @@ pub extern "C" fn FindSepInducedComponents(
     }
 
     {
-    let mut i = 0;
-    for ii in (0)..(nvtxs) {
-        i = ii;
-        if where_[i] != 2 {
-            break;
+        let mut i = 0;
+        for ii in (0)..(nvtxs) {
+            i = ii;
+            if where_[i] != 2 {
+                break;
+            }
         }
+        queue[0] = i as idx_t;
+        touched[i] = 1;
     }
-    queue[0] = i as idx_t;
-    touched[i] = 1;
-}
 
     let mut first = 0;
     let mut last = 1;
@@ -416,11 +418,10 @@ pub extern "C" fn FindSepInducedComponents(
     return ncmps as idx_t;
 }
 
-/*************************************************************************/
-/* This function finds all the connected components induced by the
-partitioning vector in graph.where_ and tries to push them around to
-remove some of them. */
-/*************************************************************************/
+/// This function finds all the connected components induced by the partitioning vector in
+/// `graph.where_` and tries to push them around to remove some of them.
+///
+// disabling this function means all but ~36 tests pass
 #[metis_func]
 pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
     let graph = graph.as_mut().unwrap();
@@ -441,20 +442,20 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
     // xadj = graph.xadj;
     // adjncy = graph.adjncy;
     // vwgt = graph.vwgt;
-    get_graph_slices!(ctrl, graph=> xadj adjncy vwgt where_ pwgts);
+    get_graph_slices!(ctrl, graph => xadj adjncy vwgt where_ pwgts);
 
     // adjwgt = (ctrl.objtype == METIS_OBJTYPE_VOL ? NULL : graph.adjwgt);
     let adjwgt = if ctrl.objtype == METIS_OBJTYPE_VOL {
-        std::ptr::null()
+        None
     } else {
-        graph.adjwgt
+        Some(slice::from_raw_parts(graph.adjwgt, graph.nedges as usize))
     };
+
     #[derive(Clone, Copy)]
     struct KeyVal {
         key: real_t,
         val: idx_t,
     }
-
 
     // where_ = graph.where_;
     // pwgts = graph.pwgts;
@@ -463,20 +464,22 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
     // unused in original
     // let tpwgts = ctrl.tpwgts;
 
-    // cptr = vec![0; nvtxs + 1 as usize];
-    // cind = vec![0; nvtxs as usize];
     let mut cptr = vec![0; nvtxs + 1];
     let mut cind = vec![0; nvtxs];
 
-    let ncmps = FindPartitionInducedComponents(graph, where_.as_ptr(), cptr.as_mut_ptr(), cind.as_mut_ptr()) as usize;
+    let ncmps = FindPartitionInducedComponents(
+        graph,
+        where_.as_ptr(),
+        cptr.as_mut_ptr(),
+        cind.as_mut_ptr(),
+    ) as usize;
 
     ifset!(
         ctrl.dbglvl,
         METIS_DBG_CONTIGINFO,
         println!(
             "I found {:} components, for this {:}-way partition\n",
-            ncmps,
-            nparts,
+            ncmps, nparts,
         ),
     );
 
@@ -490,7 +493,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         let mut cwhere_: Vec<idx_t> = vec![-1; nvtxs];
         let mut todo = vec![0; ncmps];
         // cand     = (rkv_t *)wspacemalloc(ctrl, nparts*sizeof(rkv_t));
-        let mut cand = vec![KeyVal { key: 0.0, val: 0}; nparts];
+        let mut cand = vec![KeyVal { key: 0.0, val: 0 }; nparts];
 
         let mut modind = Vec::new();
         let mut vmarker = Vec::new();
@@ -526,14 +529,21 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 for j in (pcptr[i])..(pcptr[i + 1]) {
                     let cid = pcind[j as usize];
                     // iset(ncon, 0, cwgt);
-                    cwgt.fill( 0);
-                    for ii in (cptr[cid as usize])..(cptr[cid as usize + 1]) {
-                        blas::iaxpy(ncon, 1, &vwgt[(cind[ii as usize] as usize * ncon)..], 1, &mut cwgt[..], 1);
+                    cwgt.fill(0);
+                    for ii in cptr[cid as usize]..cptr[cid as usize + 1] {
+                        blas::iaxpy(
+                            ncon,
+                            1,
+                            &vwgt[(cind[ii as usize] as usize * ncon)..],
+                            1,
+                            &mut cwgt[..],
+                            1,
+                        );
                     }
                     if bestcid == -1 || bestcwgt.iter().sum::<idx_t>() < cwgt.iter().sum() {
                         bestcid = cid;
                         // icopy(ncon, cwgt, bestcwgt);
-                        bestcwgt.copy_from_slice(& cwgt);
+                        bestcwgt.copy_from_slice(&cwgt);
                     }
                 }
                 /* Keep track of those that need to be dealt with */
@@ -546,7 +556,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
             }
 
             for j in (cptr[bestcid as usize])..(cptr[bestcid as usize + 1]) {
-                assert!(where_[cind[j as usize] as usize] == i as idx_t);
+                assert_eq!(where_[cind[j as usize] as usize], i as idx_t);
                 cwhere_[cind[j as usize] as usize] = i as idx_t;
             }
         }
@@ -559,9 +569,16 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
                 /* Determine the weight of the block to be moved */
                 // iset(ncon, 0, cwgt);
- cwgt.fill( 0);
+                cwgt.fill(0);
                 for j in (cptr[cid as usize])..(cptr[cid as usize + 1]) {
-                    blas::iaxpy(ncon, 1, &vwgt[(cind[j as usize] as usize * ncon)..], 1, &mut cwgt[..], 1);
+                    blas::iaxpy(
+                        ncon,
+                        1,
+                        &vwgt[(cind[j as usize] as usize * ncon)..],
+                        1,
+                        &mut cwgt[..],
+                        1,
+                    );
                 }
 
                 ifset!(
@@ -577,16 +594,15 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
                 /* Determine the connectivity */
                 // iset(nparts, 0, cpvec);
- cpvec.fill( 0);
+                cpvec.fill(0);
                 for j in (cptr[cid as usize])..(cptr[cid as usize + 1]) {
                     let ii = cind[j as usize] as usize;
                     for jj in (xadj[ii])..(xadj[ii + 1]) {
                         let jj = jj as usize;
                         if cwhere_[adjncy[jj] as usize] != -1 {
-                            cpvec[cwhere_[adjncy[jj] as usize] as usize] +=
-                        {
+                            cpvec[cwhere_[adjncy[jj] as usize] as usize] += {
                                 // mkslice!(adjwgt, graph.nedges);
-                                if !adjwgt.is_null() { *adjwgt.add(jj) } else { 1 }
+                                adjwgt.map_or(1, |adjwgt| adjwgt[jj])
                             }
                         }
                     }
@@ -606,14 +622,15 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 }
 
                 // rkvsortd(ncand, cand);
-                cand.sort_unstable_by(|l, r| l.key.partial_cmp(&r.key).unwrap());
+                // cand.sort_unstable_by(|l, r| l.key.partial_cmp(&r.key).unwrap());
+                cand[..ncand].sort_by(|l, r| l.key.partial_cmp(&r.key).unwrap());
 
                 /* Limit the moves to only the top candidates, which are defined as
                 those with connectivity at least 50% of the best.
                 This applies only when ncon=1, as for multi-constraint, balancing
                 will be hard. */
                 if ncon == 1 {
-                    let mut j = 0;
+                    let mut j = 1;
                     for jj in (1)..(ncand) {
                         j = jj;
                         if cand[j].key < 0.5 * cand[0].key {
@@ -633,12 +650,13 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                         cwgt.as_mut_ptr(),
                         ctrl.ubfactors,
                         1,
-                        pwgts[target * ncon..].as_ptr(),
+                        pwgts[(target * ncon)..].as_ptr(),
                         ctrl.pijbm.add(target * ncon),
                         1,
-                        pwgts[ (cand[j].val as usize * ncon)..].as_ptr(),
-                        ctrl.pijbm.add( cand[j].val as usize * ncon),
-                    ) != 0 {
+                        pwgts[(cand[j].val as usize * ncon)..].as_ptr(),
+                        ctrl.pijbm.add(cand[j].val as usize * ncon),
+                    ) != 0
+                    {
                         target = cand[j].val as usize;
                     }
                 }
@@ -648,9 +666,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                     METIS_DBG_CONTIGINFO,
                     println!(
                         "\tMoving it to {:} [{:}] [{:}]\n",
-                        target,
-                        cpvec[target],
-                        ncand,
+                        target, cpvec[target], ncand,
                     ),
                 );
 
@@ -659,14 +675,29 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 if target != me as usize {
                     match ctrl.objtype {
                         METIS_OBJTYPE_CUT => {
-                            MoveGroupContigForCut(ctrl, graph, target as idx_t, cid, cptr.as_mut_ptr(), cind.as_mut_ptr());
-                        }
+                            MoveGroupContigForCut(
+                                ctrl,
+                                graph,
+                                target as idx_t,
+                                cid,
+                                cptr.as_mut_ptr(),
+                                cind.as_mut_ptr(),
+                            );
+                        },
 
                         METIS_OBJTYPE_VOL => {
                             MoveGroupContigForVol(
-                                ctrl, graph, target as idx_t, cid, cptr.as_mut_ptr(), cind.as_mut_ptr(), vmarker.as_mut_ptr(), pmarker.as_mut_ptr(), modind.as_mut_ptr(),
+                                ctrl,
+                                graph,
+                                target as idx_t,
+                                cid,
+                                cptr.as_mut_ptr(),
+                                cind.as_mut_ptr(),
+                                vmarker.as_mut_ptr(),
+                                pmarker.as_mut_ptr(),
+                                modind.as_mut_ptr(),
                             );
-                        }
+                        },
 
                         _ => panic!("Unknown objtype {}", ctrl.objtype),
                     }
@@ -684,7 +715,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 ifset!(
                     ctrl.dbglvl,
                     METIS_DBG_CONTIGINFO,
-                    println!("Stopped at ntodo: {:}\n", ntodo),
+                    println!("Stopped at ntodo: {:}", ntodo),
                 );
                 break;
             }
@@ -710,7 +741,8 @@ pub extern "C" fn MoveGroupContigForCut(
     gid: idx_t,
     ptr: *mut idx_t,
     ind: *mut idx_t,
-){
+) {
+    eprintln!("Called MoveGroupContigForCut");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, nbnd, from, me;
@@ -744,20 +776,23 @@ pub extern "C" fn MoveGroupContigForCut(
             myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
             myrinfo.nnbrs = 0;
         }
-        let mynbrs = std::slice::from_raw_parts_mut(ctrl.cnbrpool.add( myrinfo.inbr as usize), myrinfo.nnbrs as usize + 1);
+        let mynbrs = std::slice::from_raw_parts_mut(
+            ctrl.cnbrpool.add(myrinfo.inbr as usize),
+            myrinfo.nnbrs as usize + 1,
+        );
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
         let mut k = 0;
-        for kk in (0)..(myrinfo.nnbrs) {
-            k = kk as usize;
+        while k < myrinfo.nnbrs as usize {
             if mynbrs[k].pid == to {
                 break;
             }
+            k += 1;
         }
         if k == myrinfo.nnbrs as usize {
             mynbrs[k].pid = to;
             mynbrs[k].ed = 0;
-            myrinfo.nnbrs+=1;
+            myrinfo.nnbrs += 1;
         }
 
         graph.mincut -= mynbrs[k].ed - myrinfo.id;
@@ -767,8 +802,23 @@ pub extern "C" fn MoveGroupContigForCut(
             get_graph_slices!(graph => vwgt);
             get_graph_slices_mut!(ctrl, graph => pwgts);
             let ncon = graph.ncon;
-            blas::iaxpy( ncon as usize, 1, &vwgt [cntrng!(i * ncon as usize, ncon)], 1, &mut pwgts[cntrng!(to * ncon, ncon)], 1,);
-            blas::iaxpy( ncon as usize, -1, &vwgt [cntrng!(i * ncon as usize, ncon)], 1,&mut pwgts[cntrng!(to * ncon, ncon)], 1,);
+            let i = i as idx_t;
+            blas::iaxpy(
+                ncon as usize,
+                1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(to * ncon, ncon)],
+                1,
+            );
+            blas::iaxpy(
+                ncon as usize,
+                -1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(from * ncon, ncon)],
+                1,
+            );
         }
         UpdateMovedVertexInfoAndBND!(
             i,
@@ -811,6 +861,8 @@ pub extern "C" fn MoveGroupContigForCut(
     }
 
     graph.nbnd = nbnd as idx_t;
+    assert!(debug::CheckBnd2(graph) != 0);
+    // assert!(debug::CheckBnd(graph) != 0);
 }
 
 /*************************************************************************/
@@ -829,6 +881,7 @@ pub extern "C" fn MoveGroupContigForVol(
     pmarker: *mut idx_t,
     modind: *mut idx_t,
 ) -> () {
+    eprintln!("Called MoveGroupContigForVol");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, from, me, other, xgain;
@@ -837,7 +890,7 @@ pub extern "C" fn MoveGroupContigForVol(
     // vnbr_t *mynbrs, *onbrs;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(graph => xadj vsize adjncy);
+    get_graph_slices!(graph => xadj vsize adjncy vkrinfo);
     get_graph_slices_mut!(graph => where_);
     // xadj = graph.xadj;
     // vsize = graph.vsize;
@@ -848,6 +901,12 @@ pub extern "C" fn MoveGroupContigForVol(
     mkslice!(ind, nvtxs);
     let gid = gid as usize;
 
+    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(
+        ComputeVolume(graph, where_.as_ptr()),
+        graph.minvol,
+    );
+
     for iii in (ptr[gid])..(ptr[gid + 1]) {
         let i = ind[iii as usize] as usize;
         let from = where_[i];
@@ -857,7 +916,10 @@ pub extern "C" fn MoveGroupContigForVol(
             myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
             myrinfo.nnbrs = 0;
         }
-        let mynbrs = slice::from_raw_parts_mut(ctrl.vnbrpool.add( myrinfo.inbr as usize), myrinfo.nnbrs as usize + 1);
+        let mynbrs = slice::from_raw_parts_mut(
+            ctrl.vnbrpool.add(myrinfo.inbr as usize),
+            myrinfo.nnbrs as usize + 1,
+        );
 
         let mut xgain = if myrinfo.nid == 0 && myrinfo.ned > 0 {
             vsize[i]
@@ -882,8 +944,11 @@ pub extern "C" fn MoveGroupContigForVol(
             for j in (xadj[i])..(xadj[i + 1]) {
                 let ii = adjncy[j as usize] as usize;
                 let other = where_[ii];
-                let orinfo = graph.vkrinfo.add(ii).as_ref().unwrap();
-                let onbrs = slice::from_raw_parts_mut(ctrl.vnbrpool.add(orinfo.inbr as usize), orinfo.nnbrs as usize + 1);
+                let orinfo = &vkrinfo[ii];
+                let onbrs = slice::from_raw_parts_mut(
+                    ctrl.vnbrpool.add(orinfo.inbr as usize),
+                    orinfo.nnbrs as usize + 1,
+                );
                 assert!(other != to);
 
                 if from == other {
@@ -915,7 +980,7 @@ pub extern "C" fn MoveGroupContigForVol(
                     }
 
                     /* Remote vertex: decrease if i is the only connection to 'from' */
-                   for l in (0)..(orinfo.nnbrs as usize) {
+                    for l in (0)..(orinfo.nnbrs as usize) {
                         if onbrs[l].pid == from && onbrs[l].ned == 1 {
                             xgain += vsize[ii];
                             break;
@@ -939,8 +1004,22 @@ pub extern "C" fn MoveGroupContigForVol(
             get_graph_slices_mut!(ctrl, graph => pwgts);
             let ncon = graph.ncon;
             let i = i as idx_t;
-            blas::iaxpy( ncon as usize, 1, &vwgt [cntrng!(i * ncon, ncon)], 1, &mut pwgts[cntrng!(to * ncon, ncon)], 1,);
-            blas::iaxpy( ncon as usize, -1, &vwgt [cntrng!(i * ncon, ncon)], 1,&mut pwgts[cntrng!(from * ncon, ncon)], 1,);
+            blas::iaxpy(
+                ncon as usize,
+                1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(to * ncon, ncon)],
+                1,
+            );
+            blas::iaxpy(
+                ncon as usize,
+                -1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(from * ncon, ncon)],
+                1,
+            );
         }
 
         /* Update the id/ed/gains/bnd of potentially affected nodes */
@@ -966,7 +1045,7 @@ pub extern "C" fn MoveGroupContigForVol(
 
     assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
     assert_eq!(
-        ComputeVolume(graph, where_.as_ptr()), graph.minvol,
-        "{:} {:}\n", ComputeVolume(graph, where_.as_ptr()), graph.minvol,
+        ComputeVolume(graph, where_.as_ptr()),
+        graph.minvol,
     );
 }
