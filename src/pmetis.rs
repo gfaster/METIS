@@ -8,7 +8,7 @@
 \author Copyright 1997-2009, Regents of the University of Minnesota
 \version\verbatim $Id: pmetis.c 10513 2011-07-07 22:06:03Z karypis $ \endverbatim
 */
-use crate::{*, debug::CheckBnd};
+use crate::{debug::CheckBnd, *};
 
 /*************************************************************************/
 /* \ingroup api
@@ -106,14 +106,14 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     // ctrl_t *ctrl;
 
     /* set up malloc cleaning code and signal catchers */
-    if (gk_malloc_init() == 0) {
+    if gk_malloc_init() == 0 {
         eprintln!("memory init error");
         return METIS_ERROR_MEMORY;
     }
 
     /* set up the run parameters */
     let ctrl = SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
-    if (ctrl.is_null()) {
+    if ctrl.is_null() {
         eprintln!("input error");
         return METIS_ERROR_INPUT;
     }
@@ -141,11 +141,11 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     // iset(*nvtxs, 0, part);
     mkslice_mut!(part, *nparts);
     part.fill(0);
-    *objval = (if *nparts == 1 {
+    *objval = if *nparts == 1 {
         0
     } else {
         MlevelRecursiveBisection(ctrl, graph, *nparts, part.as_mut_ptr(), ctrl.tpwgts, 0)
-    });
+    };
 
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.TotalTmr));
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
@@ -180,7 +180,7 @@ pub extern "C" fn MlevelRecursiveBisection(
 
     let nparts = nparts as usize;
     let nvtxs = graph.nvtxs as usize;
-    if (nvtxs == 0) {
+    if nvtxs == 0 {
         print!(concat!(
             "\t***Cannot bisect a graph with 0 vertices!\n",
             "\t***You are trying to partition a graph into too many parts!\n"
@@ -189,7 +189,6 @@ pub extern "C" fn MlevelRecursiveBisection(
     }
 
     let ncon = graph.ncon as usize;
-
 
     /* determine the weights of the two partitions as a function of the weight of the
     target partition weights */
@@ -226,7 +225,7 @@ pub extern "C" fn MlevelRecursiveBisection(
     let mut lgraph: *mut graph_t = std::ptr::null_mut();
     let mut rgraph: *mut graph_t = std::ptr::null_mut();
 
-    if (nparts > 2) {
+    if nparts > 2 {
         SplitGraphPart(
             ctrl,
             graph,
@@ -268,7 +267,7 @@ pub extern "C" fn MlevelRecursiveBisection(
     }
 
     /* Do the recursive call */
-    if (nparts > 3) {
+    if nparts > 3 {
         objval += MlevelRecursiveBisection(
             ctrl,
             lgraph,
@@ -285,7 +284,7 @@ pub extern "C" fn MlevelRecursiveBisection(
             tpwgts[((nparts >> 1) * ncon)..].as_mut_ptr(),
             (fpart as usize + (nparts >> 1)) as idx_t,
         );
-    } else if (nparts == 3) {
+    } else if nparts == 3 {
         FreeGraph(&mut lgraph as *mut *mut graph_t);
         objval += MlevelRecursiveBisection(
             ctrl,
@@ -322,7 +321,7 @@ pub extern "C" fn MultilevelBisect(
     let mut bestobj = 0;
 
     let mut bestwhere_: Vec<_>;
-    if (ctrl.ncuts > 1) {
+    if ctrl.ncuts > 1 {
         bestwhere_ = vec![0; graph.nvtxs as usize];
     } else {
         bestwhere_ = vec![];
@@ -334,11 +333,11 @@ pub extern "C" fn MultilevelBisect(
         let cgraph = CoarsenGraph(ctrl, graph);
         let cgraph = cgraph.as_mut().unwrap();
 
-        let niparts = (if cgraph.nvtxs <= ctrl.CoarsenTo {
+        let niparts = if cgraph.nvtxs <= ctrl.CoarsenTo {
             SMALLNIPARTS
         } else {
             LARGENIPARTS
-        });
+        };
         initpart::Init2WayPartition(ctrl, cgraph, tpwgts, niparts);
 
         Refine2Way(ctrl, graph, cgraph, tpwgts);
@@ -346,29 +345,29 @@ pub extern "C" fn MultilevelBisect(
         curobj = graph.mincut;
         let curbal = ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
 
-        if (i == 0
+        if i == 0
             || (curbal <= 0.0005 && bestobj > curobj)
-            || (bestbal > 0.0005 && curbal < bestbal))
+            || (bestbal > 0.0005 && curbal < bestbal)
         {
             bestobj = curobj;
             bestbal = curbal;
-            if (i < ctrl.ncuts - 1) {
+            if i < ctrl.ncuts - 1 {
                 // icopy(graph.nvtxs, graph.where_, bestwhere_);
                 get_graph_slices!(graph => where_);
                 bestwhere_.copy_from_slice(where_);
             }
         }
 
-        if (bestobj == 0) {
+        if bestobj == 0 {
             break;
         }
 
-        if (i < ctrl.ncuts - 1) {
+        if i < ctrl.ncuts - 1 {
             FreeRData(graph);
         }
     }
 
-    if (bestobj != curobj) {
+    if bestobj != curobj {
         // icopy(graph.nvtxs, bestwhere_, graph.where_);
         get_graph_slices_mut!(graph => where_);
         where_.copy_from_slice(&bestwhere_);
@@ -471,12 +470,14 @@ pub extern "C" fn SplitGraphPart(
 
     let mut snvtxs = [0, 0];
     let mut snedges = [0, 0];
+    sxadj[0][0] = 0;
+    sxadj[1][0] = 0;
     for i in (0)..(nvtxs) {
         let mypart = where_[i] as usize;
 
         let istart = xadj[i];
         let iend = xadj[i + 1];
-        if (bndptr[i] == -1) {
+        if bndptr[i] == -1 {
             /* This is an interior vertex */
 
             // let auxadjncy = &mut sadjncy[mypart][(snedges[mypart] - istart) as usize..];
@@ -500,8 +501,10 @@ pub extern "C" fn SplitGraphPart(
             for j in istart..iend {
                 debug_assert_eq!(where_[adjncy[j as usize] as usize], mypart as idx_t);
             }
-            sadjncy[mypart][cntrng!(snedges[mypart], len)].copy_from_slice(&adjncy[cntrng!(istart, len)]);
-            sadjwgt[mypart][cntrng!(snedges[mypart], len)].copy_from_slice(&adjwgt[cntrng!(istart, len)]);
+            sadjncy[mypart][cntrng!(snedges[mypart], len)]
+                .copy_from_slice(&adjncy[cntrng!(istart, len)]);
+            sadjwgt[mypart][cntrng!(snedges[mypart], len)]
+                .copy_from_slice(&adjwgt[cntrng!(istart, len)]);
             snedges[mypart] += len;
         } else {
             // auxadjncy = sadjncy[mypart];
@@ -537,15 +540,14 @@ pub extern "C" fn SplitGraphPart(
         }
     }
 
-
     (*lgraph).nedges = snedges[0];
     (*rgraph).nedges = snedges[1];
 
     SetupGraph_tvwgt(lgraph);
     SetupGraph_tvwgt(rgraph);
 
-    debug::check_adj(lgraph.as_ref().unwrap());
-    debug::check_adj(rgraph.as_ref().unwrap());
+    debug_assert!(debug::check_adj(lgraph.as_ref().unwrap()));
+    debug_assert!(debug::check_adj(rgraph.as_ref().unwrap()));
 
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.SplitTmr));
 
