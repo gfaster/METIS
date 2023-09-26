@@ -5,6 +5,10 @@
     unused_imports
 )]
 
+// use logging_allocator::LoggingAllocator;
+// #[global_allocator]
+// static ALLOC: LoggingAllocator = LoggingAllocator::new(true);
+
 #[macro_use]
 extern crate macros;
 

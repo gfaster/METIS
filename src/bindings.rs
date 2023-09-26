@@ -169,7 +169,10 @@ pub type ipq_t = std::ffi::c_void;
 extern "C" {
     /// initialize malloc used by most METIS functions
     /// it sets a thread-local variable for the core, so it should be fine to use in tests
+    /// any gk_malloc operations made after calling init will be freed, and calling gk_free on any
+    /// gk_malloc calls made before are not valid to be freed.
     pub fn gk_malloc_init() -> std::ffi::c_int;
+    pub fn gk_malloc_cleanup(showstats: std::ffi::c_int) -> std::ffi::c_void;
     pub fn gk_malloc(size: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
 }
 
@@ -692,7 +695,7 @@ pub struct graph_t {
 
     /// Partition parameters
     ///
-    /// Gavin: Partition weights?
+    /// Partition weights
     pub pwgts: *mut idx_t,
 
     /// Partition parameters

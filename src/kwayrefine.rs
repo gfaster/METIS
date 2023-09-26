@@ -429,6 +429,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     }
 
     /* free the coarse graph's structure (reduce maxmem) */
+    // disabling this since it violates the normally strict wspace rules - so it's hard to deal
+    // with over ffi
     FreeSData(cgraph);
 
     let nvtxs: idx_t = graph.nvtxs;

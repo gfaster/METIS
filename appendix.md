@@ -114,3 +114,16 @@ lind: [ 1,  0,  1,  0,  0]; // now only first two elements are in set
 lptr: [ 1,  0, -1, -1, -1]; // set lptr[4] = -1 and lptr[1] = 0 (4's old pos)
 size = 2;
 ```
+
+### `gk_malloc` and `?wspacemalloc`
+
+`wspacemalloc` has scope defined by `WCOREPUSH` and `WCOREPOP`, where
+`WCOREPOP` frees all `wspacemalloc` calls made since the last `WCOREPUSH`.
+Between these calls, `wspacemalloc` is a bump allocator as long as the core has
+space, otherwise it defers to `gk_malloc`. When `AllocateWorkspace` is called,
+the core used by workspace allocations is created with a best-estimate size.
+
+`gk_malloc` somewhat works similarly but with scope defined by `gk_malloc_init`
+and `gk_malloc_cleanup`. However, unlike the workspace allocations, they can be
+freed individually. It's also worth noting that `gk_free` cannot free any
+allocation made outside of it's init/cleanup scope.

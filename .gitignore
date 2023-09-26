@@ -67,3 +67,5 @@ GKlib/build
 /Cargo.lock
 /macros/target
 /macros/Cargo.lock
+gdb.txt
+out.txt

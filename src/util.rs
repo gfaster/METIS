@@ -322,11 +322,13 @@ macro_rules! slice_len {
 macro_rules! get_graph_slices_mut {
     ($ctrl:expr, $graph:expr => $($val:ident)*) => {
         $(
+            assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts_mut($graph.$val, slice_len!($ctrl, $graph, $val) as usize);
         )*
     };
     ($graph:expr => $($val:ident)*) => {
         $(
+            assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts_mut($graph.$val, slice_len!((), $graph, $val) as usize);
         )*
     };
@@ -336,11 +338,13 @@ macro_rules! get_graph_slices_mut {
 macro_rules! get_graph_slices {
     ($ctrl:expr, $graph:expr => $($val:ident)*) => {
         $(
+            assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts($graph.$val, slice_len!($ctrl, $graph, $val) as usize);
         )*
     };
     ($graph:expr => $($val:ident)*) => {
         $(
+            assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize);
         )*
     };
@@ -548,15 +552,19 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
 #[macro_export]
 macro_rules! mkslice_mut {
     ($struct:ident->$var:ident, $len:expr) => {
+        debug_assert!(!(*$struct).$var.is_null());
         let $var: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
     };
     ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
+        debug_assert!(!(*$struct).$var.is_null());
         let $newvar: &mut [_] = std::slice::from_raw_parts_mut((*$struct).$var, $len as usize);
     };
     ($var:ident, $len:expr) => {
+        debug_assert!(!$var.is_null());
         let $var: &mut [_] = std::slice::from_raw_parts_mut($var, $len as usize);
     };
     ($newvar:ident: $var:expr, $len:expr) => {
+        debug_assert!(!$var.is_null());
         let $newvar: &mut [_] = std::slice::from_raw_parts_mut($var, $len as usize);
     };
 }
@@ -843,6 +851,7 @@ impl Ctrl {
         if inner.is_null() {
             panic!("setup ctrl failed")
         }
+        // unsafe {wspacepush(inner)};
         Ctrl {
             inner,
             graph_parts: Vec::new(),
@@ -886,6 +895,7 @@ impl Drop for Ctrl {
         if self.inner.is_null() {
             panic!("dropped null ctrl")
         } else {
+            // unsafe {wspacepop(inner)};
             unsafe { FreeCtrl(&mut self.inner as *mut _) };
         }
     }

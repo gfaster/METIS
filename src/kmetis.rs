@@ -47,6 +47,8 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     // let renumber: std::ffi::c_int = 0;
 
     /* set up malloc cleaning code and signal catchers */
+    // seems like calls to malloc init begin a scope where only allocations made within the scope
+    // are able to be freed (using gk_malloc/gk_free).
     if gk_malloc_init() == 0 {
         return METIS_ERROR_MEMORY;
     }
@@ -119,6 +121,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
 
     /* clean up */
     FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
+    gk_malloc_cleanup(0);
 
     util::metis_rcode(sigrval)
 }

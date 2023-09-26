@@ -135,13 +135,11 @@ var = iwspacemalloc(ctrl, cnt);
 // ...
 WCOREPOP;
 ```
-All workspace allocations will be freed at end of scope. I'm not quite sure if
-this is the case for `imalloc` (wrapper for `gk_malloc`), but I don't quite
-think that's the case. Regardless, we can typically replace these with
-`Vecs<_>`.
+All workspace allocations will be freed at end of scope. `gk_malloc`
+allocations will be freed on `gk_malloc_cleanup`, but they can be freed
+earlier. It'll be fine to replace all these calls at the end.
 
-Until I figure out for sure, **Don't use local `Vec`s for allocations made with
-`gk_malloc`**
+
 
 ```
 :%s/\viset\(([^,]+), (-?\d), iwspacemalloc\(ctrl, .+\)\);/vec![\2; \1 as usize];/g

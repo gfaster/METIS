@@ -70,3 +70,34 @@ pub extern "C" fn CheckBnd2(graph: *const graph_t) -> idx_t {
 
     1
 }
+
+#[track_caller]
+pub unsafe fn check_adj(graph: &graph_t) -> bool {
+    get_graph_slices!(graph => xadj adjncy);
+
+    let nvtxs = graph.nvtxs as usize;
+
+    assert_eq!(adjncy.len(), xadj[nvtxs] as usize);
+    assert_eq!(adjncy.len(), graph.nedges as usize);
+
+    let mut seen = vec![false; nvtxs];
+    let mut seenlist = vec![];
+    for (vtx, [istart, iend]) in xadj.windows(2).map(|a| [a[0], a[1]]).enumerate() {
+        assert!(istart <= iend, "vtx {vtx} edges start after end ({istart} > {iend})");
+        assert!(istart >= 0, "vtx {vtx} start is {istart}");
+        assert!(iend <= adjncy.len() as idx_t, "vtx {vtx} end ({iend}) is out of adjncy ({})", adjncy.len());
+        let adjrng = (istart as usize)..(iend as usize);
+        for &adj in &adjncy[adjrng] {
+            assert_ne!(vtx, adj as usize, "vtx {vtx} has self loop");
+            assert!(adj >= 0 && (adj as usize) < nvtxs, "vtx {vtx} has out bounds edge to {adj} (max: {nvtxs})");
+            assert!(!seen[adj as usize], "vtx {vtx} has duplicate edge to {adj}");
+            seen[adj as usize] = true;
+            seenlist.push(adj);
+        }
+        for i in seenlist.drain(..) {
+            seen[i as usize] = false;
+        }
+    }
+
+    true
+}

@@ -7,9 +7,9 @@ partitioning schemes developed in our lab.
 
 This repository is my attempt of porting METIS to Rust file-by-file, line-by-line.
 
-As of 2023-09-19 (`cefc01b`), 2,554 of 15,644 lines of C code have been ported
-(not including header files, using `wc`) - that means 13,090 to go. It has
-taken 5,826 lines of Rust code to achieve this.
+As of 2023-09-26, 3,869 of 15,645 lines of C code have been ported
+(not including header files, using `wc`) - that means 11,776 to go. It has
+taken 8,376 lines of Rust code to achieve this.
 
 Check [`translation.md`](./translation.md) for my porting process.
 
@@ -34,35 +34,18 @@ To build METIS you can follow the instructions below:
 
 ### Dependencies
 
-General dependencies for building this METIS refactor are: gcc, GNUmake, cmake, build-essential, Rust, and Cargo. 
+General dependencies for building this METIS refactor are: gcc, Rust, and Cargo. 
 In Ubuntu systems these can be obtained from the apt package manager (e.g., apt-get install make, etc) 
 
 ```
 sudo apt-get install build-essential
-sudo apt-get install make
-sudo apt-get install cmake
 ```
 
 Rust and Cargo should be installed via [`rustup`](https://rustup.rs/)
 
 ### Building
 
-3. `cd` to `METIS/GKlib` and run `make config` and then `make install`
-4. return to the parent directory (`METIS`)
-5. run `cargo build` and/or `cargo test`
-
-full commands, assuming `gcc`, `cmake`, `build-essential`, `rustc`, and `cargo` are already installed:
-```sh
-git clone https://github.com/gfaster/METIS
-cd METIS
-
-# should be changed properly, but just in case
-cd GKlib && make config prefix=../install 
-
-make install
-cd ..
-cargo test
-```
+1. run `cargo build` and/or `cargo test`
 
 
 ## Copyright & License Notice

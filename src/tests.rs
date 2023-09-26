@@ -363,9 +363,9 @@ macro_rules! part_test_hyper_set {
 // appears to be an issue in the original as well.
 
 // Kmetis only allows Grow and Rb initial partitioning
-part_test_hyper_set!(METIS_PartGraphKway as kwayvol => [{Vol}, {Grow, Rb}, {Rm, Shem}]);
-part_test_hyper_set!(METIS_PartGraphKway as kwaycut => [{Cut}, {Grow, Rb}, {Rm, Shem}, {Contig, None}]);
+part_test_hyper_set!(METIS_PartGraphKway as kmetisvol => [{Vol}, {Grow, Rb}, {Rm, Shem}]);
+part_test_hyper_set!(METIS_PartGraphKway as kmetiscut => [{Cut}, {Grow, Rb}, {Rm, Shem}, {Contig, None}]);
 
 // Communication volume is illegal on PMETIS routines
 // Edge and Node initial partitioning also illegal in PMETIS
-part_test_hyper_set!(METIS_PartGraphRecursive as recursive => [{Cut}, {Grow, Random}, {Rm, Shem}]);
+part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random}, {Rm, Shem}]);
