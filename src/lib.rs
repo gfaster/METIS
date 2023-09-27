@@ -19,6 +19,7 @@ pub mod bucketsort;
 pub mod debug_rs;
 pub use debug_rs as debug;
 pub mod balance;
+pub mod coarsen;
 pub mod compress;
 pub mod contig;
 pub mod initpart;

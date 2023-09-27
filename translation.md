@@ -40,6 +40,7 @@ Then finally, to declare the function and set the return type:
 replace most bracketless if and for statements
 ```
 g/\v^ *(for|if) ?\([^{]*\n.*;/norm jVSB
+g/\v^ *else *\n[^{]*;/norm jVSB
 ```
 
 Replacing `switch` with `match`
@@ -52,6 +53,11 @@ Generally don't need brackets on `default` case, need to manually replace
 `break` statements with `},`. We can't use regex since there might be a loop
 with a `break` inside of it. Also be weary of fallthrough cases adding an extra
 open bracket with the above substitution.
+
+Most ternary statements can be fixed using this:
+```
+%s/\v\(([^?:]*)\?([^?:]*):([^?:]*)\);$/(if \1 { \2 } else { \3 });
+```
 
 ## 4. Fix variable declarations
 In each function:
@@ -121,6 +127,11 @@ increment and decrement
 
 :g/--\w\+/norm f-xxyiw0pwi-=1;
 :g/\w\+--/norm f-xxhyiw$pA-=1;
+```
+
+Print statment formatting can be mostly fixed with this:
+```
+:%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g
 ```
 
 With this, all syntax errors should be fixed. After you run `cargo fmt`, this
@@ -219,7 +230,6 @@ can pick and choose for the second.
 ```
 :%s/IFSET/ifset!/I
 :%s/ASSERTP\=/assert!/I
-:%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
 :g/\vgk_%(start|stop)cputimer/normal gcc
