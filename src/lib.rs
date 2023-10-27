@@ -29,6 +29,8 @@ pub mod pmetis;
 
 pub(crate) mod blas;
 pub(crate) mod pqueue;
+pub(crate) mod defs;
+use defs::*;
 
 #[macro_use]
 pub mod util;

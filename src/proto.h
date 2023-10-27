@@ -36,7 +36,7 @@ int CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy,
 graph_t *FixGraph(graph_t *graph);
 
 
-/* coarsen.c */
+/* coarsen.c - Ported */
 graph_t *CoarsenGraph(ctrl_t *ctrl, graph_t *graph);
 graph_t *CoarsenGraphNlevels(ctrl_t *ctrl, graph_t *graph, idx_t nlevels);
 idx_t Match_RM(ctrl_t *ctrl, graph_t *graph);

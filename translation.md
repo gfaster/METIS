@@ -202,6 +202,13 @@ mkslice!(graph->xadj, nvtxs);
 // let xadj = std::slice::from_raw_parts((*graph).xadj, {nvtxs} as usize);
 ```
 
+becuase slice indexing is like, super annoying, try this:
+```
+:%s/\v\[([^=\]]*[-+*/ ][^=\]]*)\]/[(\1) as usize]/g
+:%s/\v\[(\w+)\]/[\1 as usize]/g
+:%s/\]\]/] as usize]/
+```
+
 To change the name (also works without field access):
 ```rust
 mkslice!(cwhere: cgraph->where_, nvtxs);
@@ -233,6 +240,7 @@ can pick and choose for the second.
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
 :g/\vgk_%(start|stop)cputimer/normal gcc
+:g/WCORE\%\(PUSH\|POP\)/norm gcc
 :%s/\vgk_errexit\(\w+, =/panic!(/
 :%s/\vsizeof\((\w+)\)/std::mem::size_of::<\1>()/g
 

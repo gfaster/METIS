@@ -15,10 +15,12 @@
  */
 
 // CHECK THE TODO COMMENTS DANGIT
+// I know there will be issues, and it's probably going to be there!
 
 use crate::*;
 
 const UNMATCHEDFOR2HOP: f32 = 0.10; /* The fraction of unmatched vertices that triggers 2-hop */
+const UNMATCHED: i32 = -1;
 
 /*************************************************************************/
 /* This function takes a graph and creates a sequence of coarser graphs.
@@ -27,30 +29,34 @@ const UNMATCHEDFOR2HOP: f32 = 0.10; /* The fraction of unmatched vertices that t
 /*************************************************************************/
 #[metis_func]
 pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut graph_t {
+let ctrl = ctrl.as_mut().unwrap();
+    let mut graph = graph;
     // idx_t i, eqewgts, level=0;
 
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_startcputimer(ctrl.CoarsenTmr),
-    );
+    // ifset!(
+    //     ctrl.dbglvl,
+    //     METIS_DBG_TIME,
+    //     gk_startcputimer(ctrl.CoarsenTmr),
+    // );
 
     /* determine if the weights on the edges are all the same */
-    eqewgts = 1;
-    for i in (1)..(graph.nedges) {
-        if (graph.adjwgt[0] != graph.adjwgt[i]) {
+    let mut eqewgts = 1;
+    get_graph_slices!(*graph => adjwgt tvwgt);
+    for i in (1)..((*graph).nedges) {
+        if (adjwgt[0 as usize] != adjwgt[i as usize]) {
             eqewgts = 0;
             break;
         }
     }
 
     /* set the maximum allowed coarsest vertex weight */
-    for i in (0)..(graph.ncon) {
-        ctrl.maxvwgt[i] = 1.5 * graph.tvwgt[i] / ctrl.CoarsenTo;
+    for i in (0)..((*graph).ncon) {
+        // ctrl.maxvwgt[i as usize] = 1.5 * tvwgt[i as usize] / ctrl.CoarsenTo;
+        *ctrl.maxvwgt.add(i as usize) = 3 * tvwgt[i as usize] / (2 * ctrl.CoarsenTo);
     }
-
+    let mut level = 0;
     loop {
-        IFSET(
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_COARSEN,
             PrintCGraphStats(ctrl, graph),
@@ -58,50 +64,49 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
 
         /* allocate memory for cmap, if it has not already been done due to
         multiple cuts */
-        if (graph.cmap == NULL) {
-            graph.cmap = imalloc(graph.nvtxs, "CoarsenGraph: graph.cmap");
+        if ((*graph).cmap.is_null()) {
+            (*graph).cmap = imalloc((*graph).nvtxs as usize, "CoarsenGraph: graph.cmap\0".as_ptr()) as _;
         }
 
         /* determine which matching scheme you will use */
         match (ctrl.ctype) {
             METIS_CTYPE_RM => Match_RM(ctrl, graph),
             METIS_CTYPE_SHEM => {
-                if (eqewgts || graph.nedges == 0) {
-                    Match_RM(ctrl, graph);
+                if (eqewgts != 0 || (*graph).nedges == 0) {
+                    Match_RM(ctrl, graph)
                 } else {
-                    Match_SHEM(ctrl, graph);
+                    Match_SHEM(ctrl, graph)
                 }
             }
-            _ => gk_errexit(SIGERR, "Unknown ctype: %d\n", ctrl.ctype),
-        }
+            _ => panic!("Unknown ctype: {}", ctrl.ctype),
+        };
 
         graph_WriteToDisk(ctrl, graph);
 
-        graph = graph.coarser;
+        graph = (*graph).coarser;
         eqewgts = 0;
-        level;
         level += 1;
 
-        ASSERT(CheckGraph(graph, 0, 1));
+        assert!(CheckGraph(graph, 0, 1) != 0);
 
-        if (!(graph.nvtxs > ctrl.CoarsenTo
-            && graph.nvtxs < COARSEN_FRACTION * graph.finer.nvtxs
-            && graph.nedges > graph.nvtxs / 2))
+        if (!((*graph).nvtxs > ctrl.CoarsenTo
+            && ((*graph).nvtxs as real_t) < COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
+            && (*graph).nedges > (*graph).nvtxs / 2))
         {
             break;
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_COARSEN,
         PrintCGraphStats(ctrl, graph),
     );
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_stopcputimer(ctrl.CoarsenTmr),
-    );
+    // ifset!(
+    //     ctrl.dbglvl,
+    //     METIS_DBG_TIME,
+    //     gk_stopcputimer(ctrl.CoarsenTmr),
+    // );
 
     return graph;
 }
@@ -117,30 +122,35 @@ pub extern "C" fn CoarsenGraphNlevels(
     graph: *mut graph_t,
     nlevels: idx_t,
 ) -> *mut graph_t {
+let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, eqewgts, level;
 
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_startcputimer(ctrl.CoarsenTmr),
-    );
+    // ifset!(
+    //     ctrl.dbglvl,
+    //     METIS_DBG_TIME,
+    //     gk_startcputimer(ctrl.CoarsenTmr),
+    // );
 
     /* determine if the weights on the edges are all the same */
-    eqewgts = 1;
-    for i in (1)..(graph.nedges) {
-        if (graph.adjwgt[0] != graph.adjwgt[i]) {
-            eqewgts = 0;
-            break;
+    let mut eqewgts = 1;
+    {
+        let graph = graph.as_mut().unwrap();
+        get_graph_slices!(graph => adjwgt tvwgt);
+        for i in (1)..(graph.nedges) {
+            if (adjwgt[0 as usize] != adjwgt[i as usize]) {
+                eqewgts = 0;
+                break;
+            }
+        }
+
+        /* set the maximum allowed coarsest vertex weight */
+        for i in (0)..(graph.ncon) {
+            *ctrl.maxvwgt.add(i as usize) = 3 * tvwgt[i as usize] / (2 * ctrl.CoarsenTo);
         }
     }
 
-    /* set the maximum allowed coarsest vertex weight */
-    for i in (0)..(graph.ncon) {
-        ctrl.maxvwgt[i] = 1.5 * graph.tvwgt[i] / ctrl.CoarsenTo;
-    }
-
     for level in (0)..(nlevels) {
-        IFSET(
+        ifset!(
             ctrl.dbglvl,
             METIS_DBG_COARSEN,
             PrintCGraphStats(ctrl, graph),
@@ -148,48 +158,48 @@ pub extern "C" fn CoarsenGraphNlevels(
 
         /* allocate memory for cmap, if it has not already been done due to
         multiple cuts */
-        if (graph.cmap == NULL) {
-            graph.cmap = imalloc(graph.nvtxs, "CoarsenGraph: graph.cmap");
+        if ((*graph).cmap.is_null()) {
+            (*graph).cmap = imalloc((*graph).nvtxs as usize, "CoarsenGraph: graph.cmap\0".as_ptr()) as _;
         }
 
         /* determine which matching scheme you will use */
         match (ctrl.ctype) {
             METIS_CTYPE_RM => Match_RM(ctrl, graph),
             METIS_CTYPE_SHEM => {
-                if (eqewgts || graph.nedges == 0) {
-                    Match_RM(ctrl, graph);
+                if (eqewgts != 0 || (*graph).nedges == 0) {
+                    Match_RM(ctrl, graph)
                 } else {
-                    Match_SHEM(ctrl, graph);
+                    Match_SHEM(ctrl, graph)
                 }
             }
-            _ => gk_errexit(SIGERR, "Unknown ctype: %d\n", ctrl.ctype),
-        }
+            _ => panic!("Unknown ctype: {}", ctrl.ctype),
+        };
 
         graph_WriteToDisk(ctrl, graph);
 
-        graph = graph.coarser;
+        graph = (*graph).coarser;
         eqewgts = 0;
 
-        ASSERT(CheckGraph(graph, 0, 1));
+        assert!(CheckGraph(graph, 0, 1) != 0);
 
-        if (graph.nvtxs < ctrl.CoarsenTo
-            || graph.nvtxs > COARSEN_FRACTION * graph.finer.nvtxs
-            || graph.nedges < graph.nvtxs / 2)
+        if ((*graph).nvtxs < ctrl.CoarsenTo
+            || ((*graph).nvtxs as real_t)> COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
+            || (*graph).nedges < (*graph).nvtxs / 2)
         {
             break;
         }
     }
 
-    IFSET(
+    ifset!(
         ctrl.dbglvl,
         METIS_DBG_COARSEN,
         PrintCGraphStats(ctrl, graph),
     );
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_stopcputimer(ctrl.CoarsenTmr),
-    );
+    // ifset!(
+        // ctrl.dbglvl,
+        // METIS_DBG_TIME,
+        // gk_stopcputimer(ctrl.CoarsenTmr),
+    // );
 
     return graph;
 }
@@ -201,147 +211,157 @@ pub extern "C" fn CoarsenGraphNlevels(
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx,
     // last_unmatched, avgdegree, bnum;
     // idx_t *xadj, *vwgt, *adjncy, *adjwgt, *maxvwgt;
-    // idx_t *match__, *cmap, *degrees, *perm, *tperm;
+    // idx_t *match_, *cmap, *degrees, *perm, *tperm;
     // size_t nunmatched=0;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    cmap = graph.cmap;
+    
+    get_graph_slices!(graph => adjwgt cmap adjncy vwgt xadj);
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon as usize;
+    // xadj = graph.xadj;
+    // vwgt = graph.vwgt;
+    // adjncy = graph.adjncy;
+    // adjwgt = graph.adjwgt;
+    // cmap = graph.cmap;
 
-    maxvwgt = ctrl.maxvwgt;
+    mkslice!(ctrl->maxvwgt, ncon * nvtxs);
 
-    match__ = iset(nvtxs, UNMATCHED, iwspacemalloc(ctrl, nvtxs));
-    perm = iwspacemalloc(ctrl, nvtxs);
-    tperm = iwspacemalloc(ctrl, nvtxs);
-    degrees = iwspacemalloc(ctrl, nvtxs);
+    let mut match_ = vec![UNMATCHED as i32; nvtxs];
+    let mut perm = vec![0; nvtxs];
+    let mut tperm = vec![0; nvtxs];
+    let mut degrees = vec![0; nvtxs];
 
     /* Determine a "random" traversal order that is biased towards
     low-degree vertices */
-    irandArrayPermute(nvtxs, tperm, nvtxs / 8, 1);
+    irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    avgdegree = 4.0 * (xadj[nvtxs] / nvtxs);
+    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
     for i in (0)..(nvtxs) {
-        bnum = sqrt(1 + xadj[i + 1] - xadj[i]);
-        degrees[i] = (if bnum > avgdegree { avgdegree } else { bnum });
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
+        degrees[i as usize] = (if bnum > avgdegree { avgdegree } else { bnum });
     }
-    BucketSortKeysInc(ctrl, nvtxs, avgdegree, degrees, tperm, perm);
+    bucketsort::BucketSortKeysInc(ctrl, nvtxs as idx_t, avgdegree, degrees.as_ptr(), tperm.as_ptr(), perm.as_mut_ptr());
 
     /* Traverse the vertices and compute the matching */
-    cnvtxs = 0;
-    last_unmatched = 0;
+    let mut cnvtxs = 0;
+    let mut last_unmatched: usize = 0;
+    let mut nunmatched: usize = 0;
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
+        let i = perm[pi as usize] as usize;
 
-        if (match__[i] == UNMATCHED) {
+        if (match_[i as usize] == UNMATCHED) {
             /* Unmatched */
-            maxidx = i;
+            let mut maxidx = i;
 
             if (if (ncon == 1) {
-                vwgt[i] < maxvwgt[0]
+                vwgt[i as usize] < maxvwgt[0 as usize]
             } else {
-                ivecle(ncon, vwgt + i * ncon, maxvwgt)
+                // ivecle(ncon, vwgt[(i as usize * ncon)..], maxvwgt)
+                util::ivecle(&vwgt[cntrng!(i * ncon, ncon)], maxvwgt)
             }) {
-                /* Deal with island vertices. Find a non-island and match__ it with.
+                /* Deal with island vertices. Find a non-island and match_ it with.
                 The matching ignores ctrl.maxvwgt requirements */
-                if (xadj[i] == xadj[i + 1]) {
+                if (xadj[i as usize] == xadj[(i + 1) as usize]) {
                     // last_unmatched=gk_max(pi, last_unmatched)+1;
-                    for last_unmatched in (gk_max(pi, last_unmatched) + 1)..(nvtxs) {
-                        j = perm[last_unmatched];
-                        if (match__[j] == UNMATCHED) {
+                    last_unmatched = pi.max(last_unmatched) + 1;
+                    while last_unmatched < nvtxs {
+                        let j = perm[last_unmatched as usize] as usize;
+                        if (match_[j] == UNMATCHED) {
                             maxidx = j;
                             break;
                         }
+                        last_unmatched += 1;
                     }
                 } else {
                     /* Find a random matching, subject to maxvwgt constraints */
                     if (ncon == 1) {
                         /* single constraint version */
-                        for j in (xadj[i])..(xadj[i + 1]) {
-                            k = adjncy[j];
-                            if (match__[k] == UNMATCHED && vwgt[i] + vwgt[k] <= maxvwgt[0]) {
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let k = adjncy[j as usize] as usize;
+                            if (match_[k] == UNMATCHED && vwgt[i as usize] + vwgt[k] <= maxvwgt[0 as usize]) {
                                 maxidx = k;
                                 break;
                             }
                         }
 
-                        /* If it did not match__, record for a 2-hop matching. */
-                        if (maxidx == i && 2 * vwgt[i] < maxvwgt[0]) {
-                            nunmatched;
+                        /* If it did not match_, record for a 2-hop matching. */
+                        if (maxidx == i && 2 * vwgt[i as usize] < maxvwgt[0 as usize]) {
                             nunmatched += 1;
-                            maxidx = UNMATCHED;
+                            maxidx = (UNMATCHED as isize) as usize;
                         }
                     } else {
                         /* multi-constraint version */
-                        for j in (xadj[i])..(xadj[i + 1]) {
-                            k = adjncy[j];
-                            if (match__[k] == UNMATCHED
-                                && ivecaxpylez(ncon, 1, vwgt + i * ncon, vwgt + k * ncon, maxvwgt))
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let k = adjncy[j as usize] as usize;
+                            if (match_[k as usize] == UNMATCHED
+                                // && ivecaxpylez(ncon, 1, vwgt[(i as usize * ncon)..], vwgt[(k * ncon)..], maxvwgt))
+                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt))
                             {
                                 maxidx = k;
                                 break;
                             }
                         }
 
-                        /* If it did not match__, record for a 2-hop matching. */
+                        /* If it did not match_, record for a 2-hop matching. */
                         if (maxidx == i
-                            && ivecaxpylez(ncon, 2, vwgt + i * ncon, vwgt + i * ncon, maxvwgt))
+                            // && ivecaxpylez(ncon, 2, vwgt[(i * ncon)..], vwgt[(i * ncon)..], maxvwgt))
+                            && util::ivecaxpylez( 2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], maxvwgt))
                         {
-                            nunmatched;
                             nunmatched += 1;
-                            maxidx = UNMATCHED;
+                            maxidx = (UNMATCHED as isize) as usize;
                         }
                     }
                 }
             }
 
-            if (maxidx != UNMATCHED) {
-                cmap[i] = cmap[maxidx] = cnvtxs;
+            if (maxidx as idx_t != UNMATCHED) {
+                cmap[maxidx] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
-                match__[i] = maxidx;
-                match__[maxidx] = i;
+                match_[i as usize] = maxidx as idx_t;
+                match_[maxidx as usize] = i as idx_t;
             }
         }
     }
 
-    //printf("nunmatched: %zu\n", nunmatched);
+    //println!("nunmatched: %zu", nunmatched);
 
     /* see if a 2-hop matching is required/allowed */
-    if (!ctrl.no2hop && nunmatched > UNMATCHEDFOR2HOP * nvtxs) {
-        cnvtxs = Match_2Hop(ctrl, graph, perm, match__, cnvtxs, nunmatched);
+    if (ctrl.no2hop == 0 && nunmatched as real_t > UNMATCHEDFOR2HOP * nvtxs as real_t) {
+        cnvtxs = Match_2Hop(ctrl, graph, perm.as_mut_ptr(), match_.as_mut_ptr(), cnvtxs, nunmatched);
     }
 
-    /* match__ the final unmatched vertices with themselves and reorder the vertices
+    /* match_ the final unmatched vertices with themselves and reorder the vertices
     of the coarse graph for memory-friendly contraction */
     cnvtxs = 0;
     for i in (0)..(nvtxs) {
-        if (match__[i] == UNMATCHED) {
-            match__[i] = i;
-            cmap[i] = cnvtxs;
+        if (match_[i as usize] == UNMATCHED) {
+            match_[i as usize] = i as idx_t;
+            cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
         } else {
-            if (i <= match__[i]) {
-                cmap[i] = cmap[match__[i]] = cnvtxs;
+            if (i as idx_t <= match_[i as usize]) {
+                cmap[match_[i as usize] as usize] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
             }
         }
     }
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
 
-    CreateCoarseGraph(ctrl, graph, cnvtxs, match__);
+    CreateCoarseGraph(ctrl, graph, cnvtxs, match_.as_mut_ptr());
 
-    WCOREPOP;
+    // WCOREPOP;
 
     return cnvtxs;
 }
@@ -349,70 +369,75 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 /**************************************************************************/
 /* This function finds a matching using the HEM heuristic. The vertices
    are visited based on increasing degree to ensure that all vertices are
-   given a chance to match__ with something.
+   given a chance to match_ with something.
 */
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx, maxwgt,
     // last_unmatched, avgdegree, bnum;
     // idx_t *xadj, *vwgt, *adjncy, *adjwgt, *maxvwgt;
-    // idx_t *match__, *cmap, *degrees, *perm, *tperm;
+    // idx_t *match_, *cmap, *degrees, *perm, *tperm;
     // size_t nunmatched=0;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    cmap = graph.cmap;
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon as usize;
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy adjwgt cmap);
+    // xadj = graph.xadj;
+    // vwgt = graph.vwgt;
+    // adjncy = graph.adjncy;
+    // adjwgt = graph.adjwgt;
+    // cmap = graph.cmap;
 
-    maxvwgt = ctrl.maxvwgt;
+    mkslice!(ctrl->maxvwgt, ncon * nvtxs);
 
-    match__ = iset(nvtxs, UNMATCHED, iwspacemalloc(ctrl, nvtxs));
-    perm = iwspacemalloc(ctrl, nvtxs);
-    tperm = iwspacemalloc(ctrl, nvtxs);
-    degrees = iwspacemalloc(ctrl, nvtxs);
+    let match_ = vec![UNMATCHED; nvtxs];
+    let perm = vec![0; nvtxs];
+    let tperm = vec![0; nvtxs];
+    let degrees = vec![0; nvtxs];
 
     /* Determine a "random" traversal order that is biased towards low-degree vertices */
-    irandArrayPermute(nvtxs, tperm, nvtxs / 8, 1);
+    irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    avgdegree = 4.0 * (xadj[nvtxs] / nvtxs);
+    let avgdegree = (4.0 * (xadj[nvtxs] as real_t / nvtxs as real_t)) as idx_t;
     for i in (0)..(nvtxs) {
-        bnum = sqrt(1 + xadj[i + 1] - xadj[i]);
-        degrees[i] = (if bnum > avgdegree { avgdegree } else { bnum });
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
+        degrees[i as usize] = (if bnum > avgdegree { avgdegree } else { bnum }) as idx_t;
     }
-    BucketSortKeysInc(ctrl, nvtxs, avgdegree, degrees, tperm, perm);
+    bucketsort::BucketSortKeysInc(ctrl, nvtxs as idx_t, avgdegree, degrees.as_ptr(), tperm.as_ptr(), perm.as_mut_ptr());
 
     /* Traverse the vertices and compute the matching */
-    cnvtxs = 0;
-    last_unmatched = 0;
+    let mut cnvtxs = 0;
+    let mut last_unmatched = 0;
+    let mut nunmatched = 0;
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
+        let i = perm[pi as usize] as usize;
 
-        if (match__[i] == UNMATCHED) {
+        if (match_[i as usize] == UNMATCHED) {
             /* Unmatched */
-            maxidx = i;
-            maxwgt = -1;
+            let mut maxidx = i;
+            let mut maxwgt = -1;
 
             if (if ncon == 1 {
-                vwgt[i] < maxvwgt[0]
+                vwgt[i as usize] < maxvwgt[0 as usize]
             } else {
-                ivecle(ncon, vwgt + i * ncon, maxvwgt)
+                // ivecle(ncon, &vwgt[i * ncon], maxvwgt)
+                util::ivecle(&vwgt[cntrng!(i * ncon, ncon)], &maxvwgt[..ncon])
             }) {
-                /* Deal with island vertices. Find a non-island and match__ it with.
+                /* Deal with island vertices. Find a non-island and match_ it with.
                 The matching ignores ctrl.maxvwgt requirements */
-                if (xadj[i] == xadj[i + 1]) {
+                if (xadj[i as usize] == xadj[(i + 1) as usize]) {
                     // last_unmatched = gk_max(pi, last_unmatched)+1;
-                    for last_unmatched in (gk_max(pi, last_unmatched) + 1)..(nvtxs) {
-                        j = perm[last_unmatched];
-                        if (match__[j] == UNMATCHED) {
-                            maxidx = j;
+                    for last_unmatched in (pi.max(last_unmatched) + 1)..(nvtxs) {
+                        let j = perm[last_unmatched as usize];
+                        if (match_[j as usize] == UNMATCHED) {
+                            maxidx = j as usize;
                             break;
                         }
                     }
@@ -420,93 +445,96 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                     /* Find a heavy-edge matching, subject to maxvwgt constraints */
                     if (ncon == 1) {
                         /* single constraint version */
-                        for j in (xadj[i])..(xadj[i + 1]) {
-                            k = adjncy[j];
-                            if (match__[k] == UNMATCHED
-                                && maxwgt < adjwgt[j]
-                                && vwgt[i] + vwgt[k] <= maxvwgt[0])
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let k = adjncy[j as usize] as usize;
+                            if (match_[k as usize] == UNMATCHED
+                                && maxwgt < adjwgt[j as usize]
+                                && vwgt[i as usize] + vwgt[k] <= maxvwgt[0 as usize])
                             {
                                 maxidx = k;
-                                maxwgt = adjwgt[j];
+                                maxwgt = adjwgt[j as usize];
                             }
                         }
 
-                        /* If it did not match__, record for a 2-hop matching. */
-                        if (maxidx == i && 2 * vwgt[i] < maxvwgt[0]) {
-                            nunmatched;
+                        /* If it did not match_, record for a 2-hop matching. */
+                        if (maxidx == i && 2 * vwgt[i as usize] < maxvwgt[0 as usize]) {
                             nunmatched += 1;
-                            maxidx = UNMATCHED;
+                            maxidx = (UNMATCHED as isize) as usize;
                         }
                     } else {
                         /* multi-constraint version */
-                        for j in (xadj[i])..(xadj[i + 1]) {
-                            k = adjncy[j];
-                            if (match__[k] == UNMATCHED
-                                && ivecaxpylez(ncon, 1, vwgt + i * ncon, vwgt + k * ncon, maxvwgt)
-                                && (maxwgt < adjwgt[j]
-                                    || (maxwgt == adjwgt[j]
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let k = adjncy[j as usize] as usize;
+                            if (match_[k] == UNMATCHED
+                                // && ivecaxpylez(ncon, 1, vwgt[(i * ncon)..], vwgt[(k * ncon)..], maxvwgt)
+                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt)
+                                && (maxwgt < adjwgt[j as usize]
+                                    || (maxwgt == adjwgt[j as usize]
                                         && BetterVBalance(
-                                            ncon,
+                                            ncon as idx_t,
                                             graph.invtvwgt,
-                                            vwgt + i * ncon,
-                                            vwgt + maxidx * ncon,
-                                            vwgt + k * ncon,
-                                        ))))
+                                            vwgt[(i * ncon)..].as_mut_ptr(),
+                                            vwgt[(maxidx * ncon)..].as_mut_ptr(),
+                                            vwgt[(k * ncon)..].as_mut_ptr(),
+                                        ) != 0)))
                             {
                                 maxidx = k;
-                                maxwgt = adjwgt[j];
+                                maxwgt = adjwgt[j as usize];
                             }
                         }
 
-                        /* If it did not match__, record for a 2-hop matching. */
+                        /* If it did not match_, record for a 2-hop matching. */
                         if (maxidx == i
-                            && ivecaxpylez(ncon, 2, vwgt + i * ncon, vwgt + i * ncon, maxvwgt))
+                            // && ivecaxpylez(ncon, 2, vwgt[(i * ncon)..], vwgt[(i * ncon)..], maxvwgt))
+                            && util::ivecaxpylez(2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], maxvwgt))
                         {
                             nunmatched;
                             nunmatched += 1;
-                            maxidx = UNMATCHED;
+                            maxidx = (UNMATCHED as isize) as usize;
                         }
                     }
                 }
             }
 
-            if (maxidx != UNMATCHED) {
-                cmap[i] = cmap[maxidx] = cnvtxs;
+            if (maxidx as idx_t != UNMATCHED) {
+                cmap[maxidx as usize] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
-                match__[i] = maxidx;
-                match__[maxidx] = i;
+                match_[i as usize] = maxidx as idx_t;
+                match_[maxidx as usize] = i as idx_t;
             }
         }
     }
 
-    //printf("nunmatched: %zu\n", nunmatched);
+    //println!("nunmatched: %zu", nunmatched);
 
     /* see if a 2-hop matching is required/allowed */
-    if (!ctrl.no2hop && nunmatched > UNMATCHEDFOR2HOP * nvtxs) {
-        cnvtxs = Match_2Hop(ctrl, graph, perm, match__, cnvtxs, nunmatched);
+    if (ctrl.no2hop == 0 && nunmatched > (UNMATCHEDFOR2HOP * nvtxs as real_t) as usize) {
+        cnvtxs = Match_2Hop(ctrl, graph, perm.as_mut_ptr(), match_.as_mut_ptr(), cnvtxs, nunmatched);
     }
 
-    /* match__ the final unmatched vertices with themselves and reorder the vertices
+    /* match_ the final unmatched vertices with themselves and reorder the vertices
     of the coarse graph for memory-friendly contraction */
     cnvtxs = 0;
     for i in (0)..(nvtxs) {
-        if (match__[i] == UNMATCHED) {
-            match__[i] = i;
-            cmap[i] = cnvtxs;
+        if (match_[i as usize] == UNMATCHED) {
+            match_[i as usize] = i as idx_t;
+            cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
         } else {
-            if (i <= match__[i]) {
-                cmap[i] = cmap[match__[i]] = cnvtxs;
+            if (i as idx_t <= match_[i as usize]) {
+                cmap[match_[i as usize] as usize] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
             }
         }
     }
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
 
-    CreateCoarseGraph(ctrl, graph, cnvtxs, match__);
+    CreateCoarseGraph(ctrl, graph, cnvtxs, match_.as_mut_ptr());
 
-    WCOREPOP;
+    // WCOREPOP;
 
     return cnvtxs;
 }
@@ -520,17 +548,21 @@ pub extern "C" fn Match_2Hop(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     perm: *mut idx_t,
-    match__: *mut idx_t,
+    match_: *mut idx_t,
     cnvtxs: idx_t,
-    nunmatched: size_t,
+    nunmatched: usize,
 ) -> idx_t {
-    cnvtxs = Match_2HopAny(ctrl, graph, perm, match__, cnvtxs, &nunmatched, 2);
-    cnvtxs = Match_2HopAll(ctrl, graph, perm, match__, cnvtxs, &nunmatched, 64);
-    if (nunmatched > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs) {
-        cnvtxs = Match_2HopAny(ctrl, graph, perm, match__, cnvtxs, &nunmatched, 3);
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
+    let mut cnvtxs = cnvtxs;
+    let mut nunmatched = nunmatched;
+    cnvtxs = Match_2HopAny(ctrl, graph, perm, match_, cnvtxs, &mut nunmatched as *mut usize, 2);
+    cnvtxs = Match_2HopAll(ctrl, graph, perm, match_, cnvtxs, &mut nunmatched as *mut usize, 64);
+    if ((nunmatched as real_t) > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs as real_t) {
+        cnvtxs = Match_2HopAny(ctrl, graph, perm, match_, cnvtxs, &mut nunmatched as *mut usize, 3);
     }
-    if (nunmatched > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs) {
-        cnvtxs = Match_2HopAny(ctrl, graph, perm, match__, cnvtxs, &nunmatched, graph.nvtxs);
+    if ((nunmatched as real_t) > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs as real_t) {
+        cnvtxs = Match_2HopAny(ctrl, graph, perm, match_, cnvtxs, &mut nunmatched as *mut usize, graph.nvtxs as usize);
     }
 
     return cnvtxs;
@@ -548,71 +580,75 @@ pub extern "C" fn Match_2HopAny(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     perm: *mut idx_t,
-    match__: *mut idx_t,
+    match_: *mut idx_t,
     cnvtxs: idx_t,
-    r_nunmatched: *mut size_t,
-    maxdegree: size_t,
+    r_nunmatched: *mut usize,
+    maxdegree: usize,
 ) -> idx_t {
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
+    let mut cnvtxs = cnvtxs;
     // idx_t i, pi, ii, j, jj, k, nvtxs;
     // idx_t *xadj, *adjncy, *colptr, *rowind;
     // idx_t *cmap;
     // size_t nunmatched;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.Aux3Tmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.Aux3Tmr));
 
-    nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    adjncy = graph.adjncy;
-    cmap = graph.cmap;
+    get_graph_slices!(graph => xadj adjncy cmap);
+    let nvtxs = graph.nvtxs as usize;
+    mkslice!(match_, nvtxs);
+    mkslice!(perm, nvtxs);
 
-    nunmatched = *r_nunmatched;
+    let mut nunmatched = *r_nunmatched;
 
-    /*IFSET(ctrl.dbglvl, METIS_DBG_COARSEN, printf("IN: nunmatched: %zu\t", nunmatched)); */
+    /*ifset!(ctrl.dbglvl, METIS_DBG_COARSEN, println!("IN: nunmatched: %zu\t", nunmatched)); */
 
     /* create the inverted index */
-    WCOREPUSH;
-    colptr = iset(nvtxs, 0, iwspacemalloc(ctrl, nvtxs + 1));
+    // WCOREPUSH;
+    let mut colptr = vec![0; nvtxs];
     for i in (0)..(nvtxs) {
-        if (match__[i] == UNMATCHED && xadj[i + 1] - xadj[i] < maxdegree) {
-            for j in (xadj[i])..(xadj[i + 1]) {
-                colptr[adjncy[j]] += 1;
+        if (match_[i as usize] == UNMATCHED && xadj[(i + 1) as usize] - xadj[i as usize] < maxdegree as idx_t) {
+            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                colptr[adjncy[j as usize] as usize] += 1;
             }
         }
     }
-    MAKECSR(i, nvtxs, colptr);
+    util::make_csr(nvtxs, &mut colptr);
 
-    rowind = iwspacemalloc(ctrl, colptr[nvtxs]);
+    let mut rowind = vec![0; colptr[nvtxs] as usize];
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
-        if (match__[i] == UNMATCHED && xadj[i + 1] - xadj[i] < maxdegree) {
-            for j in (xadj[i])..(xadj[i + 1]) {
-                rowind[colptr[adjncy[j]]] = i;
-                colptr[adjncy[j]] += 1
+        let i = perm[pi as usize];
+        if (match_[i as usize] == UNMATCHED && xadj[(i + 1) as usize] - xadj[i as usize] < maxdegree as idx_t) {
+            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                rowind[colptr[adjncy[j as usize] as usize] as usize] = i;
+                colptr[adjncy[j as usize] as usize] += 1
             }
         }
     }
-    SHIFTCSR(i, nvtxs, colptr);
+    util::make_csr(nvtxs, &mut colptr);
 
     /* compute matchings by going down the inverted index */
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
-        if (colptr[i + 1] - colptr[i] < 2) {
+        let i = perm[pi as usize];
+        if (colptr[(i + 1) as usize] - colptr[i as usize] < 2) {
             continue;
         }
 
-        jj = colptr[i + 1];
-        // for j in (colptr[i])..(jj) {
-        j = colptr[i];
+        let mut jj = colptr[(i + 1) as usize];
+        // for j in (colptr[i as usize])..(jj) {
+        let mut j = colptr[i as usize];
         while j < jj {
-            if (match__[rowind[j]] == UNMATCHED) {
+            if (match_[rowind[j as usize] as usize] == UNMATCHED) {
                 jj -= 1;
                 // for (jj--; jj>j; jj--) {
                 while jj > j {
-                    if (match__[rowind[jj]] == UNMATCHED) {
-                        cmap[rowind[j]] = cmap[rowind[jj]] = cnvtxs;
+                    if (match_[rowind[jj as usize] as usize] == UNMATCHED) {
+                        cmap[rowind[jj as usize] as usize] = cnvtxs;
+                        cmap[rowind[j as usize] as usize] = cnvtxs;
                         cnvtxs += 1;
-                        match__[rowind[j]] = rowind[jj];
-                        match__[rowind[jj]] = rowind[j];
+                        match_[rowind[j as usize] as usize] = rowind[jj as usize];
+                        match_[rowind[jj as usize] as usize] = rowind[j as usize];
                         nunmatched -= 2;
                         break;
                     }
@@ -622,11 +658,11 @@ pub extern "C" fn Match_2HopAny(
             }
         }
     }
-    WCOREPOP;
+    // WCOREPOP;
 
-    /*IFSET(ctrl.dbglvl, METIS_DBG_COARSEN, printf("OUT: nunmatched: %zu\n", nunmatched)); */
+    /*ifset!(ctrl.dbglvl, METIS_DBG_COARSEN, println!("OUT: nunmatched: %zu", nunmatched)); */
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.Aux3Tmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.Aux3Tmr));
 
     *r_nunmatched = nunmatched;
     return cnvtxs;
@@ -645,94 +681,108 @@ pub extern "C" fn Match_2HopAll(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     perm: *mut idx_t,
-    match__: *mut idx_t,
+    match_: *mut idx_t,
     cnvtxs: idx_t,
-    r_nunmatched: *mut size_t,
-    maxdegree: size_t,
+    r_nunmatched: *mut usize,
+    maxdegree: usize,
 ) -> idx_t {
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, pk, ii, j, jj, k, nvtxs, mask, idegree;
     // idx_t *xadj, *adjncy;
     // idx_t *cmap, *mark;
     // ikv_t *keys;
     // size_t nunmatched, ncand;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.Aux3Tmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.Aux3Tmr));
 
-    nvtxs = graph.nvtxs;
-    xadj = graph.xadj;
-    adjncy = graph.adjncy;
-    cmap = graph.cmap;
+    let mut cnvtxs = cnvtxs;
 
-    nunmatched = *r_nunmatched;
-    mask = IDX_MAX / maxdegree;
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(graph => xadj adjncy cmap);
+    mkslice!(perm, nvtxs);
+    mkslice!(match_, nvtxs);
 
-    /*IFSET(ctrl.dbglvl, METIS_DBG_COARSEN, printf("IN: nunmatched: %zu\t", nunmatched)); */
+    let mut nunmatched = *r_nunmatched;
+    let mask = idx_t::MAX / maxdegree as idx_t;
 
-    WCOREPUSH;
+    /*ifset!(ctrl.dbglvl, METIS_DBG_COARSEN, println!("IN: nunmatched: %zu\t", nunmatched)); */
+
+    // WCOREPUSH;
+    #[derive(Clone, Copy, Default)]
+    struct KeyVal {
+        key: idx_t,
+        val: idx_t,
+    }
 
     /* collapse vertices with identical adjancency lists */
-    keys = ikvwspacemalloc(ctrl, nunmatched);
-    ncand = 0;
+    // keys = ikvwspacemalloc(ctrl, nunmatched);
+    let mut keys = vec![KeyVal::default(); nunmatched];
+    let mut ncand = 0;
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
-        idegree = xadj[i + 1] - xadj[i];
-        if (match__[i] == UNMATCHED && idegree > 1 && idegree < maxdegree) {
-            k = 0;
-            for j in (xadj[i])..(xadj[i + 1]) {
-                k += adjncy[j] % mask;
+        let i = perm[pi as usize];
+        let idegree = xadj[(i + 1) as usize] - xadj[i as usize];
+        if (match_[i as usize] == UNMATCHED && idegree > 1 && idegree < maxdegree as idx_t) {
+            let mut k = 0;
+            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                k += adjncy[j as usize] % mask;
             }
-            keys[ncand].val = i;
-            keys[ncand].key = (k % mask) * maxdegree + idegree;
+            keys[ncand as usize].val = i;
+            keys[ncand as usize].key = (k % mask) * maxdegree as idx_t + idegree;
             ncand;
             ncand += 1;
         }
     }
-    ikvsorti(ncand, keys);
+    keys.sort_by_key(|k| k.key);
+    // ikvsorti(ncand, keys);
 
-    mark = iset(nvtxs, 0, iwspacemalloc(ctrl, nvtxs));
+    let mut mark = vec![0; nvtxs];
     for pi in (0)..(ncand) {
-        i = keys[pi].val;
-        if (match__[i] != UNMATCHED) {
+        let i = keys[pi as usize].val;
+        if (match_[i as usize] != UNMATCHED) {
             continue;
         }
 
-        for j in (xadj[i])..(xadj[i + 1]) {
-            mark[adjncy[j]] = i;
+        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+            mark[adjncy[j as usize] as usize] = i;
         }
 
         for pk in (pi + 1)..(ncand) {
-            k = keys[pk].val;
-            if (match__[k] != UNMATCHED) {
+            let k = keys[pk as usize].val;
+            if (match_[k as usize] != UNMATCHED) {
                 continue;
             }
 
-            if (keys[pi].key != keys[pk].key) {
+            if (keys[pi as usize].key != keys[pk as usize].key) {
                 break;
             }
-            if (xadj[i + 1] - xadj[i] != xadj[k + 1] - xadj[k]) {
+            if (xadj[(i + 1) as usize] - xadj[i as usize] != xadj[(k + 1) as usize] - xadj[k as usize]) {
                 break;
             }
 
-            for jj in (xadj[k])..(xadj[k + 1]) {
-                if (mark[adjncy[jj]] != i) {
+            let mut jj = xadj[k as usize];
+            while jj < (xadj[(k + 1) as usize]) {
+                if (mark[adjncy[jj as usize] as usize] != i) {
                     break;
                 }
+                jj += 1;
             }
-            if (jj == xadj[k + 1]) {
-                cmap[i] = cmap[k] = cnvtxs;
+            if (jj == xadj[(k + 1) as usize]) {
+                cmap[k as usize] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
-                match__[i] = k;
-                match__[k] = i;
+                match_[i as usize] = k;
+                match_[k as usize] = i;
                 nunmatched -= 2;
                 break;
             }
         }
     }
-    WCOREPOP;
+    // WCOREPOP;
 
-    /*IFSET(ctrl.dbglvl, METIS_DBG_COARSEN, printf("OUT: ncand: %zu, nunmatched: %zu\n", ncand, nunmatched)); */
+    /*ifset!(ctrl.dbglvl, METIS_DBG_COARSEN, println!("OUT: ncand: %zu, nunmatched: %zu", ncand, nunmatched)); */
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.Aux3Tmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.Aux3Tmr));
 
     *r_nunmatched = nunmatched;
     return cnvtxs;
@@ -745,68 +795,71 @@ pub extern "C" fn Match_2HopAll(
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, iii, j, jj, jjj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx,
     // last_unmatched, avgdegree, bnum;
     // idx_t *xadj, *vwgt, *adjncy, *adjwgt, *maxvwgt;
-    // idx_t *match__, *cmap, *degrees, *perm, *tperm, *vec, *marker;
+    // idx_t *match_, *cmap, *degrees, *perm, *tperm, *vec, *marker;
     // idx_t mytwgt, xtwgt, ctwgt;
     // real_t bscore, score;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.MatchTmr));
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    cmap = graph.cmap;
+    
+    let nvtxs = graph.nvtxs as usize;
+    get_graph_slices!(graph => xadj vwgt adjncy adjwgt cmap);
+    let ncon = graph.ncon as usize;
 
-    maxvwgt = ctrl.maxvwgt;
+    // let maxvwgt = ctrl.maxvwgt;
+    mkslice!(ctrl->maxvwgt, ncon);
 
-    match__ = iset(nvtxs, UNMATCHED, iwspacemalloc(ctrl, nvtxs));
-    perm = iwspacemalloc(ctrl, nvtxs);
-    tperm = iwspacemalloc(ctrl, nvtxs);
-    degrees = iwspacemalloc(ctrl, nvtxs);
+    let mut match_ = vec![UNMATCHED; nvtxs];
+    let mut perm = vec![0; nvtxs];
+    let mut tperm = vec![0; nvtxs];
+    let mut degrees = vec![0; nvtxs];
 
-    irandArrayPermute(nvtxs, tperm, nvtxs / 8, 1);
+    irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    avgdegree = 4.0 * (xadj[nvtxs] / nvtxs);
+    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
     for i in (0)..(nvtxs) {
-        bnum = sqrt(1 + xadj[i + 1] - xadj[i]);
-        degrees[i] = (if bnum > avgdegree { avgdegree } else { bnum });
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
+        degrees[i as usize] = (if bnum > avgdegree { avgdegree } else { bnum });
     }
-    BucketSortKeysInc(ctrl, nvtxs, avgdegree, degrees, tperm, perm);
+    bucketsort::BucketSortKeysInc(ctrl, nvtxs as idx_t, avgdegree, degrees.as_ptr(), tperm.as_ptr(), perm.as_mut_ptr());
 
     /* point to the wspace vectors that are not needed any more */
-    vec = tperm;
-    marker = degrees;
-    iset(nvtxs, -1, vec);
-    iset(nvtxs, -1, marker);
+    let mut vec = tperm;
+    let mut marker = degrees;
+    // iset(nvtxs, -1, vec);
+    vec.fill(-1);
+    // iset(nvtxs, -1, marker);
+    marker.fill(-1);
 
-    cnvtxs = 0;
-    last_unmatched = 0;
+    let mut cnvtxs = 0;
+    let mut last_unmatched = 0;
     for pi in (0)..(nvtxs) {
-        i = perm[pi];
+        let i = perm[pi as usize] as usize;
 
-        if (match__[i] == UNMATCHED) {
+        if (match_[i as usize] == UNMATCHED) {
             /* Unmatched */
-            maxidx = i;
+            let mut maxidx = i as usize;
 
             if (if ncon == 1 {
-                vwgt[i] < maxvwgt[0]
+                vwgt[i as usize] < maxvwgt[0 as usize]
             } else {
-                ivecle(ncon, vwgt + i * ncon, maxvwgt)
+                // ivecle(ncon, vwgt[(i * ncon)..], maxvwgt)
+                util::ivecle(&vwgt[cntrng!(i * ncon, ncon)], maxvwgt)
             }) {
-                /* Deal with island vertices. Find a non-island and match__ it with.
+                /* Deal with island vertices. Find a non-island and match_ it with.
                 The matching ignores ctrl.maxvwgt requirements */
-                if (xadj[i] == xadj[i + 1]) {
+                if (xadj[i as usize] == xadj[(i + 1) as usize]) {
                     // last_unmatched = gk_max(pi, last_unmatched)+1;
-                    for last_unmatched in (gk_max(pi, last_unmatched) + 1)..(nvtxs) {
-                        j = perm[last_unmatched];
-                        if (match__[j] == UNMATCHED) {
+                    for last_unmatched in (pi.max(last_unmatched) + 1)..(nvtxs) {
+                        let j = perm[last_unmatched] as usize;
+                        if (match_[j] == UNMATCHED) {
                             maxidx = j;
                             break;
                         }
@@ -814,34 +867,34 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                 } else {
                     if (ncon == 1) {
                         /* Find a max JC pair, subject to maxvwgt constraints */
-                        if (xadj[i + 1] - xadj[i] < avgdegree) {
-                            marker[i] = i;
-                            bscore = 0.0;
-                            mytwgt = 0;
-                            for j in (xadj[i])..(xadj[i + 1]) {
-                                mytwgt += 1; //adjwgt[j];
-                                vec[adjncy[j]] = 1; //adjwgt[j];
+                        if (xadj[(i + 1) as usize] - xadj[i as usize] < avgdegree) {
+                            marker[i as usize] = i as idx_t;
+                            let mut bscore = 0.0;
+                            let mut mytwgt = 0;
+                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                                mytwgt += 1; //adjwgt[j as usize];
+                                vec[adjncy[j as usize] as usize] = 1; //adjwgt[j as usize];
                             }
 
                             /* single constraint pairing */
                             // #ifdef XXX
-                            //               for j in (xadj[i])..(xadj[i+1]) {
-                            //                 ii = adjncy[j];
-                            //                 if (marker[ii] == i || match__[ii] != UNMATCHED || vwgt[i]+vwgt[ii] > maxvwgt[0])
+                            //               for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+                            //                 ii = adjncy[j as usize];
+                            //                 if (marker[ii as usize] == i || match_[ii as usize] != UNMATCHED || vwgt[i as usize]+vwgt[ii as usize] > maxvwgt[0 as usize])
                             //         {
                             //             continue;
                             //         }
                             //
                             //                 ctwgt = xtwgt = 0;
-                            //                 for jj in (xadj[ii])..(xadj[ii+1]) {
-                            //                   xtwgt += adjwgt[jj];
-                            //                   if (vec[adjncy[jj]] > 0)
+                            //                 for jj in (xadj[ii as usize])..(xadj[(ii+1) as usize]) {
+                            //                   xtwgt += adjwgt[jj as usize];
+                            //                   if (vec[adjncy[jj as usize] as usize] > 0)
                             //         {
-                            //             ctwgt += vec[adjncy[jj]] + adjwgt[jj];
+                            //             ctwgt += vec[adjncy[jj as usize] as usize] + adjwgt[jj as usize];
                             //         }
-                            //                   else if (adjncy[jj] == i) {
-                            //                     ctwgt += adjwgt[jj];
-                            //                     xtwgt -= adjwgt[jj];
+                            //                   else if (adjncy[jj as usize] == i) {
+                            //                     ctwgt += adjwgt[jj as usize];
+                            //                     xtwgt -= adjwgt[jj as usize];
                             //                   }
                             //                 }
                             //
@@ -850,53 +903,56 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                             //                   bscore = score;
                             //                   maxidx = ii;
                             //                 }
-                            //                 marker[ii] = i;
+                            //                 marker[ii as usize] = i;
                             //               }
                             // #endif
 
-                            for j in (xadj[i])..(xadj[i + 1]) {
-                                ii = adjncy[j];
-                                for jj in (xadj[ii])..(xadj[ii + 1]) {
-                                    iii = adjncy[jj];
+                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                                let ii = adjncy[j as usize];
+                                for jj in (xadj[ii as usize])..(xadj[(ii + 1) as usize]) {
+                                    let iii = adjncy[jj as usize] as usize;
 
-                                    if (marker[iii] == i
-                                        || match__[iii] != UNMATCHED
-                                        || vwgt[i] + vwgt[iii] > maxvwgt[0])
+                                    if (marker[iii] == i as idx_t
+                                        || match_[iii] != UNMATCHED
+                                        || vwgt[i as usize] + vwgt[iii] > maxvwgt[0 as usize])
                                     {
                                         continue;
                                     }
 
-                                    ctwgt = xtwgt = 0;
-                                    for jjj in (xadj[iii])..(xadj[iii + 1]) {
-                                        xtwgt += 1; //adjwgt[jjj];
-                                        if (vec[adjncy[jjj]] > 0) {
-                                            ctwgt += 2; //vec[adjncy[jjj]] + adjwgt[jjj];
-                                        } else if (adjncy[jjj] == i) {
-                                            ctwgt += 10 * adjwgt[jjj];
+                                    let mut ctwgt = 0;
+                                    let mut xtwgt = 0;
+                                    for jjj in (xadj[iii])..(xadj[(iii + 1) as usize]) {
+                                        xtwgt += 1; //adjwgt[jjj as usize];
+                                        if (vec[adjncy[jjj as usize] as usize] > 0) {
+                                            ctwgt += 2; //vec[adjncy[jjj as usize] as usize] + adjwgt[jjj as usize];
+                                        } else if (adjncy[jjj as usize] == i as idx_t) {
+                                            ctwgt += 10 * adjwgt[jjj as usize];
                                         }
                                     }
 
-                                    score = 1.0 * ctwgt / (mytwgt + xtwgt);
-                                    //printf("{:} {:} {:} %.4f\n", mytwgt, xtwgt, ctwgt, score);
+                                    let score = 1.0 * (ctwgt / (mytwgt + xtwgt)) as real_t;
+                                    //println!("{:} {:} {:} %.4f", mytwgt, xtwgt, ctwgt, score);
                                     if (score > bscore) {
                                         bscore = score;
                                         maxidx = iii;
                                     }
-                                    marker[iii] = i;
+                                    marker[iii] = i as idx_t;
                                 }
                             }
 
                             /* reset vec array */
-                            for j in (xadj[i])..(xadj[i + 1]) {
-                                vec[adjncy[j]] = -1;
+                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                                vec[adjncy[j as usize] as usize] = -1;
                             }
                         }
                     } else {
                         /* multi-constraint version */
-                        for j in (xadj[i])..(xadj[i + 1]) {
-                            k = adjncy[j];
-                            if (match__[k] == UNMATCHED
-                                && ivecaxpylez(ncon, 1, vwgt + i * ncon, vwgt + k * ncon, maxvwgt))
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let k = adjncy[j as usize] as usize;
+                            if (match_[k as usize] == UNMATCHED
+                                // && ivecaxpylez(ncon, 1, vwgt[(i * ncon)..], vwgt[(k * ncon)..], maxvwgt))
+                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], 
+                                maxvwgt))
                             {
                                 maxidx = k;
                                 break;
@@ -906,36 +962,38 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                 }
             }
 
-            if (maxidx != UNMATCHED) {
-                cmap[i] = cmap[maxidx] = cnvtxs;
+            if (maxidx as idx_t != UNMATCHED) {
+                cmap[maxidx] = cnvtxs;
+                cmap[i] = cnvtxs;
                 cnvtxs += 1;
-                match__[i] = maxidx;
-                match__[maxidx] = i;
+                match_[i] = maxidx as idx_t;
+                match_[maxidx] = i as idx_t;
             }
         }
     }
 
-    /* match__ the final unmatched vertices with themselves and reorder the vertices
+    /* match_ the final unmatched vertices with themselves and reorder the vertices
     of the coarse graph for memory-friendly contraction */
     cnvtxs = 0;
     for i in (0)..(nvtxs) {
-        if (match__[i] == UNMATCHED) {
-            match__[i] = i;
-            cmap[i] = cnvtxs;
+        if (match_[i as usize] == UNMATCHED) {
+            match_[i as usize] = i as idx_t;
+            cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
         } else {
-            if (i <= match__[i]) {
-                cmap[i] = cmap[match__[i]] = cnvtxs;
+            if (i as idx_t <= match_[i as usize]) {
+                cmap[match_[i as usize] as usize] = cnvtxs;
+                cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
             }
         }
     }
 
-    IFSET(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
+    // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.MatchTmr));
 
-    CreateCoarseGraph(ctrl, graph, cnvtxs, match__);
+    CreateCoarseGraph(ctrl, graph, cnvtxs, match_.as_mut_ptr());
 
-    WCOREPOP;
+    // WCOREPOP;
 
     return cnvtxs;
 }
@@ -945,21 +1003,23 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
  */
 /*************************************************************************/
 #[metis_func]
-pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> void {
+pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+let graph = graph.as_mut().unwrap();
+let ctrl = ctrl.as_mut().unwrap();
     // idx_t i;
-
-    printf(
+    get_graph_slices!(graph => adjwgt);
+    println!(
         "{:10} {:10} {:10} [{:}] [",
         graph.nvtxs,
         graph.nedges,
-        isum(graph.nedges, graph.adjwgt, 1),
+        adjwgt[..(graph.nedges as usize)].iter().sum::<idx_t>(),
         ctrl.CoarsenTo,
     );
 
     for i in (0)..(graph.ncon) {
-        printf(" {:8}:%8"PRIDX, ctrl.maxvwgt[i], graph.tvwgt[i]);
+        println!(" {:8}:{:8}", *ctrl.maxvwgt.add(i as usize), *graph.tvwgt.add(i as usize));
     }
-    printf(" ]\n");
+    println!(" ]");
 }
 
 /*************************************************************************/
@@ -973,8 +1033,10 @@ pub extern "C" fn CreateCoarseGraph(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     cnvtxs: idx_t,
-    match__: *mut idx_t,
-) -> void {
+    match_: *mut idx_t,
+) -> () {
+    let graph = graph.as_mut().unwrap();
+    let ctrl = ctrl.as_mut().unwrap();
     // idx_t j, jj, k, kk, l, m, istart, iend, nvtxs, nedges, ncon,
     // cnedges, v, u, mask;
     // idx_t *xadj, *vwgt, *vsize, *adjncy, *adjwgt;
@@ -985,288 +1047,318 @@ pub extern "C" fn CreateCoarseGraph(
     // idx_t cv, nkeys, droppedewgt;
     // idx_t *keys=NULL, *medianewgts=NULL, *noise=NULL;
 
-    WCOREPUSH;
+    // WCOREPUSH;
 
-    dovsize = (if ctrl.objtype == METIS_OBJTYPE_VOL {
+    let dovsize = (if ctrl.objtype == METIS_OBJTYPE_VOL {
         1
     } else {
         0
     });
-    dropedges = ctrl.dropedges;
+    let cnvtxs = cnvtxs as usize;
+    let dropedges = ctrl.dropedges;
 
-    mask = HTLENGTH;
+    let mask = HTLENGTH;
 
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_startcputimer(ctrl.ContractTmr),
-    );
+    // ifset!(
+        // ctrl.dbglvl,
+        // METIS_DBG_TIME,
+        // gk_startcputimer(ctrl.ContractTmr),
+    // );
 
-    nvtxs = graph.nvtxs;
-    ncon = graph.ncon;
-    xadj = graph.xadj;
-    vwgt = graph.vwgt;
-    vsize = graph.vsize;
-    adjncy = graph.adjncy;
-    adjwgt = graph.adjwgt;
-    cmap = graph.cmap;
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon as usize;
+    // xadj = graph.xadj;
+    // vwgt = graph.vwgt;
+    // vsize = graph.vsize;
+    // adjncy = graph.adjncy;
+    // adjwgt = graph.adjwgt;
+    // cmap = graph.cmap;
+
+    get_graph_slices!(ctrl, graph => xadj vwgt vsize adjncy adjwgt cmap);
+    mkslice_mut!(match_, nvtxs);
 
     /* Setup structures for dropedges */
-    if (dropedges) {
+    let mut nkeys = 0;
+    // these 3 vars are only used when dropedges != 0, but I hope the optimizer will be good
+    let mut medianewgts = vec![-1; cnvtxs];
+    let mut keys = vec![0; nkeys as usize];
+    let mut noise = vec![0; cnvtxs];
+    if (dropedges != 0) {
         nkeys = 0;
         for v in (0)..(nvtxs) {
-            nkeys = gk_max(nkeys, xadj[v + 1] - xadj[v]);
+            nkeys = nkeys.max( xadj[(v + 1) as usize] - xadj[v as usize]);
         }
         nkeys = 2 * nkeys + 1;
 
-        keys = iwspacemalloc(ctrl, nkeys);
-        noise = iwspacemalloc(ctrl, cnvtxs);
-        medianewgts = iset(cnvtxs, -1, iwspacemalloc(ctrl, cnvtxs));
 
         for v in (0)..(cnvtxs) {
-            noise[v] = irandInRange(128);
+            noise[v as usize] = irandInRange(128);
         }
     }
 
     /* Initialize the coarser graph */
-    cgraph = SetupCoarseGraph(graph, cnvtxs, dovsize);
-    cxadj = cgraph.xadj;
-    cvwgt = cgraph.vwgt;
-    cvsize = cgraph.vsize;
-    cadjncy = cgraph.adjncy;
-    cadjwgt = cgraph.adjwgt;
+    let cgraph = SetupCoarseGraph(graph, cnvtxs as idx_t, dovsize);
+    mkslice_mut!(cxadj: cgraph->xadj, cnvtxs + 1);
+    mkslice_mut!(cvwgt: cgraph->vwgt, cnvtxs);
+    mkslice_mut!(cvsize: cgraph->vsize, cnvtxs);
+    mkslice_mut!(cadjncy: cgraph->adjncy, xadj[cnvtxs]);
+    mkslice_mut!(cadjwgt: cgraph->adjwgt, xadj[cnvtxs]);
+    let mut cadjncy = cadjncy;
+    let mut cadjwgt = cadjwgt;
+    // cxadj = cgraph.xadj;
+    // cvwgt = cgraph.vwgt;
+    // cvsize = cgraph.vsize;
+    // cadjncy = cgraph.adjncy;
+    // cadjwgt = cgraph.adjwgt;
 
-    htable = iset(mask + 1, -1, iwspacemalloc(ctrl, mask + 1)); /* hash table */
-    dtable = iset(cnvtxs, -1, iwspacemalloc(ctrl, cnvtxs)); /* direct table */
+    let mut htable = vec![-1 as idx_t; mask as usize + 1]; /* hash table */
+    let mut dtable = vec![-1 as idx_t; cnvtxs]; /* direct table */
 
-    cxadj[0] = cnvtxs = cnedges = 0;
+    cxadj[0 as usize] = 0;
+    let mut cnvtxs: usize = 0;
+    let mut cnedges = 0;
+    let mut nedges;
     for v in (0)..(nvtxs) {
-        if ((u = match__[v]) < v) {
+        let u = match_[v as usize] as usize;
+        if (u < v) {
             continue;
         }
 
-        ASSERT(cmap[v] == cnvtxs);
-        ASSERT(cmap[match__[v]] == cnvtxs);
+        assert!(cmap[v as usize] == cnvtxs as idx_t);
+        assert!(cmap[match_[v as usize] as usize] == cnvtxs as idx_t);
 
         /* take care of the vertices */
         if (ncon == 1) {
-            cvwgt[cnvtxs] = vwgt[v];
+            cvwgt[cnvtxs] = vwgt[v as usize];
         } else {
-            icopy(ncon, vwgt + v * ncon, cvwgt + cnvtxs * ncon);
+            // icopy(ncon, vwgt[(v * ncon)..], cvwgt[( cnvtxs * ncon)..]);
+            cvwgt[( cnvtxs * ncon)..].copy_from_slice(& vwgt[(v * ncon)..]);
         }
 
-        if (dovsize) {
-            cvsize[cnvtxs] = vsize[v];
+        if (dovsize != 0) {
+            cvsize[cnvtxs] = vsize[v as usize];
         }
 
         if (v != u) {
             if (ncon == 1) {
-                cvwgt[cnvtxs] += vwgt[u];
+                cvwgt[cnvtxs] += vwgt[u as usize];
             } else {
-                iaxpy(ncon, 1, vwgt + u * ncon, 1, cvwgt + cnvtxs * ncon, 1);
+                blas::iaxpy(ncon, 1, &vwgt[(u * ncon)..], 1, &mut cvwgt[(cnvtxs * ncon)..], 1);
             }
 
-            if (dovsize) {
-                cvsize[cnvtxs] += vsize[u];
+            if (dovsize != 0) {
+                cvsize[cnvtxs] += vsize[u as usize];
             }
         }
 
         /* take care of the edges */
-        if ((xadj[v + 1] - xadj[v] + xadj[u + 1] - xadj[u]) < (mask >> 2)) {
+        if ((xadj[(v + 1) as usize] - xadj[v as usize] + xadj[(u + 1) as usize] - xadj[u as usize]) < (mask >> 2)) {
             /* use mask */
             /* put the ID of the contracted node itself at the start, so that it can be
              * removed easily */
-            htable[cnvtxs & mask] = 0;
-            cadjncy[0] = cnvtxs;
+            htable[(cnvtxs & mask as usize) as usize] = 0;
+            cadjncy[0 as usize] = cnvtxs as idx_t;
             nedges = 1;
 
-            istart = xadj[v];
-            iend = xadj[v + 1];
+            {
+            let istart = xadj[v as usize] as usize;
+            let iend = xadj[(v + 1) as usize] as usize;
             for j in (istart)..(iend) {
-                k = cmap[adjncy[j]];
-                // for (kk=k&mask; htable[kk]!=-1 && cadjncy[htable[kk]]!=k; kk=((kk+1)&mask));
-                kk = k & mask;
-                while htable[kk] != -1 && cadjncy[htable[kk]] != k {
+                let k = cmap[adjncy[j as usize] as usize];
+                // for (kk=k&mask; htable[kk as usize]!=-1 && cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
+                let mut kk = k & mask;
+                while htable[kk as usize] != -1 && cadjncy[htable[kk as usize] as usize] != k {
                     kk = ((kk + 1) & mask)
                 }
-
-                if ((m = htable[kk]) == -1) {
-                    cadjncy[nedges] = k;
-                    cadjwgt[nedges] = adjwgt[j];
-                    htable[kk] = nedges;
+                let m = htable[kk as usize];
+                if (m == -1) {
+                    cadjncy[nedges as usize] = k;
+                    cadjwgt[nedges as usize] = adjwgt[j as usize];
+                    htable[kk as usize] = nedges;
                     nedges += 1;
                 } else {
-                    cadjwgt[m] += adjwgt[j];
+                    cadjwgt[m as usize] += adjwgt[j as usize];
                 }
             }
+        }
 
             if (v != u) {
-                istart = xadj[u];
-                iend = xadj[u + 1];
+                let mut istart = xadj[u as usize] as usize;
+                let mut iend = xadj[(u + 1) as usize] as usize;
                 for j in (istart)..(iend) {
-                    k = cmap[adjncy[j]];
-                    // for (kk=k&mask; htable[kk]!=-1 && cadjncy[htable[kk]]!=k; kk=((kk+1)&mask));
-                    kk = k & mask;
-                    while htable[kk] != -1 && cadjncy[htable[kk]] != k {
+                    let k = cmap[adjncy[j as usize] as usize];
+                    // for (kk=k&mask; htable[kk as usize]!=-1 && cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
+                    let mut kk = k & mask;
+                    while htable[kk as usize] != -1 && cadjncy[htable[kk as usize] as usize] != k {
                         kk = ((kk + 1) & mask)
                     }
-
-                    if ((m = htable[kk]) == -1) {
-                        cadjncy[nedges] = k;
-                        cadjwgt[nedges] = adjwgt[j];
-                        htable[kk] = nedges;
+                    let m = htable[kk as usize];    
+                    if (m == -1) {
+                        cadjncy[nedges as usize] = k;
+                        cadjwgt[nedges as usize] = adjwgt[j as usize];
+                        htable[kk as usize] = nedges;
                         nedges += 1;
                     } else {
-                        cadjwgt[m] += adjwgt[j];
+                        cadjwgt[m as usize] += adjwgt[j as usize];
                     }
                 }
             }
 
-            /* reset the htable -- reverse order (LIFO) is critical to prevent cadjncy[-1]
+            /* reset the htable -- reverse order (LIFO) is critical to prevent cadjncy[(-1) as usize]
              * indexing due to a remove of an earlier entry */
             // for (j=nedges-1; j>=0; j--) {
-            for j in 0..=(nedges - 1).rev() {
-                k = cadjncy[j];
-                // for (kk=k&mask; cadjncy[htable[kk]]!=k; kk=((kk+1)&mask));
-                kk = k & mask;
-                while cadjncy[htable[kk]] != k {
+            for j in (0..=(nedges - 1)).rev() {
+                let k = cadjncy[j as usize];
+                // for (kk=k&mask; cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
+                let mut kk = k & mask;
+                while cadjncy[htable[kk as usize] as usize] != k {
                     kk = ((kk + 1) & mask);
                 }
-                htable[kk] = -1;
+                htable[kk as usize] = -1;
                 // TODO: Verify this
             }
 
             /* remove the contracted vertex from the list */
             nedges -= 1;
-            cadjncy[0] = cadjncy[nedges];
-            cadjwgt[0] = cadjwgt[nedges];
+            cadjncy[0 as usize] = cadjncy[nedges as usize];
+            cadjwgt[0 as usize] = cadjwgt[nedges as usize];
         } else {
             nedges = 0;
-            istart = xadj[v];
-            iend = xadj[v + 1];
+            let mut istart = xadj[v as usize];
+            let mut iend = xadj[(v + 1) as usize];
             for j in (istart)..(iend) {
-                k = cmap[adjncy[j]];
-                if ((m = dtable[k]) == -1) {
-                    cadjncy[nedges] = k;
-                    cadjwgt[nedges] = adjwgt[j];
-                    dtable[k] = nedges;
+                let k = cmap[adjncy[j as usize] as usize];
+                let m = dtable[k as usize];
+                if (m == -1) {
+                    cadjncy[nedges as usize] = k;
+                    cadjwgt[nedges as usize] = adjwgt[j as usize];
+                    dtable[k as usize] = nedges;
                     nedges += 1;
                 } else {
-                    cadjwgt[m] += adjwgt[j];
+                    cadjwgt[m as usize] += adjwgt[j as usize];
                 }
             }
 
             if (v != u) {
-                istart = xadj[u];
-                iend = xadj[u + 1];
+                istart = xadj[u as usize];
+                iend = xadj[(u + 1) as usize];
                 for j in (istart)..(iend) {
-                    k = cmap[adjncy[j]];
-                    if ((m = dtable[k]) == -1) {
-                        cadjncy[nedges] = k;
-                        cadjwgt[nedges] = adjwgt[j];
-                        dtable[k] = nedges;
+                    let k = cmap[adjncy[j as usize] as usize];
+                    let m = dtable[k as usize];
+                    if (m == -1) {
+                        cadjncy[nedges as usize] = k;
+                        cadjwgt[nedges as usize] = adjwgt[j as usize];
+                        dtable[k as usize] = nedges;
                         nedges += 1;
                     } else {
-                        cadjwgt[m] += adjwgt[j];
+                        cadjwgt[m as usize] += adjwgt[j as usize];
                     }
                 }
 
                 /* Remove the contracted self-loop, when present */
-                if ((j = dtable[cnvtxs]) != -1) {
-                    ASSERT(cadjncy[j] == cnvtxs);
+                let j = dtable[cnvtxs];
+                if (j != -1) {
+                    assert!(cadjncy[j as usize] == cnvtxs as idx_t);
                     nedges -= 1;
-                    cadjncy[j] = cadjncy[nedges];
-                    cadjwgt[j] = cadjwgt[nedges];
+                    cadjncy[j as usize] = cadjncy[nedges as usize];
+                    cadjwgt[j as usize] = cadjwgt[nedges as usize];
                     dtable[cnvtxs] = -1;
                 }
             }
 
             /* Zero out the dtable */
             for j in (0)..(nedges) {
-                dtable[cadjncy[j]] = -1;
+                dtable[cadjncy[j as usize] as usize] = -1;
             }
         }
 
         /* Determine the median weight of the incident edges, which will be used
-        to keep an edge (u, v) iff wgt(u, v) >= min(medianewgts[u], medianewgts[v]) */
-        if (dropedges) {
-            ASSERTP(nedges < nkeys, ("{:}, {:}\n", nkeys, nedges));
+        to keep an edge (u, v) iff wgt(u, v) >= min(medianewgts[u as usize], medianewgts[v as usize]) */
+        if (dropedges != 0) {
+            assert!(nedges < nkeys, "{:}, {:}", nkeys, nedges);
             medianewgts[cnvtxs] = 8; /* default for island nodes */
             if (nedges > 0) {
                 for j in (0)..(nedges) {
-                    keys[j] = (cadjwgt[j] << 8) + noise[cnvtxs] + noise[cadjncy[j]];
+                    keys[j as usize] = (cadjwgt[j as usize] << 8) + noise[cnvtxs] + noise[cadjncy[j as usize] as usize];
                 }
-                isortd(nedges, keys);
-                medianewgts[cnvtxs] = keys[gk_min(
-                    nedges - 1,
-                    ((xadj[v + 1] - xadj[v] + xadj[u + 1] - xadj[u]) >> 1),
-                )];
+                // isortd(nedges, keys);
+                keys.sort_unstable();
+                medianewgts[cnvtxs] = keys[
+                    (nedges - 1).min(
+                    ((xadj[(v + 1) as usize] - xadj[v as usize] + xadj[(u + 1) as usize] - xadj[u as usize]) >> 1),
+                ) as usize];
             }
         }
 
-        cadjncy += nedges;
-        cadjwgt += nedges;
+        cadjncy = &mut cadjncy[nedges as usize..];
+        cadjwgt = &mut cadjwgt[nedges as usize..];
         cnedges += nedges;
         cnvtxs += 1;
         cxadj[cnvtxs] = cnedges;
     }
 
     /* compact the adjacency structure of the coarser graph to keep only +ve edges */
-    if (dropedges) {
-        droppedewgt = 0;
+    if (dropedges != 0) {
+        let mut droppedewgt = 0;
 
-        cadjncy = cgraph.adjncy;
-        cadjwgt = cgraph.adjwgt;
+        // cadjncy = cgraph.adjncy;
+        // cadjwgt = cgraph.adjwgt;
+        mkslice_mut!(cadjncy: cgraph->adjncy, cxadj[cnvtxs]);
+        mkslice_mut!(cadjwgt: cgraph->adjwgt, cxadj[cnvtxs]);
 
         cnedges = 0;
         for u in (0)..(cnvtxs) {
-            istart = cxadj[u];
-            iend = cxadj[u + 1];
+            let istart = cxadj[u as usize];
+            let iend = cxadj[(u + 1) as usize];
             for j in (istart)..(iend) {
-                v = cadjncy[j];
-                ASSERTP(medianewgts[u] >= 0, ("{:} {:}\n", u, medianewgts[u]));
-                ASSERTP(
-                    medianewgts[v] >= 0,
-                    ("{:} {:} {:}\n", v, medianewgts[v], cnvtxs),
+                let v = cadjncy[j as usize];
+                assert!(medianewgts[u as usize] >= 0, "{:} {:}", u, medianewgts[u as usize]);
+                assert!(
+                    medianewgts[v as usize] >= 0,
+                    "{:} {:} {:}", v, medianewgts[v as usize], cnvtxs,
                 );
-                if ((cadjwgt[j] << 8) + noise[u] + noise[v]
-                    >= gk_min(medianewgts[u], medianewgts[v]))
+                if ((cadjwgt[j as usize] << 8) + noise[u as usize] + noise[v as usize]
+                    >= medianewgts[u as usize].min(medianewgts[v as usize]))
                 {
-                    cadjncy[cnedges] = cadjncy[j];
-                    cadjwgt[cnedges] = cadjwgt[j];
+                    cadjncy[cnedges as usize] = cadjncy[j as usize];
+                    cadjwgt[cnedges as usize] = cadjwgt[j as usize];
                     cnedges += 1;
                 } else {
-                    droppedewgt += cadjwgt[j];
+                    droppedewgt += cadjwgt[j as usize];
                 }
             }
-            cxadj[u] = cnedges;
+            cxadj[u as usize] = cnedges;
         }
-        SHIFTCSR(j, cnvtxs, cxadj);
+        util::shift_csr(cnvtxs, cxadj);
 
-        cgraph.droppedewgt = droppedewgt;
+        (*cgraph).droppedewgt = droppedewgt;
     }
 
-    cgraph.nedges = cnedges;
+    (*cgraph).nedges = cnedges;
 
     for j in (0)..(ncon) {
-        cgraph.tvwgt[j] = isum(cgraph.nvtxs, cgraph.vwgt + j, ncon);
-        cgraph.invtvwgt[j] = 1.0
-            / (if cgraph.tvwgt[j] > 0 {
-                cgraph.tvwgt[j]
+        mkslice_mut!(cgraph->tvwgt, ncon);
+        mkslice_mut!(cgraph->vwgt, ncon * (*cgraph).nvtxs as usize);
+        mkslice_mut!(cgraph->invtvwgt, ncon);
+        // tvwgt[j as usize] = isum(cgraph.nvtxs, cgraph.vwgt + j, ncon);
+        tvwgt[j] = vwgt[j..].iter().step_by(ncon).sum();
+        invtvwgt[j as usize] = 1.0
+            / (if tvwgt[j as usize] > 0 {
+                tvwgt[j as usize] as real_t
             } else {
-                1
+                1.0
             });
     }
 
     ReAdjustMemory(ctrl, graph, cgraph);
 
-    IFSET(
-        ctrl.dbglvl,
-        METIS_DBG_TIME,
-        gk_stopcputimer(ctrl.ContractTmr),
-    );
+    // ifset!(
+        // ctrl.dbglvl,
+        // METIS_DBG_TIME,
+        // gk_stopcputimer(ctrl.ContractTmr),
+    // );
 
-    WCOREPOP;
+    // WCOREPOP;
 }
 
 /*************************************************************************/
@@ -1279,9 +1371,11 @@ pub extern "C" fn SetupCoarseGraph(
     cnvtxs: idx_t,
     dovsize: std::ffi::c_int,
 ) -> *mut graph_t {
+    let graph = graph.as_mut().unwrap();
     // graph_t *cgraph;
 
-    cgraph = CreateGraph();
+    let mut cgraph = CreateGraph();
+    let cgraph = cgraph.as_mut().unwrap();
 
     cgraph.nvtxs = cnvtxs;
     cgraph.ncon = graph.ncon;
@@ -1294,15 +1388,15 @@ pub extern "C" fn SetupCoarseGraph(
           detection by adding ahead of time the self-loop. That optimization
           requires a +1 adjncy/adjwgt array for the limit case where_ the
           coarser graph is of the same size of the previous graph. */
-    cgraph.xadj = imalloc(cnvtxs + 1, "SetupCoarseGraph: xadj");
-    cgraph.adjncy = imalloc(graph.nedges + 1, "SetupCoarseGraph: adjncy");
-    cgraph.adjwgt = imalloc(graph.nedges + 1, "SetupCoarseGraph: adjwgt");
-    cgraph.vwgt = imalloc(cgraph.ncon * cnvtxs, "SetupCoarseGraph: vwgt");
-    cgraph.tvwgt = imalloc(cgraph.ncon, "SetupCoarseGraph: tvwgt");
-    cgraph.invtvwgt = rmalloc(cgraph.ncon, "SetupCoarseGraph: invtvwgt");
+    cgraph.xadj = imalloc(cnvtxs as usize + 1, "SetupCoarseGraph: xadj\0".as_ptr()) as _;
+    cgraph.adjncy = imalloc(graph.nedges as usize + 1, "SetupCoarseGraph: adjncy\0".as_ptr()) as _;
+    cgraph.adjwgt = imalloc(graph.nedges as usize + 1, "SetupCoarseGraph: adjwgt\0".as_ptr()) as _;
+    cgraph.vwgt = imalloc(cgraph.ncon as usize * cnvtxs as usize, "SetupCoarseGraph: vwgt\0".as_ptr()) as _;
+    cgraph.tvwgt = imalloc(cgraph.ncon as usize, "SetupCoarseGraph: tvwgt\0".as_ptr()) as _;
+    cgraph.invtvwgt = rmalloc(cgraph.ncon as usize, "SetupCoarseGraph: invtvwgt\0".as_ptr()) as _;
 
-    if (dovsize) {
-        cgraph.vsize = imalloc(cnvtxs, "SetupCoarseGraph: vsize");
+    if (dovsize != 0) {
+        cgraph.vsize = imalloc(cnvtxs as usize, "SetupCoarseGraph: vsize\0".as_ptr()) as _;
     }
 
     return cgraph;
@@ -1318,9 +1412,11 @@ pub extern "C" fn ReAdjustMemory(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     cgraph: *mut graph_t,
-) -> void {
-    if (cgraph.nedges > 10000 && cgraph.nedges < 0.9 * graph.nedges) {
-        cgraph.adjncy = irealloc(cgraph.adjncy, cgraph.nedges, "ReAdjustMemory: adjncy");
-        cgraph.adjwgt = irealloc(cgraph.adjwgt, cgraph.nedges, "ReAdjustMemory: adjwgt");
+) -> () {
+let graph = graph.as_mut().unwrap();
+let cgraph = cgraph.as_mut().unwrap();
+    if (cgraph.nedges > 10000 && (cgraph.nedges as real_t) < 0.9 * graph.nedges as real_t) {
+        cgraph.adjncy = irealloc(cgraph.adjncy as _, cgraph.nedges as usize, "ReAdjustMemory: adjncy\0".as_ptr()) as _;
+        cgraph.adjwgt = irealloc(cgraph.adjwgt as _, cgraph.nedges as usize, "ReAdjustMemory: adjwgt\0".as_ptr()) as _;
     }
 }

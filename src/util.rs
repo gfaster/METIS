@@ -414,6 +414,25 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
     a[0] = 0;
 }
 
+/// from mcutil.c
+///
+/// returns true if forall i, a * x[i] + y[i] <= z[i]
+/// original took length argument at beginning
+pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
+    assert_eq!(x.len(), y.len());
+    assert_eq!(x.len(), z.len());
+    x.into_iter().zip(y).map(|(&xi, &yi)| a * xi + yi).zip(z).all(|(li, &zi)| li <= zi)
+}
+
+/// from mcutil.c
+///
+/// returns true if x[i] <= z[i] forall i
+/// original took length argument at beginning
+pub fn ivecle(x: &[idx_t], y: &[idx_t]) -> bool {
+    assert_eq!(x.len(), y.len());
+    x.into_iter().zip(y).all(|(xi, yi)| xi == yi)
+}
+
 #[macro_export]
 macro_rules! BNDInsert {
     ($n:expr, $bndind:expr, $bndptr:expr, $i:expr) => {
