@@ -16,12 +16,11 @@
 
 use crate::{idx_t, real_t};
 
-pub const METISTITLE: &'static str ="METIS 5.2.1 Copyright 1998-22, Regents of the University of Minnesota\n";
-pub const MAXLINE: usize = 			1280000;
+// pub const METISTITLE: &'static str ="METIS 5.2.1 Copyright 1998-22, Regents of the University of Minnesota\n";
+// pub const MAXLINE: usize = 			1280000;
 
-pub const INIT_MAXNAD: idx_t =              200;     /* Initial number of maximum number of 
-                                           adjacent domains. This number will be
-                                           adjusted as required. */
+/// Initial number of maximum number of adjacent domains. This number will be adjusted as required. 
+// pub const INIT_MAXNAD: idx_t =              200;
 
 
 // #define LARGENIPARTS		7	/* Number of random initial partitions */
@@ -29,8 +28,8 @@ pub const INIT_MAXNAD: idx_t =              200;     /* Initial number of maximu
 
 pub const COARSEN_FRACTION: real_t =	0.85;	/* Node reduction between successive coarsening levels */
 
-pub const HTLENGTH: idx_t =		((1<<13)-1);
-pub const COMPRESSION_FRACTION: real_t = 		0.85;
+pub const HTLENGTH: idx_t =		(1<<13)-1;
+// pub const COMPRESSION_FRACTION: real_t = 		0.85;
 
 // #define MMDSWITCH		        120
 
