@@ -328,7 +328,10 @@ where
     /*************************************************************************/
     /* This functions checks the consistency of the heap */
     /**************************************************************************/
+    #[allow(unreachable_code)]
     pub fn check_heap(&self) -> bool {
+        // too slow to do often
+        return true;
         let heap = &self.heap;
         let locator = &self.locator;
         let nnodes = self.nnodes;

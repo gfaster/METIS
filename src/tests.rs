@@ -176,7 +176,7 @@ macro_rules! part_test {
     partfn: $partfn:ident,
     extra: $extra:ident,
     ) => {
-        #[cfg_attr(not(feature = "extra_tests"), ignore = "extra test")]
+        #[cfg(feature = "extra_tests")]
         #[test]
         fn $name() {
             let mut options = $options;

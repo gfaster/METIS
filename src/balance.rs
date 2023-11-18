@@ -252,15 +252,15 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
         tpwgts[1] = tvwgt[0] - tpwgts[0];
         tpwgts
     };
-    let mindiff = (tpwgts[0] - pwgts[0]).abs();
-    let from = (if pwgts[0] < tpwgts[0] { 1 } else { 0 }) as usize;
+    let mindiff = tpwgts[0].abs_diff(pwgts[0]) as i32;
+    let from = (pwgts[0] < tpwgts[0]) as usize;
     let to = (from + 1) % 2;
 
     ifset!(
         ctrl.dbglvl,
         METIS_DBG_REFINE,
         println!(
-            "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]\n",
+            "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]",
             pwgts[0], pwgts[1], tpwgts[0], tpwgts[1], graph.nvtxs, graph.nbnd, graph.mincut,
         )
     );
@@ -307,7 +307,7 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
             ctrl.dbglvl,
             METIS_DBG_MOVEINFO,
             println!(
-                "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]\n",
+                "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]",
                 higain,
                 from,
                 ed[higain] - id[higain],
@@ -696,12 +696,12 @@ pub extern "C" fn McGeneral2WayBalance(
     }
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        println!(
+        print!(
             "\tMincut: {:6} at {:5}, NBND: {:6}, NPwgts: [",
             mincut, mincutorder, nbnd,
         );
         for l in 0..(ncon) {
-            println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
+            print!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
         }
 
         println!("], LB: {:.3}\n", ComputeLoadImbalance(graph, 2, ctrl.pijbm));

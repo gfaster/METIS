@@ -382,6 +382,9 @@ pub fn McRandomBisection(
     ntpwgts: *mut real_t,
     niparts: idx_t,
 ) {
+    // issues with niparts being corrupted
+    let init_niparts = Box::new(niparts);
+
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
     // idx_t i, ii, j, k, nvtxs, ncon, from, bestcut=0, mincut, inbfs, qnum;
@@ -402,7 +405,8 @@ pub fn McRandomBisection(
     let mut counts = vec![0; ncon as usize];
     let mut bestcut = 0;
 
-    for inbfs in 0..2 * niparts {
+    for inbfs in 0..(2 * niparts) {
+        debug_assert_eq!(niparts, *init_niparts);
         irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 2, 1);
         // iset(ncon, 0, counts);
         counts.fill(0);

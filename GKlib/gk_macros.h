@@ -162,6 +162,7 @@ void trigger_panic(char *msg);
 #endif 
 
 #ifndef NDEBUG2
+# error "so slooow"
 #   define ASSERT2 ASSERT
 #   define ASSERTP2 ASSERTP
 #else

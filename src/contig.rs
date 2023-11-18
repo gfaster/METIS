@@ -426,6 +426,7 @@ pub extern "C" fn FindSepInducedComponents(
 pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
+    // ctrl.dbglvl |= METIS_DBG_CONTIGINFO;
     // idx_t i, ii, j, jj, k, me, nparts, nvtxs, ncon, ncmps, other,
     //       ncand, target;
     // idx_t *xadj, *adjncy, *vwgt, *adjwgt, *where_, *pwgts;
@@ -486,11 +487,11 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
     /* There are more components than partitions */
     if ncmps > nparts {
         let mut cwgt = vec![0; ncon];
-        let mut bestcwgt = vec![0; ncon];
+        // let mut bestcwgt = vec![0; ncon];
         let mut cpvec = vec![0; nparts];
         let mut pcptr = vec![0; nparts + 1];
         let mut pcind: Vec<idx_t> = vec![0; ncmps];
-        let mut cwhere_: Vec<idx_t> = vec![-1; nvtxs];
+        let mut cwhere: Vec<idx_t> = vec![-1; nvtxs];
         let mut todo = vec![0; ncmps];
         // cand     = (rkv_t *)wspacemalloc(ctrl, nparts*sizeof(rkv_t));
         let mut cand = vec![KeyVal { key: 0.0, val: 0 }; nparts];
@@ -505,7 +506,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
             pmarker = vec![-1; nparts];
         }
 
-        /* Get a CSR representation of the components-2-partitions mapping */
+        /* Get a CSR representation of the components-to-partitions mapping */
         for i in (0)..(ncmps) {
             pcptr[where_[cind[cptr[i] as usize] as usize] as usize] += 1;
         }
@@ -522,6 +523,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         let mut ntodo = 0;
         for i in (0)..(nparts) {
             let mut bestcid: idx_t;
+            let mut bestcwgt = 0;
             if pcptr[i + 1] - pcptr[i] == 1 {
                 bestcid = pcind[pcptr[i] as usize];
             } else {
@@ -540,10 +542,11 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                             1,
                         );
                     }
-                    if bestcid == -1 || bestcwgt.iter().sum::<idx_t>() < cwgt.iter().sum() {
+                    if bestcid == -1 || bestcwgt < cwgt.iter().sum() {
                         bestcid = cid;
                         // icopy(ncon, cwgt, bestcwgt);
-                        bestcwgt.copy_from_slice(&cwgt);
+                        // bestcwgt.copy_from_slice(&cwgt);
+                        bestcwgt = cwgt.iter().sum();
                     }
                 }
                 /* Keep track of those that need to be dealt with */
@@ -557,13 +560,15 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
             for j in (cptr[bestcid as usize])..(cptr[bestcid as usize + 1]) {
                 assert_eq!(where_[cind[j as usize] as usize], i as idx_t);
-                cwhere_[cind[j as usize] as usize] = i as idx_t;
+                cwhere[cind[j as usize] as usize] = i as idx_t;
             }
         }
 
         while ntodo > 0 {
             let oldntodo = ntodo;
-            for i in (0)..(ntodo) {
+            let mut i = 0;
+            // for i in (0)..(ntodo) {
+            while i < ntodo {
                 let cid = todo[i];
                 let me = where_[cind[cptr[cid as usize] as usize] as usize]; /* Get the domain of this component */
 
@@ -599,8 +604,8 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                     let ii = cind[j as usize] as usize;
                     for jj in (xadj[ii])..(xadj[ii + 1]) {
                         let jj = jj as usize;
-                        if cwhere_[adjncy[jj] as usize] != -1 {
-                            cpvec[cwhere_[adjncy[jj] as usize] as usize] += {
+                        if cwhere[adjncy[jj] as usize] != -1 {
+                            cpvec[cwhere[adjncy[jj] as usize] as usize] += {
                                 // mkslice!(adjwgt, graph.nedges);
                                 adjwgt.map_or(1, |adjwgt| adjwgt[jj])
                             }
@@ -618,6 +623,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                     }
                 }
                 if ncand == 0 {
+                    i += 1;
                     continue;
                 }
 
@@ -630,14 +636,19 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 This applies only when ncon=1, as for multi-constraint, balancing
                 will be hard. */
                 if ncon == 1 {
-                    let mut j = 1;
-                    for jj in (1)..(ncand) {
-                        j = jj;
-                        if cand[j].key < 0.5 * cand[0].key {
-                            break;
-                        }
-                    }
-                    ncand = j;
+                    ncand = cand[..ncand]
+                        .iter()
+                        .position(|x| x.key < 0.5 * cand[0].key)
+                        .unwrap_or(ncand);
+
+                    // let mut j = 1;
+                    // while j < ncand {
+                    //     if cand[j].key < 0.5 * cand[0].key {
+                    //         break;
+                    //     }
+                    //     j += 1;
+                    // }
+                    // ncand = j;
                 }
 
                 /* Now among those, select the one with the best balance */
@@ -705,11 +716,16 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
                 /* Update the cwhere_ vector */
                 for j in (cptr[cid as usize])..(cptr[cid as usize + 1]) {
-                    cwhere_[cind[j as usize] as usize] = target as idx_t;
+                    cwhere[cind[j as usize] as usize] = target as idx_t;
                 }
 
+                // TODO: todo should be added and removed from instead of doing this funny
+                // indexing, but I have to be careful of the exact pattern here. Notice that we
+                // actually skip some entries in todo here, and leave them for another iteration of
+                // the more outer loop
                 ntodo -= 1;
                 todo[i] = todo[ntodo];
+                i+=1;
             }
             if oldntodo == ntodo {
                 ifset!(
@@ -722,7 +738,10 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         }
 
         for i in (0)..(nvtxs) {
-            assert!(where_[i] == cwhere_[i]);
+            assert_eq!(
+                where_[i], cwhere[i],
+                // "where_: {where_:?},\n\n cwhere: {cwhere:?}"
+            );
         }
     }
 
@@ -739,10 +758,10 @@ pub extern "C" fn MoveGroupContigForCut(
     graph: *mut graph_t,
     to: idx_t,
     gid: idx_t,
-    ptr: *mut idx_t,
-    ind: *mut idx_t,
+    ptr: *const idx_t,
+    ind: *const idx_t,
 ) {
-    eprintln!("Called MoveGroupContigForCut");
+    // eprintln!("Called MoveGroupContigForCut");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, nbnd, from, me;
@@ -881,7 +900,7 @@ pub extern "C" fn MoveGroupContigForVol(
     pmarker: *mut idx_t,
     modind: *mut idx_t,
 ) -> () {
-    eprintln!("Called MoveGroupContigForVol");
+    // eprintln!("Called MoveGroupContigForVol");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, from, me, other, xgain;

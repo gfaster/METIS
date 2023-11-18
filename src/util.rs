@@ -164,6 +164,16 @@ pub fn i2rubfactor(ufactor: idx_t) -> real_t {
     1.0 + 0.001 * (ufactor as f32)
 }
 
+/// Increment and decrement by the same value
+///
+/// ```
+/// # use metis::inc_dec;
+/// let mut a = 0;
+/// let mut b = 0;
+/// inc_dec!(a, b, 3);
+/// assert_eq!(a, 3);
+/// assert_eq!(b, -3);
+/// ```
 #[macro_export]
 macro_rules! inc_dec {
     ($a:expr, $b:expr, $val:expr) => {
@@ -350,15 +360,10 @@ macro_rules! get_graph_slices {
     };
 }
 
-/// debug level handling from gk_macros.h
+/// debug level handling from `gk_macros.h`
 #[macro_export]
 macro_rules! ifset {
-    ($a:expr, $flag:expr, $cmd:expr) => {
-        if $a & $flag != 0 {
-            $cmd;
-        }
-    };
-    ($a:expr, $flag:expr, $cmd:expr,) => {
+    ($a:expr, $flag:expr, $cmd:expr $(,)?) => {
         if $a & $flag != 0 {
             $cmd;
         }
@@ -379,12 +384,29 @@ macro_rules! cntrng {
     }};
 }
 
-/// Equivalent of MAKECSR in gk_macros.h
+/// Equivalent of `MAKECSR` in `gk_macros.h`
 ///
 /// n is the length of the slice, but it's often used shorter in METIS
+///
+/// Converts a slice of lengths (vertex degrees) to be the xadj in a CSR representation. The last
+/// index is ignored.
+///
+/// ```rust
+/// # use metis::util::make_csr;
+/// let mut a = [3, 2, 4, 3, 1, -999];
+///
+/// make_csr(a.len() - 1, &mut a);
+///
+/// assert_eq!(a, [0, 3, 5, 9, 12, 13]);
+/// ```
+///
 #[inline(always)]
 pub fn make_csr(n: usize, a: &mut [idx_t]) {
-    assert!(n < a.len(), "making a csr indexes up to n");
+    assert!(
+        n < a.len(),
+        "making a csr indexes up to n: {n} (a.len = {})",
+        a.len()
+    );
     debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
     if n == 0 {
         return;
@@ -399,7 +421,17 @@ pub fn make_csr(n: usize, a: &mut [idx_t]) {
     a[0] = 0;
 }
 
-/// Equivalent of SHIFTCSR in gk_macros.h
+/// Equivalent of `SHIFTCSR` in `gk_macros.h`
+///
+/// Shifts every element in the slice over by one, discarding the last element.
+///
+/// ```rust
+/// # use metis::util::shift_csr;
+/// let mut a = [3, 1, 2];
+///
+/// shift_csr(a.len() - 1, &mut a);
+///
+/// assert_eq!(a, [0, 3, 1]);
 #[inline(always)]
 pub fn shift_csr(n: usize, a: &mut [idx_t]) {
     assert!(n < a.len(), "making a csr indexes up to n");
@@ -421,7 +453,11 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
 pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), y.len());
     assert_eq!(x.len(), z.len());
-    x.into_iter().zip(y).map(|(&xi, &yi)| a * xi + yi).zip(z).all(|(li, &zi)| li <= zi)
+    x.into_iter()
+        .zip(y)
+        .map(|(&xi, &yi)| a * xi + yi)
+        .zip(z)
+        .all(|(li, &zi)| li <= zi)
 }
 
 /// from mcutil.c
@@ -786,7 +822,7 @@ pub fn verify_part(
 }
 
 /// creates a set of dummy weights for partition testing (vwgt, adjwgt)
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub fn create_dummy_weights(
     ncon: usize,
     xadj: &[idx_t],

@@ -36,3 +36,9 @@ fastrand = "2.0.0"
 
 [build-dependencies]
 cc = "1.0"
+
+[profile.release]
+debug = true
+
+[profile.test]
+opt-level = 1

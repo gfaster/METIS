@@ -28,8 +28,8 @@ pub mod kwayrefine;
 pub mod pmetis;
 
 pub(crate) mod blas;
-pub(crate) mod pqueue;
 pub(crate) mod defs;
+pub(crate) mod pqueue;
 use defs::*;
 
 #[macro_use]

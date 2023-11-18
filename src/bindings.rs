@@ -33,7 +33,11 @@ extern "C" {
 
     pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
     pub fn rmalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
-    pub fn irealloc(old: *mut std::ffi::c_void, nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn irealloc(
+        old: *mut std::ffi::c_void,
+        nmemb: usize,
+        msg: *const std::ffi::c_uchar,
+    ) -> *mut std::ffi::c_void;
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
     pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
     pub fn FreeRData(graph: *mut graph_t) -> std::ffi::c_void;
@@ -151,9 +155,19 @@ extern "C" {
     ) -> std::ffi::c_void;
     pub fn SetupSplitGraph(graph: *mut graph_t, snvtxs: idx_t, snedges: idx_t) -> *mut graph_t;
 
-pub fn BetterVBalance(ncon: idx_t, itvwgt: *mut real_t, v_vwgt: *mut idx_t, u1_vwgt: *mut idx_t, u2_vwgt: *mut idx_t) -> std::ffi::c_int;
-pub fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-pub fn CheckGraph(graph: *mut graph_t, numflag: std::ffi::c_int, verbose: std::ffi::c_int) -> std::ffi::c_int;
+    pub fn BetterVBalance(
+        ncon: idx_t,
+        itvwgt: *mut real_t,
+        v_vwgt: *mut idx_t,
+        u1_vwgt: *mut idx_t,
+        u2_vwgt: *mut idx_t,
+    ) -> std::ffi::c_int;
+    pub fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn CheckGraph(
+        graph: *mut graph_t,
+        numflag: std::ffi::c_int,
+        verbose: std::ffi::c_int,
+    ) -> std::ffi::c_int;
 
 }
 
