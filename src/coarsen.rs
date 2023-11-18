@@ -30,6 +30,7 @@ const UNMATCHED: i32 = -1;
 #[metis_func]
 pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut graph_t {
     let ctrl = ctrl.as_mut().unwrap();
+    // ctrl.dbglvl |= METIS_DBG_COARSEN;
     let mut graph = graph;
     // idx_t i, eqewgts, level=0;
 
@@ -40,11 +41,11 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
     // );
 
     /* determine if the weights on the edges are all the same */
-    let mut eqewgts = 1;
+    let mut eqewgts = true;
     get_graph_slices!(*graph => adjwgt tvwgt);
     for i in (1)..((*graph).nedges) {
         if adjwgt[0 as usize] != adjwgt[i as usize] {
-            eqewgts = 0;
+            eqewgts = false;
             break;
         }
     }
@@ -75,7 +76,7 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
         match ctrl.ctype {
             METIS_CTYPE_RM => Match_RM(ctrl, graph),
             METIS_CTYPE_SHEM => {
-                if eqewgts != 0 || (*graph).nedges == 0 {
+                if eqewgts || (*graph).nedges == 0 {
                     Match_RM(ctrl, graph)
                 } else {
                     Match_SHEM(ctrl, graph)
@@ -87,10 +88,10 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
         graph_WriteToDisk(ctrl, graph);
 
         graph = (*graph).coarser;
-        eqewgts = 0;
+        eqewgts = false;
         // level += 1;
 
-        assert!(CheckGraph(graph, 0, 1) != 0);
+        debug_assert!(CheckGraph(graph, 0, 1) != 0);
 
         if !((*graph).nvtxs > ctrl.CoarsenTo
             && ((*graph).nvtxs as real_t) < COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
@@ -218,6 +219,7 @@ pub extern "C" fn CoarsenGraphNlevels(
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
+    // println!("Calling Match_RM");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx,
@@ -283,7 +285,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                 // ivecle(ncon, vwgt[(i as usize * ncon)..], maxvwgt)
                 util::ivecle(&vwgt[cntrng!(i * ncon, ncon)], &maxvwgt[..ncon])
             } {
-                /* Deal with island vertices. Find a non-island and match_ it with.
+                /* Deal with island vertices. Find a non-island and match it with.
                 The matching ignores ctrl.maxvwgt requirements */
                 if xadj[i as usize] == xadj[(i + 1) as usize] {
                     // last_unmatched=gk_max(pi, last_unmatched)+1;
@@ -321,7 +323,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                             let k = adjncy[j as usize] as usize;
                             if match_[k as usize] == UNMATCHED
                                 // && ivecaxpylez(ncon, 1, vwgt[(i as usize * ncon)..], vwgt[(k * ncon)..], maxvwgt))
-                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt)
+                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], &maxvwgt[..ncon])
                             {
                                 maxidx = k;
                                 break;
@@ -331,7 +333,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                         /* If it did not match_, record for a 2-hop matching. */
                         if maxidx == i
                             // && ivecaxpylez(ncon, 2, vwgt[(i * ncon)..], vwgt[(i * ncon)..], maxvwgt))
-                            && util::ivecaxpylez( 2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], maxvwgt)
+                            && util::ivecaxpylez( 2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], &maxvwgt[..ncon])
                         {
                             nunmatched += 1;
                             maxidx = (UNMATCHED as isize) as usize;
@@ -350,7 +352,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
         }
     }
 
-    //println!("nunmatched: %zu", nunmatched);
+    // println!("nunmatched: {nunmatched}");
 
     /* see if a 2-hop matching is required/allowed */
     if ctrl.no2hop == 0 && nunmatched as real_t > UNMATCHEDFOR2HOP * nvtxs as real_t {
@@ -399,6 +401,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
+    // println!("Calling Match_SHEM");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx, maxwgt,
@@ -502,7 +505,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                             let k = adjncy[j as usize] as usize;
                             if match_[k] == UNMATCHED
                                 // && ivecaxpylez(ncon, 1, vwgt[(i * ncon)..], vwgt[(k * ncon)..], maxvwgt)
-                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt)
+                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], &maxvwgt[..ncon])
                                 && (maxwgt < adjwgt[j as usize]
                                     || (maxwgt == adjwgt[j as usize]
                                         && BetterVBalance(
@@ -521,7 +524,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                         /* If it did not match_, record for a 2-hop matching. */
                         if maxidx == i
                             // && ivecaxpylez(ncon, 2, vwgt[(i * ncon)..], vwgt[(i * ncon)..], maxvwgt))
-                            && util::ivecaxpylez(2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], maxvwgt)
+                            && util::ivecaxpylez(2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], &maxvwgt[..ncon])
                         {
                             nunmatched += 1;
                             maxidx = (UNMATCHED as isize) as usize;

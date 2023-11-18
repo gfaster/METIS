@@ -484,8 +484,8 @@ pub extern "C" fn McGeneral2WayBalance(
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
 
-    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
-    assert!(debug::CheckBnd(graph) != 0);
+    debug_assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    debug_assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert all nodes in the priority queues */
     let mut nbnd = graph.nbnd;

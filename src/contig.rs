@@ -725,7 +725,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 // the more outer loop
                 ntodo -= 1;
                 todo[i] = todo[ntodo];
-                i+=1;
+                i += 1;
             }
             if oldntodo == ntodo {
                 ifset!(
@@ -739,7 +739,8 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
         for i in (0)..(nvtxs) {
             assert_eq!(
-                where_[i], cwhere[i],
+                where_[i],
+                cwhere[i],
                 // "where_: {where_:?},\n\n cwhere: {cwhere:?}"
             );
         }

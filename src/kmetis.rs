@@ -148,7 +148,7 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
     // let status: i32;
 
     for i in 0..ctrl.ncuts {
-        let cgraph = CoarsenGraph(ctrl, graph).as_mut().unwrap();
+        let cgraph = coarsen::CoarsenGraph(ctrl, graph).as_mut().unwrap();
 
         // ifset!(
         //     ctrl.dbglvl,

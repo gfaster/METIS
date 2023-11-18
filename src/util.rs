@@ -448,7 +448,7 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
 
 /// from mcutil.c
 ///
-/// returns true if forall i, a * x[i] + y[i] <= z[i]
+/// returns true if forall `i`, `a * x[i] + y[i] <= z[i]`
 /// original took length argument at beginning
 pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), y.len());
@@ -462,11 +462,11 @@ pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
 
 /// from mcutil.c
 ///
-/// returns true if x[i] <= z[i] forall i
+/// returns true if `x[i] <= z[i]` forall `i`
 /// original took length argument at beginning
-pub fn ivecle(x: &[idx_t], y: &[idx_t]) -> bool {
-    assert_eq!(x.len(), y.len());
-    x.into_iter().zip(y).all(|(xi, yi)| xi == yi)
+pub fn ivecle(x: &[idx_t], z: &[idx_t]) -> bool {
+    assert_eq!(x.len(), z.len());
+    x.into_iter().zip(z).all(|(xi, zi)| xi <= zi)
 }
 
 #[macro_export]

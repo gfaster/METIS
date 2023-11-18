@@ -2,6 +2,14 @@ use std::{fs::read_dir, os::unix::prelude::OsStrExt, process::Command};
 
 use cc::Build;
 
+trait PassThrough {
+    fn pass(&mut self, f: impl FnOnce(&mut Self)) -> &mut Self {
+        f(self);
+        self
+    }
+}
+impl PassThrough for Build {}
+
 fn main() {
     let do_no_rs = std::env::var("CARGO_FEATURE_NO_RS")
         .unwrap_or("0".to_string())
@@ -83,6 +91,8 @@ fn main() {
     // panic!();
     Command::new("pwd").spawn().unwrap().wait().unwrap();
 
+    let ndebug = !cfg!(debug_assertions);
+
     // dbg!(&files);
     Build::new()
         .files(gklib_files)
@@ -90,6 +100,11 @@ fn main() {
         .include("GKlib")
         .define("LINUX", "")
         .define("NDEBUG2", "")
+        .pass(|b| {
+            if ndebug {
+                b.define("NDEBUG", "");
+            }
+        })
         .define("_FILE_OFFSET_BITS", "64")
         .flag("-fno-strict-aliasing")
         .flag("-std=c99")
@@ -106,6 +121,11 @@ fn main() {
         .define("REALTYPEWIDTH", "32")
         .define("DMALLOC", "")
         .define("NDEBUG2", "")
+        .pass(|b| {
+            if ndebug {
+                b.define("NDEBUG", "");
+            }
+        })
         .flag("-fno-strict-aliasing")
         .warnings(false)
         // .pic(false)

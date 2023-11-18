@@ -330,7 +330,7 @@ pub extern "C" fn MultilevelBisect(
     let mut bestbal = 0.0;
     let mut curobj = 0;
     for i in (0)..(ctrl.ncuts) {
-        let cgraph = CoarsenGraph(ctrl, graph);
+        let cgraph = coarsen::CoarsenGraph(ctrl, graph);
         let cgraph = cgraph.as_mut().unwrap();
 
         let niparts = if cgraph.nvtxs <= ctrl.CoarsenTo {
