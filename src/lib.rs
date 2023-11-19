@@ -28,7 +28,9 @@ pub mod kwayrefine;
 pub mod pmetis;
 
 pub(crate) mod blas;
+pub(crate) mod dal;
 pub(crate) mod defs;
+pub(crate) mod graph_gen;
 pub(crate) mod pqueue;
 use defs::*;
 

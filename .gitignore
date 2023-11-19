@@ -69,3 +69,8 @@ GKlib/build
 /macros/Cargo.lock
 gdb.txt
 out.txt
+
+# Other artifacts
+*.svg
+perf.data
+perf.data.old

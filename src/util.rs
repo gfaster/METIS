@@ -821,6 +821,28 @@ pub fn verify_part(
     );
 }
 
+/// inverse of `util::make_csr`. Last element is unspecified.
+///
+/// ```rust
+/// # use metis::util::from_csr;
+///
+/// let mut a = [0, 2, 4, 7, 8];
+///
+/// from_csr(&mut a);
+///
+/// assert_eq!(&a[..a.len() - 1], &[2, 2, 3, 1]);
+/// ```
+pub fn from_csr(a: &mut [idx_t]) {
+    if a.is_empty() {
+        return;
+    }
+    for i in 0..(a.len() - 1) {
+        a[i] = a[i + 1]
+            .checked_sub(a[i])
+            .expect("should have nonnegative degree");
+    }
+}
+
 /// creates a set of dummy weights for partition testing (vwgt, adjwgt)
 #[cfg(test)]
 pub fn create_dummy_weights(

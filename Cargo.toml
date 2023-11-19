@@ -41,4 +41,3 @@ cc = "1.0"
 debug = true
 
 [profile.test]
-opt-level = 1

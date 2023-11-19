@@ -17,7 +17,7 @@
 
 /* auxapi.c */
 
-/* balance.c */
+/* balance.c - ported */
 void Balance2Way(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 void Bnd2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 void General2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
@@ -56,14 +56,14 @@ void ReAdjustMemory(ctrl_t *ctrl, graph_t *graph, graph_t *cgraph);
 
 
 
-/* compress.c */
+/* compress.c - ported */
 graph_t *CompressGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
              idx_t *vwgt, idx_t *cptr, idx_t *cind);
 graph_t *PruneGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
              idx_t *vwgt, idx_t *iperm, real_t factor);
 
 
-/* contig.c */
+/* contig.c - ported */
 idx_t FindPartitionInducedComponents(graph_t *graph, idx_t *where, 
           idx_t *cptr, idx_t *cind);
 void ComputeBFSOrdering(ctrl_t *ctrl, graph_t *graph, idx_t *bfsperm);
@@ -282,7 +282,7 @@ void FM_2WayNodeRefine2SidedP(ctrl_t *ctrl, graph_t *graph, idx_t *hmarker,
          real_t ubfactor, idx_t npasses);
 
 
-/* pmetis.c */
+/* pmetis.c - ported */
 idx_t MlevelRecursiveBisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, 
           idx_t *part, real_t *tpwgts, idx_t fpart);
 idx_t MultilevelBisect(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts);
