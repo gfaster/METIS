@@ -113,7 +113,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     for nswaps in 0..(nvtxs) {
         // let higain = rpqGetTop(queue)
         // largest net degree
-        let higain = queue.get_top();
+        let higain = queue.pop();
         if higain.is_none() {
             break;
         }
@@ -287,7 +287,7 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     let mut mincut = graph.mincut;
     let mut nbnd = graph.nbnd;
     for nswaps in 0..(nvtxs) {
-        let higain = queue.get_top();
+        let higain = queue.pop();
         if higain.is_none() || higain == Some(-1) {
             break;
         }
@@ -517,7 +517,7 @@ pub extern "C" fn McGeneral2WayBalance(
         let to = (from + 1) % 2;
 
         // if (from == -1 || (higain = rpqGetTop(queues[(2 * cnum + from) as usize])) == -1) {
-        let higain = queues[(2 * cnum + from) as usize].get_top();
+        let higain = queues[(2 * cnum + from) as usize].pop();
         if from == -1 || higain.is_none() {
             break;
         }

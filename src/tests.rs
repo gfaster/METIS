@@ -1,30 +1,31 @@
 #![cfg(test)]
 #![allow(unused_mut)]
 
+use std::mem::transmute;
 use std::ptr;
 
 use crate::bindings::{idx_t, real_t, METIS_NOPTIONS, METIS_OK};
+use crate::graph_gen::GraphBuilder;
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;
-
-use crate::util::{create_dummy_weights, verify_part};
+use crate::{Optype, METIS_OPTION_CTYPE};
 
 /// function signature of METIS_PartGraphKway, METIS_PartGraphRecursive
-type PartSig = unsafe extern "C" fn(
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut real_t,
-    *const real_t,
-    *mut idx_t,
-    *mut idx_t,
-    *mut idx_t,
-) -> idx_t;
+// type PartSig = unsafe extern "C" fn(
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut real_t,
+//     *const real_t,
+//     *mut idx_t,
+//     *mut idx_t,
+//     *mut idx_t,
+// ) -> idx_t;
 
 #[test]
 fn basic_part_graph_recursive() {
@@ -66,40 +67,10 @@ fn basic_part_graph_recursive() {
 
 #[test]
 fn basic_part_graph_kway() {
-    let mut xadj = &mut [0, 1, 2];
-    let mut adjncy = &mut [1, 0];
-    let mut nvtxs = xadj.len() as idx_t - 1;
-    let mut ncon: idx_t = 1;
-    let mut vwgt = ptr::null_mut();
-    let mut vsize = ptr::null_mut();
-    let mut adjwgt = ptr::null_mut();
-    let mut nparts: idx_t = 2;
-    let mut tpwgts = ptr::null_mut();
-    let mut ubvec = ptr::null_mut();
-    let mut objval: idx_t = 0;
-    let mut part = [0; 2];
-    let mut options = [-1; METIS_NOPTIONS as usize];
-
-    let res = unsafe {
-        METIS_PartGraphKway(
-            &mut nvtxs as *mut _,
-            &mut ncon as *mut _,
-            xadj.as_mut_ptr(),
-            adjncy.as_mut_ptr(),
-            vwgt,
-            vsize,
-            adjwgt,
-            &mut nparts as *mut _,
-            tpwgts,
-            ubvec,
-            options.as_mut_ptr(),
-            &mut objval as *mut _,
-            part.as_mut_ptr(),
-        )
-    };
-
-    assert_eq!(res, METIS_OK);
-    assert_ne!(part[0], part[1]);
+    let mut graph = GraphBuilder::new_basic(Optype::Kmetis, 2);
+    graph.with_vtx_degrees(vec![3, 4, 2, 3, 5, 8, 1, 3, 2, 5]);
+    graph.random_edges();
+    assert!(graph.call().is_ok());
 }
 
 fn part_graph_and_verify(
@@ -108,61 +79,53 @@ fn part_graph_and_verify(
     nparts: idx_t,
     use_vwgt: bool,
     use_adjwgt: bool,
-    partfn: PartSig,
+    partfn: Optype,
 ) {
-    let (mut xadj, mut adjncy) = crate::util::read_graph(&mut std::io::Cursor::new(
-        include_bytes!("../graphs/4elt_rs.graph"),
-    ))
+    let mut graph = GraphBuilder::read_graph(
+        &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+        partfn,
+        nparts as usize,
+        ncon as usize,
+    )
     .unwrap();
 
-    let (mut v_vwgt, mut v_adjwgt) = create_dummy_weights(ncon as usize, &xadj, &adjncy);
-    let vwgt;
-    match use_vwgt {
-        true => vwgt = v_vwgt.as_mut_ptr(),
-        false => vwgt = ptr::null_mut(),
+    graph.set_from_options_arr(options);
+
+    if use_vwgt {
+        graph.random_vwgt();
     }
-    let adjwgt;
-    match use_adjwgt {
-        true => adjwgt = v_adjwgt.as_mut_ptr(),
-        false => adjwgt = ptr::null_mut(),
+    if use_adjwgt {
+        graph.random_vwgt();
     }
-    let mut ncon = ncon;
 
-    let mut nparts = nparts;
-    let mut part = vec![-1; xadj.len() - 1];
+    let res = graph.call();
 
-    let mut objval = 0;
+    assert!(res.is_ok());
 
-    let res = unsafe {
-        partfn(
-            &mut (xadj.len() as idx_t - 1) as *mut idx_t,
-            &mut ncon as *mut _,
-            xadj.as_mut_ptr(),
-            adjncy.as_mut_ptr(),
-            vwgt,
-            ptr::null_mut(),
-            adjwgt,
-            &mut nparts as *mut _,
-            ptr::null_mut(),
-            ptr::null_mut(),
-            options.as_mut_ptr(),
-            &mut objval as *mut _,
-            part.as_mut_ptr(),
-        )
+    let (objval, part) = res.unwrap();
+
+    graph.verify_part(objval, &part);
+}
+
+macro_rules! partfn_type {
+    ($fn:ident) => {
+        {
+            #[allow(unused_must_use)]
+            const _: () = {
+                || {
+                    #[allow(unused)]
+                    use $fn;
+                };
+            };
+            partfn_type!(@inner $fn)
+        }
     };
-
-    assert_eq!(res, METIS_OK);
-
-    let vwgt = match use_vwgt {
-        true => Some(&v_vwgt[..]),
-        false => None,
+    (@inner METIS_PartGraphKway) => {
+        crate::Optype::Kmetis
     };
-    let adjwgt = match use_adjwgt {
-        true => Some(&v_adjwgt[..]),
-        false => None,
+    (@inner METIS_PartGraphRecursive) => {
+        crate::Optype::Pmetis
     };
-
-    verify_part(&xadj, &adjncy, vwgt, adjwgt, objval, &part, nparts)
 }
 
 macro_rules! part_test {
@@ -186,7 +149,7 @@ macro_rules! part_test {
                 $nparts,
                 $use_vwgt,
                 $use_adjwgt,
-                $partfn,
+                partfn_type!($partfn),
             );
         }
     };
@@ -208,7 +171,7 @@ macro_rules! part_test {
                 $nparts,
                 $use_vwgt,
                 $use_adjwgt,
-                $partfn,
+                partfn_type!($partfn),
             );
         }
     };

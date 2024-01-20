@@ -374,7 +374,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     for ii in 0..(mynparts as usize) {
         let i = perm[ii];
         // let j = ipqSeeTopVal(queue);
-        let j = queue.see_top_val().unwrap_or(-1);
+        let j = queue.peek_val().unwrap_or(-1);
         fpart[i as usize] = j;
         cpwgts[j as usize] += fpwgts[i as usize];
         // ipqUpdate(queue, j, -cpwgts[j]);

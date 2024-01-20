@@ -188,6 +188,7 @@ macro_rules! inc_dec {
 * ====================================================
 */
 
+#[allow(unused_macros)]
 macro_rules! options_match {
     ($options:ident, Cut) => {
         $options[$crate::METIS_OPTION_OBJTYPE as usize] = $crate::Objtype::Cut as idx_t;
@@ -726,101 +727,6 @@ macro_rules! slice_default_mut {
 }
     */
 
-/// read a graph from a file in a simplified version of the format specified in the manual
-///
-/// returns (xadj, adjncy)
-pub fn read_graph(f: &mut impl BufRead) -> Result<(Vec<idx_t>, Vec<idx_t>), Box<dyn Error>> {
-    let mut buf = String::with_capacity(80);
-    f.read_line(&mut buf)?;
-
-    let mut xadj = Vec::<idx_t>::new();
-    let mut adjncy = Vec::<idx_t>::new();
-
-    let mut x = 0;
-    buf.clear();
-    while 0 != f.read_line(&mut buf)? {
-        if buf.trim_start().starts_with('#') || buf.trim().is_empty() {
-            continue;
-        }
-
-        xadj.push(x);
-
-        let split = buf.split_whitespace();
-        for a in split {
-            adjncy.push(a.parse()?);
-            x += 1;
-        }
-
-        buf.clear();
-    }
-    xadj.push(x);
-
-    for (i, (start, end)) in xadj.windows(2).map(|w| (w[0], w[1])).enumerate() {
-        assert!((start as usize) < adjncy.len());
-        assert!((end as usize) <= adjncy.len());
-        assert!(start < end);
-        for j in &adjncy[(start as usize)..(end as usize)] {
-            assert!(j >= &0, "no negatives");
-            assert_ne!(i, *j as usize, "no self loops");
-            assert!(*j < xadj.len() as idx_t - 1, "adj in bounds");
-        }
-    }
-
-    Ok((xadj, adjncy))
-}
-
-/// adapted from mtest.c: VerifyPart
-pub fn verify_part(
-    xadj: &[idx_t],
-    adjncy: &[idx_t],
-    vwgt: Option<&[idx_t]>,
-    adjwgt: Option<&[idx_t]>,
-    _objval: idx_t,
-    part: &[idx_t],
-    nparts: idx_t,
-) {
-    assert!(nparts > 0);
-    assert_eq!(
-        xadj.len() - 1,
-        part.len(),
-        "part is the partition that each vertex goes to"
-    );
-
-    let nvtxs = xadj.len() - 1;
-    let mut pwgts = vec![0; nparts as usize];
-
-    assert_eq!(
-        *part.iter().max().unwrap_or(&0),
-        nparts - 1,
-        "total number of partitions eq to nparts"
-    );
-
-    let mut _cut = 0;
-    for i in 0..nvtxs {
-        pwgts[part[i] as usize] += vwgt.map(|v| v[i]).unwrap_or(1);
-        for j in xadj[i]..xadj[i + 1] {
-            if part[i] != part[adjncy[j as usize] as usize] {
-                _cut += adjwgt.map(|v| v[j as usize]).unwrap_or(1);
-            }
-        }
-    }
-
-    eprintln!("todo: make this work always. This assumes edgecut but we call this for vol too");
-    // assert_eq!(
-    //     cut,
-    //     2 * objval,
-    //     "objval should be edgecut, and the calculated cut should be double it"
-    // );
-    let actual = (nparts * pwgts.iter().max().unwrap()) as f64;
-    // should be 1.10, but it's annoying
-    let expected = 1.12 * pwgts.iter().sum::<idx_t>() as f64;
-    assert!(
-        // (nparts * pwgts[iargmax(nparts, pwgts)]) as f64
-        actual <= expected,
-        "actual: {actual:.1}, expected: {expected:.1}.\n\tThis assert spuriously fails sometimes - rerun tests."
-    );
-}
-
 /// inverse of `util::make_csr`. Last element is unspecified.
 ///
 /// ```rust
@@ -837,145 +743,31 @@ pub fn from_csr(a: &mut [idx_t]) {
         return;
     }
     for i in 0..(a.len() - 1) {
-        a[i] = a[i + 1]
-            .checked_sub(a[i])
-            .expect("should have nonnegative degree");
+        a[i] = a[i + 1] - a[i];
+        assert!(a[i] >= 0, "a[{i}] = {} has negative degree", a[i]);
     }
 }
 
-/// creates a set of dummy weights for partition testing (vwgt, adjwgt)
-#[cfg(test)]
-pub fn create_dummy_weights(
-    ncon: usize,
-    xadj: &[idx_t],
-    adjncy: &[idx_t],
-) -> (Vec<idx_t>, Vec<idx_t>) {
-    let mut rng = fastrand::Rng::new();
-    let nvtxs = xadj.len() - 1;
-
-    let vwgt = Vec::from_iter((0..(nvtxs * ncon)).map(|_| rng.i32(0..10)));
-
-    let mut adjwgt = vec![0; adjncy.len()];
-    for i in 0..nvtxs {
-        for j in xadj[i]..xadj[i + 1] {
-            let k = adjncy[j as usize] as usize;
-            if i < k {
-                adjwgt[j as usize] = rng.i32(1..=5);
-                for jj in xadj[k]..xadj[k + 1] {
-                    if adjncy[jj as usize] as usize == i {
-                        adjwgt[jj as usize] = adjwgt[j as usize];
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    (vwgt, adjwgt)
-}
-
-/// returns (xadj, adjncy)
-pub fn create_dummy_graph(nvtxs: idx_t) -> (Vec<idx_t>, Vec<idx_t>) {
-    let mut xadj = Vec::with_capacity(nvtxs as usize + 1);
-    let mut adjncy = Vec::with_capacity(nvtxs as usize * 2);
-    for x in 0..nvtxs {
-        xadj.push(adjncy.len() as idx_t);
-        adjncy.push((x + 1) % nvtxs);
-        adjncy.push((x + nvtxs - 1) % nvtxs);
-    }
-    xadj.push(adjncy.len() as idx_t);
-
-    (xadj, adjncy)
-}
-
-/// wrapper for [`ctrl_t`] that frees it properly on drop
-pub struct Ctrl {
-    pub inner: *mut ctrl_t,
-
-    /// for testing purposes, we often need to initialize a [`graph_t`] associated with ctrl. This
-    /// is because all allocation that METIS does relies on the memory arena created for a specific
-    /// graph. For convienence purposes (for now), I want to be able to dump those structures in
-    /// along with [`Ctrl`] so they can be freed properly.
-    graph_parts: Vec<Box<dyn std::any::Any>>,
-}
-
-impl Ctrl {
-    /// calls [`SetupCtrl`] to create
-    pub fn new(
-        optype: Optype,
-        options: &mut [idx_t; METIS_NOPTIONS as usize],
-        ncon: idx_t,
-        nparts: idx_t,
-        tpwgts: Option<&[real_t]>,
-        ubvec: Option<&[real_t]>,
-    ) -> Self {
-        if unsafe { gk_malloc_init() } == 0 {
-            panic!("gk_malloc_init failed")
-        }
-
-        let tpwgts = tpwgts.map_or(ptr::null(), |x| x.as_ptr());
-        let ubvec = ubvec.map_or(ptr::null(), |x| x.as_ptr());
-
-        let inner = unsafe {
-            SetupCtrl(
-                optype as u32,
-                options.as_mut_ptr(),
-                ncon,
-                nparts,
-                tpwgts,
-                ubvec,
-            )
-        };
-        if inner.is_null() {
-            panic!("setup ctrl failed")
-        }
-        // unsafe {wspacepush(inner)};
-        Ctrl {
-            inner,
-            graph_parts: Vec::new(),
-        }
-    }
-
-    pub fn new_kmetis_basic() -> Self {
-        let mut options = make_options!(Cut Grow);
-        let ncon = 1;
-        let nparts = 2;
-        let tpwgts = None;
-        let ubvec = None;
-        let optype = Optype::Kmetis;
-        Self::new(optype, &mut options, ncon, nparts, tpwgts, ubvec)
-    }
-
-    pub fn init_dummy_graph(&mut self, nvtxs: idx_t) {
-        let (mut xadj, mut adjncy) = create_dummy_graph(nvtxs);
-        let graph = unsafe {
-            SetupGraph(
-                self.inner,
-                nvtxs,
-                1,
-                xadj.as_mut_ptr(),
-                adjncy.as_mut_ptr(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-            )
-        };
-        self.graph_parts.push(Box::new(adjncy));
-        self.graph_parts.push(Box::new(xadj));
-        unsafe { AllocateWorkSpace(self.inner, graph) };
-    }
-}
-
-impl Drop for Ctrl {
-    fn drop(&mut self) {
-        // core (worksapce) is freed if it has been set: noop on null
-
-        if self.inner.is_null() {
-            panic!("dropped null ctrl")
-        } else {
-            // unsafe {wspacepop(inner)};
-            unsafe { FreeCtrl(&mut self.inner as *mut _) };
-        }
-    }
+/// inverse of `util::make_csr`, but returns an iterator
+///
+/// ```rust
+/// # use metis::util::from_csr_iter;
+///
+/// let a = [0, 2, 4, 7, 8];
+///
+/// let mut it = from_csr_iter(&a);
+/// assert_eq!(it.next(), Some(2));
+/// assert_eq!(it.next(), Some(2));
+/// assert_eq!(it.next(), Some(3));
+/// assert_eq!(it.next(), Some(1));
+/// assert_eq!(it.next(), None);
+/// ```
+pub fn from_csr_iter(a: &[idx_t]) -> impl Iterator<Item = idx_t> + '_ {
+    a.windows(2).map(|s| {
+        let deg = s[1] - s[0];
+        debug_assert!(deg >= 0, "deg = {deg} is negative");
+        deg
+    })
 }
 
 #[cfg(test)]

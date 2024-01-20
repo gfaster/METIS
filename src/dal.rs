@@ -1,17 +1,97 @@
-//! Direct access list wrapper. This isn't used in the main routines for not, but I want to in the
+//! Direct access list wrapper. This isn't used in the main routines for now, but I want to in the
 //! future
 #![allow(unused)]
 
+use std::mem::MaybeUninit;
+
 use crate::*;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DirectAccessList {
     ptr: Vec<idx_t>,
     ind: Vec<idx_t>,
 }
 
 impl DirectAccessList {
-    fn new(cap: usize) -> Self {
+    pub fn from_vecs(ptr: Vec<idx_t>, ind: Vec<idx_t>) -> Self {
+        let mut count = 0;
+        let mut has_entry = vec![false; ind.len()];
+        for (i, &k) in ptr.iter().enumerate() {
+            assert!(k >= -1);
+            assert!(k < ind.len() as idx_t);
+            if k != -1 {
+                count += 1;
+                assert!(!has_entry[k as usize]);
+                has_entry[k as usize] = true;
+                assert_eq!(i as idx_t, ind[k as usize]);
+            }
+        }
+        assert_eq!(count, ind.len());
+        Self { ptr, ind }
+    }
+
+    pub fn clear(&mut self) {
+        // Safety: we clear ind
+        unsafe {
+            self.clear_ptr();
+        }
+        self.ind.clear();
+    }
+
+    /// clears just ptr, leaving ind intact
+    ///
+    /// ## Safety
+    /// ind must be manually cleared after
+    unsafe fn clear_ptr(&mut self) {
+        let max = self.ptr.len();
+        let len = self.len();
+        if len >= max / 8 || max < 32 {
+            // do a memset if enough of the ptr array is filled enough
+            // the criteria was a random guess
+            self.ptr.fill(-1);
+        } else {
+            for &idx in self.ind.iter() {
+                self.ptr[idx as usize] = -1;
+            }
+        }
+    }
+
+    /// sort the ind list
+    //
+    // TODO: optimize me
+    pub fn sort(&mut self) {
+        // don't do anything if we're already sorted
+        if self.ind.windows(2).all(|w| w[0] <= w[1]) {
+            return;
+        }
+
+        unsafe {
+            self.clear_ptr();
+        }
+        let mut ind = std::mem::take(&mut self.ind);
+        ind.sort_unstable();
+        for (i, &val) in ind.iter().enumerate() {
+            self.ptr[val as usize] = i as idx_t;
+        };
+    }
+
+    /// return a (ptr, ind) tuple
+    pub fn as_slices(&self) -> (&[idx_t], &[idx_t]) {
+        (&self.ptr, &self.ind)
+    }
+
+    /// return a mutable (ptr, ind) tuple
+    pub unsafe fn as_slices_mut(&mut self) -> (&mut [idx_t], &mut [idx_t]) {
+        (&mut self.ptr, &mut self.ind)
+    }
+
+    pub unsafe fn from_vecs_unchecked(ptr: Vec<idx_t>, ind: Vec<idx_t>) -> Self {
+        debug_assert_eq!(ind.iter().find(|&&x| x < 0), None);
+        debug_assert!(ptr.len() >= ind.len());
+        Self { ptr, ind }
+    }
+
+    pub fn new(cap: usize) -> Self {
         Self {
             ptr: vec![-1; cap],
             ind: Vec::with_capacity(cap),
@@ -71,6 +151,10 @@ impl DirectAccessList {
         self.ind.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.ind.is_empty()
+    }
+
     pub fn cap(&self) -> usize {
         self.ptr.len()
     }
@@ -84,11 +168,23 @@ impl DirectAccessList {
     }
 }
 
+impl From<pqueue::IPQueue> for DirectAccessList {
+    fn from(value: pqueue::IPQueue) -> Self {
+        value.to_dal()
+    }
+}
+
 impl Extend<idx_t> for DirectAccessList {
     fn extend<T: IntoIterator<Item = idx_t>>(&mut self, iter: T) {
         for key in iter {
             self.insert(key);
         }
+    }
+}
+
+impl std::fmt::Debug for DirectAccessList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }
 
@@ -103,6 +199,10 @@ impl<T> DirectAccessMap<T> {
             list: DirectAccessList::new(cap),
             map: Vec::with_capacity(cap),
         }
+    }
+
+    pub fn inner(&self) -> &DirectAccessList {
+        &self.list
     }
 
     pub fn insert(&mut self, key: idx_t, item: T) -> Option<T> {
@@ -122,6 +222,55 @@ impl<T> DirectAccessMap<T> {
         } else {
             None
         }
+    }
+
+    pub fn sort(&mut self) {
+        let oldind = self.list.ind.clone();
+        let mut newarr: Vec<MaybeUninit<T>> = Vec::with_capacity(oldind.len());
+        self.list.sort();
+        let ptr = &self.list.ptr;
+        unsafe {
+            newarr.set_len(oldind.len());
+            for i in 0..oldind.len() {
+                let dst = newarr[ptr[oldind[i] as usize] as usize].as_mut_ptr();
+                let src = &self.map[i] as *const T;
+                // eprintln!("{i} moved to {}", ptr[oldind[i] as usize]);
+                std::ptr::copy_nonoverlapping(src, dst, 1);
+            }
+            assert!(core::alloc::Layout::new::<T>() == core::alloc::Layout::new::<MaybeUninit<T>>());
+            self.map.set_len(0);
+            let p = newarr.as_mut_ptr();
+            let len = newarr.len();
+            let cap = newarr.capacity();
+            std::mem::forget(newarr);
+            self.map = Vec::from_raw_parts(p as *mut T, len, cap);
+        }
+    }
+
+    pub fn sort_values(&mut self) where T: Ord {
+        let mut mapping: Vec<_> = (0..self.len()).collect();
+        mapping.sort_unstable_by_key(|&i| &self.map[i]);
+        let oldind = self.list.ind.clone();
+        for i in 0..self.len() {
+            self.list.ind[i] = oldind[i];
+            self.list.ptr[oldind[i] as usize] = i as idx_t;
+        }
+    }
+
+    pub fn values_slice_mut(&mut self) -> &mut [T] {
+        &mut self.map
+    }
+    pub fn values_slice(&self) -> &[T] {
+        &self.map
+    }
+
+    /// returns (ptr, ind) of inner list
+    pub fn list_slices(&self) -> (&[idx_t], &[idx_t]) {
+        self.list.as_slices()
+    }
+
+    pub fn keys_slice(&self) -> &[idx_t] {
+        &self.list.ind
     }
 
     pub fn contains(&self, key: idx_t) -> bool {
@@ -170,6 +319,9 @@ impl<T> DirectAccessMap<T> {
     pub fn len(&self) -> usize {
         self.list.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.list.is_empty()
+    }
 
     pub fn cap(&self) -> usize {
         self.list.cap()
@@ -196,8 +348,14 @@ impl<T> std::ops::Index<usize> for DirectAccessMap<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        self.get(index.try_into().expect("index can be converted to idx_t"))
-            .expect("No entry found for key")
+        #[inline(never)]
+        fn index_fail(index: usize) -> ! {
+            panic!("No entry found for key {index}");
+        }
+        match index.try_into().map_or(None, |idx| self.get(idx)) {
+            Some(r) => r,
+            None => index_fail(index),
+        }
     }
 }
 
@@ -205,20 +363,40 @@ impl<T> std::ops::Index<idx_t> for DirectAccessMap<T> {
     type Output = T;
 
     fn index(&self, index: idx_t) -> &Self::Output {
-        self.get(index).expect("No entry found for key")
+        #[inline(never)]
+        fn index_fail(index: idx_t) -> ! {
+            panic!("No entry found for key {index}");
+        }
+        match self.get(index) {
+            Some(r) => r,
+            None => index_fail(index),
+        }
     }
 }
 
 impl<T> std::ops::IndexMut<usize> for DirectAccessMap<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        self.get_mut(index.try_into().expect("index can be converted to idx_t"))
-            .expect("No entry found for key")
+        #[inline(never)]
+        fn index_fail(index: usize) -> ! {
+            panic!("No entry found for key {index}");
+        }
+        match index.try_into().map_or(None, |idx| self.get_mut(idx)) {
+            Some(r) => r,
+            None => index_fail(index),
+        }
     }
 }
 
 impl<T> std::ops::IndexMut<idx_t> for DirectAccessMap<T> {
     fn index_mut(&mut self, index: idx_t) -> &mut Self::Output {
-        self.get_mut(index).expect("No entry found for key")
+        #[inline(never)]
+        fn index_fail(index: idx_t) -> ! {
+            panic!("No entry found for key {index}");
+        }
+        match self.get_mut(index) {
+            Some(r) => r,
+            None => index_fail(index),
+        }
     }
 }
 
@@ -322,6 +500,20 @@ mod test {
                 contains(0),
                 remove(0),
             ]
+        }
+
+        #[test]
+        fn sort() {
+            let v = vec![0, 1, 4, 2, 3, 9, 5, 30, 24, 29, 5, 4, 2];
+            let mut dal = DirectAccessList::new(40);
+            dal.extend(v.iter().copied());
+            dal.sort();
+            for w in dal.ind.windows(2) {
+                assert!(w[0] <= w[1]);
+            }
+            for (i, &k) in dal.ind.iter().enumerate() {
+                assert_eq!(dal.key_ind(k), Some(i));
+            }
         }
     }
     mod map {
@@ -448,6 +640,38 @@ mod test {
                 remove(0),
                 keys(),
             ]
+        }
+
+        #[test]
+        fn sort() {
+            let vals = || (0..20).map(|i| Box::new(i));
+            let keys = || (25..35).chain(10..20);
+            let mut map = DirectAccessMap::new(40);
+            let mut truth = BTreeMap::new();
+            truth.extend(keys().zip(vals()));
+            for (k, v) in keys().zip(vals()) {
+                map.insert(k, v);
+            }
+            map.sort();
+            let map_vals: Vec<_> = map.values().collect();
+            let truth_vals: Vec<_> = truth.values().collect();
+            assert_eq!(map_vals, truth_vals);
+        }
+
+        #[test]
+        fn sort_values() {
+            let keys = || ([1, 4, 2, 3, 5, 9, 7, 6, 8].into_iter()).map(|i| Box::new(i));
+            let idx = || (25..35).chain(10..15);
+            let mut map = DirectAccessMap::new(40);
+            let mut truth = BTreeMap::new();
+            truth.extend(keys().zip(idx()));
+            for (k, i) in keys().zip(idx()) {
+                map.insert(i, k);
+            }
+            map.sort_values();
+            let map_vals: Vec<_> = map.values().collect();
+            let truth_vals: Vec<_> = truth.keys().collect();
+            assert_eq!(map_vals, truth_vals);
         }
     }
 }

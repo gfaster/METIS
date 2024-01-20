@@ -1,5 +1,4 @@
 #[allow(unused_imports)]
-use crate::util::verify_part;
 // use metis::util::create_dummy_weights;
 use metis::*;
 

@@ -433,6 +433,7 @@ pub(crate) const SMALLNIPARTS: idx_t = 5;
 
 /// unused except in binaries
 #[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Optype {
     Kmetis = METIS_OP_KMETIS,
     Ometis = METIS_OP_OMETIS,
@@ -449,6 +450,7 @@ pub enum Objtype {
 }
 
 #[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Iptype {
     Grow = METIS_IPTYPE_GROW,
     Random = METIS_IPTYPE_RANDOM,
@@ -459,6 +461,7 @@ pub enum Iptype {
 
 /// only used in node recursive dissection
 #[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Rtype {
     Greedy = METIS_RTYPE_GREEDY,
     Fm = METIS_RTYPE_FM,
@@ -467,6 +470,7 @@ pub enum Rtype {
 }
 
 #[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Ctype {
     Rm = METIS_CTYPE_RM,
     Shem = METIS_CTYPE_SHEM,
