@@ -256,9 +256,18 @@ void FreeRData(graph_t *graph)
 
 
   /* free partition/refinement structure */
-  gk_free((void **)&graph->where, &graph->pwgts, &graph->id, &graph->ed, 
-      &graph->bndptr, &graph->bndind, &graph->nrinfo, &graph->ckrinfo, 
-      &graph->vkrinfo, LTERM);
+  gk_free((void **)&graph->where, LTERM);
+  gk_free((void **)&graph->pwgts, LTERM);
+  gk_free((void **)&graph->id, LTERM);
+  gk_free((void **)&graph->ed, LTERM);
+  gk_free((void **)&graph->bndptr, LTERM);
+  gk_free((void **)&graph->bndind, LTERM);
+  gk_free((void **)&graph->nrinfo, LTERM);
+  gk_free((void **)&graph->ckrinfo, LTERM);
+  gk_free((void **)&graph->vkrinfo, LTERM);
+  // gk_free((void **)&graph->where, &graph->pwgts, &graph->id, &graph->ed, 
+  //     &graph->bndptr, &graph->bndind, &graph->nrinfo, &graph->ckrinfo, 
+  //     &graph->vkrinfo, LTERM);
 }
 
 

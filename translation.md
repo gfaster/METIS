@@ -3,19 +3,22 @@
 I recommend recording a macro that yanks and executes a command from this
 document.
 
+## 0. Setup
+
+Before anything else, `git mv` the file to port to `src/ported` and then copy
+the file back into `src` with an `.rs` ending. Then, add the file in
+`src/lib.rs`.
+
 ## 1. Replace most necessary tokens
 
 First, run these commands
 ```
+:%s/#include.*//
 :%s/where/where_/g
 :%s/->/./g
 :%s/\/\*!/\/*
 ```
 
-Then, at the top of the file, replace the include with:
-```rust
-use crate::*;
-```
 Properly accounting for `->` replacement is done in a later step.
 
 ## 2. Convert function declarations
@@ -216,6 +219,11 @@ mkslice!(cwhere: cgraph->where_, nvtxs);
 // let cwhere = std::slice::from_raw_parts((*cgraph).where_, {nvtxs} as usize);
 ```
 
+Finally, at the top of the file, replace the include with:
+```rust
+use crate::*;
+```
+
 ## 8. Replacing function calls
 first, we want to replace function calls to existing modules with their qualified syntax:
 
@@ -243,12 +251,19 @@ can pick and choose for the second.
 :g/WCORE\%\(PUSH\|POP\)/norm gcc
 :%s/\vgk_errexit\(\w+, =/panic!(/
 :%s/\vsizeof\((\w+)\)/std::mem::size_of::<\1>()/g
+:%s/-> void/
+:%s/^ *nvtxs *= graph\.nvtxs/let & as usize
+:%s/^ *ncon *= graph\.ncon/let & as usize
+:%s/NULL/std::ptr::null_mut()/g
 
 :%s/\vBND\w+/&!/I
 :%s/INC_DEC/\L&!/I
 :%s/%d/{}/g
 :%s/\vSWAP\((.{-}),(.{-}),.{-}\)/std::mem::swap(\&mut \1, \&mut \2)/I
 ```
+
+At this point, search diagnostics for syntax errors, and fix them until there is
+no more. Then, you can run `cargo fmt` to make it nicer to work on the remaining
 
 After all functions are replaced, we need to declare the remaining in
 `bindings.rs`. Here's the best way I found to do it:

@@ -26,6 +26,7 @@ pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
 pub mod pmetis;
+pub mod refine;
 
 pub(crate) mod blas;
 pub(crate) mod dal;

@@ -2,7 +2,10 @@ use std::{error::Error, io::BufRead, ops::Range};
 
 use fastrand::Rng;
 
-use crate::{*, dal::{DirectAccessList, DirectAccessMap}};
+use crate::{
+    dal::{DirectAccessList, DirectAccessMap},
+    *,
+};
 
 pub struct GraphBuilder {
     op: Optype,

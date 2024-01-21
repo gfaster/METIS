@@ -72,7 +72,7 @@ impl DirectAccessList {
         ind.sort_unstable();
         for (i, &val) in ind.iter().enumerate() {
             self.ptr[val as usize] = i as idx_t;
-        };
+        }
     }
 
     /// return a (ptr, ind) tuple
@@ -237,7 +237,9 @@ impl<T> DirectAccessMap<T> {
                 // eprintln!("{i} moved to {}", ptr[oldind[i] as usize]);
                 std::ptr::copy_nonoverlapping(src, dst, 1);
             }
-            assert!(core::alloc::Layout::new::<T>() == core::alloc::Layout::new::<MaybeUninit<T>>());
+            assert!(
+                core::alloc::Layout::new::<T>() == core::alloc::Layout::new::<MaybeUninit<T>>()
+            );
             self.map.set_len(0);
             let p = newarr.as_mut_ptr();
             let len = newarr.len();
@@ -247,7 +249,10 @@ impl<T> DirectAccessMap<T> {
         }
     }
 
-    pub fn sort_values(&mut self) where T: Ord {
+    pub fn sort_values(&mut self)
+    where
+        T: Ord,
+    {
         let mut mapping: Vec<_> = (0..self.len()).collect();
         mapping.sort_unstable_by_key(|&i| &self.map[i]);
         let oldind = self.list.ind.clone();

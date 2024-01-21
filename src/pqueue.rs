@@ -7,7 +7,7 @@
 \author George
 \version\verbatim $Id: gk_mkpqueue.h 21742 2018-01-26 16:59:15Z karypis $ \endverbatim
 */
-use std::{fmt::Debug, collections::VecDeque, cmp::Reverse};
+use std::{cmp::Reverse, collections::VecDeque, fmt::Debug};
 
 use crate::{dal, idx_t, real_t};
 
@@ -453,16 +453,16 @@ pub fn select_queue(
 pub struct DoublePriorityQueue<K, I>
 where
     I: Idx,
-    K: PartialOrd + Copy + Default
+    K: PartialOrd + Copy + Default,
 {
     min: IndexedPriorityQueue<K, I>,
-    max: IndexedPriorityQueue<Reverse<K>, I>
+    max: IndexedPriorityQueue<Reverse<K>, I>,
 }
 
 impl<K, I> DoublePriorityQueue<K, I>
 where
     I: Idx,
-    K: PartialOrd + Copy + Default
+    K: PartialOrd + Copy + Default,
 {
     pub fn new(size: usize) -> Self {
         Self {
