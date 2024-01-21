@@ -96,7 +96,7 @@ pub extern "C" fn SetupGraph(
         graph.nvtxs = nvtxs;
         graph.ncon = ncon;
         let nvtxs = nvtxs as usize;
-        let ncon = nvtxs as usize;
+        let ncon = ncon as usize;
 
         graph.nedges = *xadj.add(nvtxs);
 
@@ -342,19 +342,19 @@ pub extern "C" fn FreeSData(graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
     /* free graph structure */
     if graph.free_xadj != 0 {
-        gk_free_one(&mut (graph.xadj as *mut c_void));
+        free_field!(graph.xadj);
     }
     if graph.free_vwgt != 0 {
-        gk_free_one(&mut (graph.vwgt as *mut c_void));
+        free_field!(graph.vwgt);
     }
     if graph.free_vsize != 0 {
-        gk_free_one(&mut (graph.vsize as *mut c_void));
+        free_field!(graph.vsize);
     }
     if graph.free_adjncy != 0 {
-        gk_free_one(&mut (graph.adjncy as *mut c_void));
+        free_field!(graph.adjncy);
     }
     if graph.free_adjwgt != 0 {
-        gk_free_one(&mut (graph.adjwgt as *mut c_void));
+        free_field!(graph.adjwgt);
     }
 }
 
@@ -372,15 +372,15 @@ pub extern "C" fn FreeRData(graph: *mut graph_t) {
     }
 
     /* free partition/refinement structure */
-    gk_free_one(&mut (graph.where_ as *mut c_void));
-    gk_free_one(&mut (graph.pwgts as *mut c_void));
-    gk_free_one(&mut (graph.id as *mut c_void));
-    gk_free_one(&mut (graph.ed as *mut c_void));
-    gk_free_one(&mut (graph.bndptr as *mut c_void));
-    gk_free_one(&mut (graph.bndind as *mut c_void));
-    gk_free_one(&mut (graph.nrinfo as *mut c_void));
-    gk_free_one(&mut (graph.ckrinfo as *mut c_void));
-    gk_free_one(&mut (graph.vkrinfo as *mut c_void));
+    free_field!(graph.where_);
+    free_field!(graph.pwgts);
+    free_field!(graph.id);
+    free_field!(graph.ed);
+    free_field!(graph.bndptr);
+    free_field!(graph.bndind);
+    free_field!(graph.nrinfo);
+    free_field!(graph.ckrinfo);
+    free_field!(graph.vkrinfo);
     // gk_free_one(&graph.where_, &graph.pwgts, &graph.id, &graph.ed,
     //     &graph.bndptr, &graph.bndind, &graph.nrinfo, &graph.ckrinfo,
     //     &graph.vkrinfo);
@@ -392,6 +392,10 @@ pub extern "C" fn FreeRData(graph: *mut graph_t) {
 #[metis_func]
 pub extern "C" fn FreeGraph(r_graph: *mut *mut graph_t) {
     let graph = *r_graph;
+
+    if (*graph).ondisk != 0 {
+        panic!("I don't thing graphs on disk should be freed");
+    }
 
     /* free the graph structure's fields */
     FreeSData(graph);
@@ -424,6 +428,7 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     static GID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1);
 
     if ctrl.ondisk == 0 {
+        // todo!("write tests to use disk and also get rid of sleep");
         return;
     }
 
@@ -451,7 +456,7 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let _ = std::fs::remove_file(&outfile);
 
     let ret: std::io::Result<()> = (|| {
-        let fpout = std::fs::OpenOptions::new().write(true).open(&outfile)?;
+        let fpout = std::fs::OpenOptions::new().write(true).create_new(true).open(&outfile)?;
         let mut fpout = std::io::BufWriter::new(fpout);
         // if ((fpout = fopen(outfile, "wb")) == std::ptr::null_mut()) {
         //     return;
@@ -506,19 +511,19 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     };
 
     if graph.free_xadj != 0 {
-        gk_free_one(&mut (graph.xadj as *mut c_void));
+        free_field!(graph.xadj);
     }
     if graph.free_vwgt != 0 {
-        gk_free_one(&mut (graph.vwgt as *mut c_void));
+        free_field!(graph.vwgt);
     }
     if graph.free_vsize != 0 {
-        gk_free_one(&mut (graph.vsize as *mut c_void));
+        free_field!(graph.vsize);
     }
     if graph.free_adjncy != 0 {
-        gk_free_one(&mut (graph.adjncy as *mut c_void));
+        free_field!(graph.adjncy);
     }
     if graph.free_adjwgt != 0 {
-        gk_free_one(&mut (graph.adjwgt as *mut c_void));
+        free_field!(graph.adjwgt);
     }
 
     graph.ondisk = 1;

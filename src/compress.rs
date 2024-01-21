@@ -132,7 +132,7 @@ pub extern "C" fn CompressGraph(
         /* Sufficient compression is possible, so go ahead and create the
         compressed graph */
 
-        graph = CreateGraph();
+        graph = graph::CreateGraph();
         let graph = graph.as_mut().unwrap();
 
         let mut cnedges = 0;
@@ -185,8 +185,8 @@ pub extern "C" fn CompressGraph(
         graph.nedges = l as idx_t;
         graph.ncon = 1;
 
-        SetupGraph_tvwgt(graph);
-        SetupGraph_label(graph);
+        graph::SetupGraph_tvwgt(graph);
+        graph::SetupGraph_label(graph);
     };
 
     // gk_free((void **)&keys, &map, &mark, LTERM);
@@ -250,7 +250,7 @@ pub extern "C" fn PruneGraph(
 
     if nlarge > 0 && nlarge < nvtxs {
         /* Prunning is possible, so go ahead and create the prunned graph */
-        graph = CreateGraph();
+        graph = graph::CreateGraph();
         let graph = graph.as_mut().unwrap();
 
         /* Allocate memory for the prunned graph*/
@@ -287,8 +287,8 @@ pub extern "C" fn PruneGraph(
         graph.nedges = pnedges as idx_t;
         graph.ncon = 1;
 
-        SetupGraph_tvwgt(graph);
-        SetupGraph_label(graph);
+        graph::SetupGraph_tvwgt(graph);
+        graph::SetupGraph_label(graph);
     } else if nlarge > 0 && nlarge == nvtxs {
         ifset!(
             ctrl.dbglvl,

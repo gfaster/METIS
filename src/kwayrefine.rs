@@ -105,7 +105,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
         graph = (*graph).finer;
 
-        graph_ReadFromDisk(ctrl, graph);
+        graph::graph_ReadFromDisk(ctrl, graph);
 
         // IFSET(
         //     (*ctrl).dbglvl,
@@ -431,7 +431,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     /* free the coarse graph's structure (reduce maxmem) */
     // disabling this since it violates the normally strict wspace rules - so it's hard to deal
     // with over ffi
-    FreeSData(cgraph);
+    graph::FreeSData(cgraph);
 
     let nvtxs: idx_t = graph.nvtxs;
 
@@ -638,7 +638,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         // icopy(nparts * (*graph).ncon, (*cgraph).pwgts, (*graph).pwgts);
     }
 
-    FreeGraph((&mut graph.coarser) as *mut *mut graph_t);
+    graph::FreeGraph((&mut graph.coarser) as *mut *mut graph_t);
 }
 
 /// This function computes the boundary definition for balancing.

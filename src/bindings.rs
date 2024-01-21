@@ -43,12 +43,8 @@ extern "C" {
         msg: *const std::ffi::c_uchar,
     ) -> *mut std::ffi::c_void;
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
-    pub fn FreeGraph(graph: *mut *mut graph_t) -> std::ffi::c_void;
-    pub fn FreeRData(graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn FreeSData(graph: *mut graph_t) -> std::ffi::c_void;
     pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
-    pub fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn Greedy_KWayOptimize(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,
@@ -57,16 +53,6 @@ extern "C" {
         omode: idx_t,
     ) -> std::ffi::c_void;
     pub fn isrand(seed: idx_t) -> std::ffi::c_void;
-    pub fn SetupGraph(
-        ctrl: *mut ctrl_t,
-        nvtxs: idx_t,
-        ncon: idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        vsize: *mut idx_t,
-        adjwgt: *mut idx_t,
-    ) -> *mut graph_t;
     pub fn SetupKWayBalMultipliers(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
@@ -116,10 +102,6 @@ extern "C" {
     ) -> real_t;
     pub fn ComputeLoadImbalance(graph: *mut graph_t, nparts: idx_t, pijbm: *mut real_t) -> real_t;
 
-    pub fn SetupGraph_tvwgt(graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn SetupGraph_label(graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn CreateGraph() -> *mut graph_t;
-
     pub fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t;
     pub fn BetterBalanceKWay(
         ncon: idx_t,
@@ -149,8 +131,6 @@ extern "C" {
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
 
-    pub fn SetupSplitGraph(graph: *mut graph_t, snvtxs: idx_t, snedges: idx_t) -> *mut graph_t;
-
     pub fn BetterVBalance(
         ncon: idx_t,
         itvwgt: *mut real_t,
@@ -158,7 +138,6 @@ extern "C" {
         u1_vwgt: *mut idx_t,
         u2_vwgt: *mut idx_t,
     ) -> std::ffi::c_int;
-    pub fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn CheckGraph(
         graph: *mut graph_t,
         numflag: std::ffi::c_int,

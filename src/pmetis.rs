@@ -127,7 +127,7 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     // }
 
     /* set up the graph */
-    let graph = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph = graph::SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
     let graph = graph.as_mut().unwrap();
 
     debug_assert!(debug::check_adj(graph));
@@ -235,7 +235,7 @@ pub extern "C" fn MlevelRecursiveBisection(
     }
 
     /* Free the memory of the top level graph */
-    FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
+    graph::FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
 
     /* Scale the fractions in the tpwgts according to the true weight */
     for i in (0)..(ncon) {
@@ -285,7 +285,7 @@ pub extern "C" fn MlevelRecursiveBisection(
             (fpart as usize + (nparts >> 1)) as idx_t,
         );
     } else if nparts == 3 {
-        FreeGraph(&mut lgraph as *mut *mut graph_t);
+        graph::FreeGraph(&mut lgraph as *mut *mut graph_t);
         objval += MlevelRecursiveBisection(
             ctrl,
             rgraph,
@@ -363,7 +363,7 @@ pub extern "C" fn MultilevelBisect(
         }
 
         if i < ctrl.ncuts - 1 {
-            FreeRData(graph);
+            graph::FreeRData(graph);
         }
     }
 
@@ -424,14 +424,14 @@ pub extern "C" fn SplitGraphPart(
         snedges[mypart] += xadj[i + 1] - xadj[i];
     }
 
-    let lgraph = SetupSplitGraph(graph, snvtxs[0], snedges[0]);
+    let lgraph = graph::SetupSplitGraph(graph, snvtxs[0], snedges[0]);
     // sxadj[0] = lgraph.xadj;
     // svwgt[0] = lgraph.vwgt;
     // sadjncy[0] = lgraph.adjncy;
     // sadjwgt[0] = lgraph.adjwgt;
     // slabel[0] = lgraph.label;
 
-    let rgraph = SetupSplitGraph(graph, snvtxs[1], snedges[1]);
+    let rgraph = graph::SetupSplitGraph(graph, snvtxs[1], snedges[1]);
     // sxadj[1] = rgraph.xadj;
     // svwgt[1] = rgraph.vwgt;
     // sadjncy[1] = rgraph.adjncy;
@@ -543,8 +543,8 @@ pub extern "C" fn SplitGraphPart(
     (*lgraph).nedges = snedges[0];
     (*rgraph).nedges = snedges[1];
 
-    SetupGraph_tvwgt(lgraph);
-    SetupGraph_tvwgt(rgraph);
+    graph::SetupGraph_tvwgt(lgraph);
+    graph::SetupGraph_tvwgt(rgraph);
 
     debug_assert!(debug::check_adj(lgraph.as_ref().unwrap()));
     debug_assert!(debug::check_adj(rgraph.as_ref().unwrap()));

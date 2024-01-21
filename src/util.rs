@@ -264,6 +264,7 @@ macro_rules! make_options {
     ($($val:ident)*) => {{
         let mut options = [-1; METIS_NOPTIONS as usize];
         options[$crate::METIS_OPTION_SEED as usize] = 0;
+        options[$crate::METIS_OPTION_ONDISK as usize] = 1;
         $(
             options_match!(options, $val);
         )*
@@ -358,6 +359,16 @@ macro_rules! get_graph_slices {
             assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize);
         )*
+    };
+}
+
+#[macro_export]
+macro_rules! free_field {
+    ($struct:ident.$field:ident) => {
+        {
+            gk_free_one(std::ptr::addr_of_mut!((*$struct).$field) as *mut *mut std::ffi::c_void);
+            assert_eq!((*$struct).$field, std::ptr::null_mut());
+        }
     };
 }
 

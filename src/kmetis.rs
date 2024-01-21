@@ -73,7 +73,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     }
 
     /* set up the graph */
-    let graph: *mut graph_t = SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph: *mut graph_t = graph::SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
 
     /* set up multipliers for making balance computations easier */
     SetupKWayBalMultipliers(ctrl, graph);
@@ -198,14 +198,14 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
             bestbal = curbal;
         }
 
-        FreeRData(graph);
+        graph::FreeRData(graph);
 
         if bestobj == 0 {
             break;
         }
     }
 
-    FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
+    graph::FreeGraph(&mut (graph as *mut graph_t) as *mut *mut graph_t);
 
     bestobj
 }

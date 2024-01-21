@@ -48,7 +48,7 @@ pub extern "C" fn Refine2Way(
         }
 
         graph = (*graph).finer;
-        graph_ReadFromDisk(ctrl, graph);
+        graph::graph_ReadFromDisk(ctrl, graph);
 
         // ifset!(
         //     ctrl.dbglvl,
@@ -268,6 +268,6 @@ pub extern "C" fn Project2WayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     mkslice!(cpwgts: cgraph->pwgts, 2 * graph.ncon);
     pwgts[..(2 * graph.ncon as usize)].copy_from_slice(cpwgts);
 
-    FreeGraph(&mut graph.coarser);
+    graph::FreeGraph(&mut graph.coarser);
     graph.coarser = std::ptr::null_mut();
 }

@@ -330,6 +330,7 @@ impl GraphBuilder {
         let mut options = [-1; METIS_NOPTIONS as usize];
         options[METIS_OPTION_CTYPE as usize] = self.edge_match as i32;
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as i32;
+        options[METIS_OPTION_ONDISK as usize] = 1;
         let res = match self.op {
             Optype::Kmetis => unsafe {
                 kmetis::METIS_PartGraphKway(
@@ -343,7 +344,7 @@ impl GraphBuilder {
                     &mut nparts as *mut idx_t,
                     vec_ptr(&mut self.tpwgts),
                     vec_ptr(&mut self.ubvec),
-                    std::ptr::null_mut(),
+                    options.as_mut_ptr(),
                     &mut objval as *mut idx_t,
                     part.as_mut_ptr(),
                 )
@@ -365,7 +366,7 @@ impl GraphBuilder {
                         &mut nparts as *mut idx_t,
                         vec_ptr(&mut self.tpwgts),
                         vec_ptr(&mut self.ubvec),
-                        std::ptr::null_mut(),
+                        options.as_mut_ptr(),
                         &mut objval as *mut idx_t,
                         part.as_mut_ptr(),
                     )

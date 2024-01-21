@@ -85,7 +85,7 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
             _ => panic!("Unknown ctype: {}", ctrl.ctype),
         };
 
-        graph_WriteToDisk(ctrl, graph);
+        graph::graph_WriteToDisk(ctrl, graph);
 
         graph = (*graph).coarser;
         eqewgts = false;
@@ -183,7 +183,7 @@ pub extern "C" fn CoarsenGraphNlevels(
             _ => panic!("Unknown ctype: {}", ctrl.ctype),
         };
 
-        graph_WriteToDisk(ctrl, graph);
+        graph::graph_WriteToDisk(ctrl, graph);
 
         graph = (*graph).coarser;
         eqewgts = 0;
@@ -1496,7 +1496,7 @@ pub extern "C" fn SetupCoarseGraph(
     let dovsize = dovsize != 0;
     // graph_t *cgraph;
 
-    let cgraph = CreateGraph();
+    let cgraph = graph::CreateGraph();
     let cgraph = cgraph.as_mut().unwrap();
 
     cgraph.nvtxs = cnvtxs;
