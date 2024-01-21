@@ -289,7 +289,7 @@ idx_t MultilevelBisect(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts);
 void SplitGraphPart(ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, graph_t **r_rgraph);
 
 
-/* refine.c */
+/* refine.c - ported */
 void Refine2Way(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph, real_t *rtpwgts);
 void Allocate2WayPartitionMemory(ctrl_t *ctrl, graph_t *graph);
 void Compute2WayPartitionParams(ctrl_t *ctrl, graph_t *graph);

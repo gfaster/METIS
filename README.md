@@ -7,9 +7,9 @@ partitioning schemes developed in our lab.
 
 This repository is my attempt of porting METIS to Rust file-by-file, line-by-line.
 
-As of 2023-09-26, 3,869 of 15,645 lines of C code have been ported
-(not including header files, using `wc`) - that means 11,776 to go. It has
-taken 8,376 lines of Rust code to achieve this.
+As of 2024-01-20, 5,210 of 15,654 lines of C code have been ported
+(not including header files, using `wc`) - that means 10,444 to go. It has
+taken 11,397 lines of Rust code to achieve this.
 
 Check [`translation.md`](./translation.md) for my porting process.
 

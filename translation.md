@@ -244,6 +244,7 @@ can pick and choose for the second.
 
 ```
 :%s/IFSET/ifset!/I
+:g/ifset.*gk_\%\(start\|stop\)/norm f(lvibgc
 :%s/ASSERTP\=/assert!/I
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
@@ -349,3 +350,5 @@ with some simple style things like `if` statement parentheses.
   it didn't break. A for loop cannot be used here because the iterator will not
   ever equal the end bounds, even if it reaches the end. Use a while loop with
   increment at the end of the block.
+
+- pwgts is sometimes a different length than what `get_graph_slices` says
