@@ -245,7 +245,9 @@ can pick and choose for the second.
 ```
 :%s/IFSET/ifset!/I
 :g/ifset.*gk_\%\(start\|stop\)/norm f(lvibgc
+:%s/^ *\(goto \w*\);/todo!("\1");
 :%s/ASSERTP\=/assert!/I
+:%s/sprintf/write!/g
 :%s/\v([^\w])printf/\1println!/g
 :%s/\\n"/"/g
 :g/\vgk_%(start|stop)cputimer/normal gcc

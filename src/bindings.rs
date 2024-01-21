@@ -31,6 +31,11 @@ extern "C" {
     pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
     pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn ismalloc(
+        nmemb: usize,
+        val: idx_t,
+        msg: *const std::ffi::c_uchar,
+    ) -> *mut std::ffi::c_void;
     pub fn rmalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
     pub fn irealloc(
         old: *mut std::ffi::c_void,
@@ -185,6 +190,9 @@ extern "C" {
     pub fn gk_malloc_init() -> std::ffi::c_int;
     pub fn gk_malloc_cleanup(showstats: std::ffi::c_int) -> std::ffi::c_void;
     pub fn gk_malloc(size: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+
+    /// my wrapper for gk_free that isn't variadic
+    pub fn gk_free_one(ptr: *mut *mut std::ffi::c_void) -> std::ffi::c_void;
 }
 
 // these don't need metis_decl attrib since they are the public API
