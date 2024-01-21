@@ -112,7 +112,7 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
             } else {
                 GrowBisection(ctrl, graph, ntpwgts.as_mut_ptr(), niparts);
             }
-            Compute2WayPartitionParams(ctrl, graph);
+            refine::Compute2WayPartitionParams(ctrl, graph);
             ConstructSeparator(ctrl, graph);
         }
 
@@ -161,7 +161,7 @@ pub fn RandomBisection(
     // not used but declared in C function: xadj adjncy adjwgt
     get_graph_slices!(graph => vwgt);
 
-    Allocate2WayPartitionMemory(ctrl, graph);
+    refine::Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
     let mut bestwhere = vec![0; nvtxs];
@@ -191,7 +191,7 @@ pub fn RandomBisection(
         }
 
         /* Do some partition refinement  */
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
         /* println!("IPART: %3"PRIDX" [%5"PRIDX" %5"PRIDX"] [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.nvtxs, pwgts[0], pwgts[1], graph.pwgts[0], graph.pwgts[1], graph.mincut); */
 
         balance::Balance2Way(ctrl, graph, ntpwgts);
@@ -240,7 +240,7 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
     // adjwgt not used in C function
     get_graph_slices!(graph => xadj adjncy vwgt);
 
-    Allocate2WayPartitionMemory(ctrl, graph);
+    refine::Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
     let mut bestwhere = vec![0; nvtxs];
@@ -334,7 +334,7 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
         /*************************************************************
          * Do some partition refinement
          **************************************************************/
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
         /*
         println!("IPART: %3"PRIDX" [%5"PRIDX" %5"PRIDX"] [%5"PRIDX" %5"PRIDX"] %5"PRIDX"",
             graph.nvtxs, pwgts[0], pwgts[1], graph.pwgts[0], graph.pwgts[1], graph.mincut);
@@ -397,7 +397,7 @@ pub fn McRandomBisection(
     let ncon = graph.ncon;
     get_graph_slices!(graph => vwgt);
 
-    Allocate2WayPartitionMemory(ctrl, graph);
+    refine::Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
     let mut bestwhere = vec![0; nvtxs];
@@ -423,7 +423,7 @@ pub fn McRandomBisection(
             counts[qnum] += 1;
         }
 
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
 
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
         balance::Balance2Way(ctrl, graph, ntpwgts);
@@ -470,7 +470,7 @@ pub fn McGrowBisection(
 
     let nvtxs = graph.nvtxs as usize;
 
-    Allocate2WayPartitionMemory(ctrl, graph);
+    refine::Allocate2WayPartitionMemory(ctrl, graph);
     get_graph_slices_mut!(graph => where_);
 
     let mut bestwhere = vec![0; nvtxs];
@@ -481,7 +481,7 @@ pub fn McGrowBisection(
         where_.fill(1);
         where_[irandInRange(nvtxs as idx_t) as usize] = 0;
 
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
 
         balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
@@ -624,7 +624,7 @@ pub fn GrowBisectionNode(
         /*************************************************************
          * Do some partition refinement
          **************************************************************/
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
         balance::Balance2Way(ctrl, graph, ntpwgts);
         FM_2WayRefine(ctrl, graph, ntpwgts, 4);
 

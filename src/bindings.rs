@@ -79,9 +79,7 @@ extern "C" {
         graph: *mut graph_t,
         tpwgts: *mut real_t,
     ) -> std::ffi::c_void;
-    pub fn Compute2WayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn Allocate2WayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn FM_2WayRefine(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,
@@ -146,12 +144,6 @@ extern "C" {
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
 
-    pub fn Refine2Way(
-        ctrl: *mut ctrl_t,
-        orggraph: *mut graph_t,
-        graph: *mut graph_t,
-        rtpwgts: *mut real_t,
-    ) -> std::ffi::c_void;
     pub fn SetupSplitGraph(graph: *mut graph_t, snvtxs: idx_t, snedges: idx_t) -> *mut graph_t;
 
     pub fn BetterVBalance(

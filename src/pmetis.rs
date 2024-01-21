@@ -340,7 +340,7 @@ pub extern "C" fn MultilevelBisect(
         };
         initpart::Init2WayPartition(ctrl, cgraph, tpwgts, niparts);
 
-        Refine2Way(ctrl, graph, cgraph, tpwgts);
+        refine::Refine2Way(ctrl, graph, cgraph, tpwgts);
 
         curobj = graph.mincut;
         let curbal = ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
@@ -372,7 +372,7 @@ pub extern "C" fn MultilevelBisect(
         get_graph_slices_mut!(graph => where_);
         where_.copy_from_slice(&bestwhere_);
 
-        Compute2WayPartitionParams(ctrl, graph);
+        refine::Compute2WayPartitionParams(ctrl, graph);
     }
 
     // WCOREPOP;
