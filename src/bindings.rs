@@ -758,6 +758,7 @@ pub struct nrinfo_t {
 ///
 /// Gavin: I believe it stands for volume neighborhood
 #[repr(C)]
+#[derive(Default, Clone)]
 pub struct vnbr_t {
     /// The partition ID
     pub pid: idx_t,

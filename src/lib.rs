@@ -15,13 +15,12 @@ extern crate macros;
 pub mod bindings;
 pub use bindings::*;
 
-pub mod bucketsort;
-pub mod debug_rs;
-pub use debug_rs as debug;
 pub mod balance;
+pub mod bucketsort;
 pub mod coarsen;
 pub mod compress;
 pub mod contig;
+pub mod debug;
 pub mod graph;
 pub mod initpart;
 pub mod kmetis;

@@ -455,8 +455,13 @@ pub extern "C" fn McGeneral2WayBalance(
         }
     }
 
-    let mut minbal =
-        mcutil::ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, minbalv.as_mut_ptr());
+    let mut minbal = mcutil::ComputeLoadImbalanceDiffVec(
+        graph,
+        2,
+        ctrl.pijbm,
+        ctrl.ubfactors,
+        minbalv.as_mut_ptr(),
+    );
     assert!(minbal > 0.0);
 
     let mut newcut = graph.mincut;
@@ -540,8 +545,13 @@ pub extern "C" fn McGeneral2WayBalance(
             &mut pwgts[(from as usize * ncon)..],
             1,
         );
-        let newbal =
-            mcutil::ComputeLoadImbalanceDiffVec(graph, 2, ctrl.pijbm, ctrl.ubfactors, newbalv.as_mut_ptr());
+        let newbal = mcutil::ComputeLoadImbalanceDiffVec(
+            graph,
+            2,
+            ctrl.pijbm,
+            ctrl.ubfactors,
+            newbalv.as_mut_ptr(),
+        );
 
         if newbal < minbal
             || (newbal == minbal
@@ -704,7 +714,10 @@ pub extern "C" fn McGeneral2WayBalance(
             print!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
         }
 
-        println!("], LB: {:.3}\n", mcutil::ComputeLoadImbalance(graph, 2, ctrl.pijbm));
+        println!(
+            "], LB: {:.3}\n",
+            mcutil::ComputeLoadImbalance(graph, 2, ctrl.pijbm)
+        );
     }
 
     graph.mincut = mincut;

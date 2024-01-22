@@ -285,8 +285,6 @@ macro_rules! slice_len {
         xadj[xadj.len() - 1]
     }};
     ($ctrl:expr, $graph:expr, adjwgt) => {{
-        // let xadj = std::slice::from_raw_parts($graph.xadj, $graph.nvtxs as usize + 1);
-        // xadj[xadj.len() - 1]
         $graph.nedges
     }};
     ($ctrl:expr, $graph:expr, vwgt) => {
@@ -328,6 +326,9 @@ macro_rules! slice_len {
     ($ctrl:expr, $graph:expr, label) => {
         $graph.nvtxs
     };
+    ($ctrl:expr, $graph:expr, nrinfo) => {
+        $graph.nvtxs
+    };
 }
 
 #[macro_export]
@@ -358,6 +359,28 @@ macro_rules! get_graph_slices {
         $(
             assert!(!$graph.$val.is_null());
             let $val = std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize);
+        )*
+    };
+}
+
+#[macro_export]
+macro_rules! get_graph_slices_optional {
+    ($ctrl:expr, $graph:expr => $($val:ident)*) => {
+        $(
+            let $val = if !$graph.$val.is_null() {
+                Some(std::slice::from_raw_parts($graph.$val, slice_len!($ctrl, $graph, $val) as usize))
+            } else {
+                None
+            };
+        )*
+    };
+    ($graph:expr => $($val:ident)*) => {
+        $(
+            let $val = if !$graph.$val.is_null() {
+                Some(std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize))
+            } else {
+                None
+            };
         )*
     };
 }

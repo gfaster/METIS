@@ -210,6 +210,7 @@ becuase slice indexing is like, super annoying, try this:
 :%s/\v\[([^=\]]*[-+*/ ][^=\]]*)\]/[(\1) as usize]/g
 :%s/\v\[(\w+)\]/[\1 as usize]/g
 :%s/\]\]/] as usize]/
+:%s/\#\[metis_func as usize\]/#[metis_func]
 ```
 
 To change the name (also works without field access):

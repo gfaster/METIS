@@ -180,7 +180,11 @@ pub extern "C" fn BetterVBalance(
 and returns true if y is better balanced than x. */
 /*************************************************************************/
 #[metis_func]
-pub extern "C" fn BetterBalance2Way(n: idx_t, x: *const real_t, y: *const real_t) -> std::ffi::c_int {
+pub extern "C" fn BetterBalance2Way(
+    n: idx_t,
+    x: *const real_t,
+    y: *const real_t,
+) -> std::ffi::c_int {
     // real_t nrm1=0.0, nrm2=0.0;
     mkslice!(x, n);
     mkslice!(y, n);

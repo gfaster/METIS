@@ -187,7 +187,8 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
             _ => panic!("Unknown objtype: {}", ctrl.objtype),
         };
 
-        let curbal = mcutil::ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
+        let curbal =
+            mcutil::ComputeLoadImbalanceDiff(graph, ctrl.nparts, ctrl.pijbm, ctrl.ubfactors);
 
         if i == 0
             || (curbal <= 0.0005 && bestobj > curobj)
