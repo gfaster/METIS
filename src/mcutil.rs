@@ -31,7 +31,7 @@ pub extern "C" fn rvecle(n: idx_t, x: *const real_t, y: *const real_t) -> std::f
 */
 /**************************************************************************/
 #[metis_func]
-pub extern "C" fn rvecge(n: idx_t, x: *mut real_t, y: *mut real_t) -> std::ffi::c_int {
+pub extern "C" fn rvecge(n: idx_t, x: *const real_t, y: *const real_t) -> std::ffi::c_int {
     mkslice!(x, n);
     mkslice!(y, n);
     x.iter().zip(y).rev().all(|(x, y)| x >= y) as std::ffi::c_int
@@ -45,9 +45,9 @@ pub extern "C" fn rvecge(n: idx_t, x: *mut real_t, y: *mut real_t) -> std::ffi::
 #[metis_func]
 pub extern "C" fn rvecsumle(
     n: idx_t,
-    x1: *mut real_t,
-    x2: *mut real_t,
-    y: *mut real_t,
+    x1: *const real_t,
+    x2: *const real_t,
+    y: *const real_t,
 ) -> std::ffi::c_int {
     mkslice!(x1, n);
     mkslice!(x2, n);
@@ -63,7 +63,7 @@ pub extern "C" fn rvecsumle(
 /* This function returns max_i(x[i]-y[i]) */
 /**************************************************************************/
 #[metis_func]
-pub extern "C" fn rvecmaxdiff(n: idx_t, x: *mut real_t, y: *mut real_t) -> real_t {
+pub extern "C" fn rvecmaxdiff(n: idx_t, x: *const real_t, y: *const real_t) -> real_t {
     // real_t max;
     assert!(n > 0);
     mkslice!(x, n);
@@ -79,7 +79,7 @@ pub extern "C" fn rvecmaxdiff(n: idx_t, x: *mut real_t, y: *mut real_t) -> real_
 /* This function returns true if \forall i, x[i] <= z[i]. */
 /**************************************************************************/
 #[metis_func]
-pub extern "C" fn ivecle(n: idx_t, x: *mut idx_t, z: *mut idx_t) -> std::ffi::c_int {
+pub extern "C" fn ivecle(n: idx_t, x: *const idx_t, z: *const idx_t) -> std::ffi::c_int {
     mkslice!(x, n);
     mkslice!(z, n);
     x.iter().zip(z).rev().all(|(x, z)| x <= z) as std::ffi::c_int
@@ -89,7 +89,7 @@ pub extern "C" fn ivecle(n: idx_t, x: *mut idx_t, z: *mut idx_t) -> std::ffi::c_
 /* This function returns true if \forall i, x[i] >= z[i]. */
 /**************************************************************************/
 #[metis_func]
-pub extern "C" fn ivecge(n: idx_t, x: *mut idx_t, z: *mut idx_t) -> std::ffi::c_int {
+pub extern "C" fn ivecge(n: idx_t, x: *const idx_t, z: *const idx_t) -> std::ffi::c_int {
     mkslice!(x, n);
     mkslice!(z, n);
     x.iter().zip(z).rev().all(|(x, z)| x >= z) as std::ffi::c_int
@@ -102,9 +102,9 @@ pub extern "C" fn ivecge(n: idx_t, x: *mut idx_t, z: *mut idx_t) -> std::ffi::c_
 pub extern "C" fn ivecaxpylez(
     n: idx_t,
     a: idx_t,
-    x: *mut idx_t,
-    y: *mut idx_t,
-    z: *mut idx_t,
+    x: *const idx_t,
+    y: *const idx_t,
+    z: *const idx_t,
 ) -> std::ffi::c_int {
     mkslice!(x, n);
     mkslice!(y, n);
@@ -123,9 +123,9 @@ pub extern "C" fn ivecaxpylez(
 pub extern "C" fn ivecaxpygez(
     n: idx_t,
     a: idx_t,
-    x: *mut idx_t,
-    y: *mut idx_t,
-    z: *mut idx_t,
+    x: *const idx_t,
+    y: *const idx_t,
+    z: *const idx_t,
 ) -> std::ffi::c_int {
     mkslice!(x, n);
     mkslice!(y, n);
@@ -144,10 +144,10 @@ vector that v+u1 */
 #[metis_func]
 pub extern "C" fn BetterVBalance(
     ncon: idx_t,
-    invtvwgt: *mut real_t,
-    v_vwgt: *mut idx_t,
-    u1_vwgt: *mut idx_t,
-    u2_vwgt: *mut idx_t,
+    invtvwgt: *const real_t,
+    v_vwgt: *const idx_t,
+    u1_vwgt: *const idx_t,
+    u2_vwgt: *const idx_t,
 ) -> std::ffi::c_int {
     // idx_t i;
     // real_t sum1=0.0, sum2=0.0, diff1=0.0, diff2=0.0;
@@ -180,7 +180,7 @@ pub extern "C" fn BetterVBalance(
 and returns true if y is better balanced than x. */
 /*************************************************************************/
 #[metis_func]
-pub extern "C" fn BetterBalance2Way(n: idx_t, x: *mut real_t, y: *mut real_t) -> std::ffi::c_int {
+pub extern "C" fn BetterBalance2Way(n: idx_t, x: *const real_t, y: *const real_t) -> std::ffi::c_int {
     // real_t nrm1=0.0, nrm2=0.0;
     mkslice!(x, n);
     mkslice!(y, n);
@@ -207,14 +207,14 @@ pub extern "C" fn BetterBalance2Way(n: idx_t, x: *mut real_t, y: *mut real_t) ->
 #[metis_func]
 pub extern "C" fn BetterBalanceKWay(
     ncon: idx_t,
-    vwgt: *mut idx_t,
-    ubvec: *mut real_t,
+    vwgt: *const idx_t,
+    ubvec: *const real_t,
     a1: idx_t,
-    pt1: *mut idx_t,
-    bm1: *mut real_t,
+    pt1: *const idx_t,
+    bm1: *const real_t,
     a2: idx_t,
-    pt2: *mut idx_t,
-    bm2: *mut real_t,
+    pt2: *const idx_t,
+    bm2: *const real_t,
 ) -> std::ffi::c_int {
     // idx_t i;
     // real_t tmp, nrm1=0.0, nrm2=0.0, max1=0.0, max2=0.0;
@@ -264,9 +264,9 @@ all the constraints. */
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn ComputeLoadImbalance(
-    graph: *mut graph_t,
+    graph: *const graph_t,
     nparts: idx_t,
-    pijbm: *mut real_t,
+    pijbm: *const real_t,
 ) -> real_t {
     let graph = graph.as_ref().unwrap();
     // idx_t i, j, ncon, *pwgts;
@@ -335,10 +335,10 @@ constraints. */
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn ComputeLoadImbalanceDiffVec(
-    graph: *mut graph_t,
+    graph: *const graph_t,
     nparts: idx_t,
-    pijbm: *mut real_t,
-    ubfactors: *mut real_t,
+    pijbm: *const real_t,
+    ubfactors: *const real_t,
     diffvec: *mut real_t,
 ) -> real_t {
     let graph = graph.as_ref().unwrap();
@@ -374,9 +374,9 @@ pub extern "C" fn ComputeLoadImbalanceDiffVec(
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn ComputeLoadImbalanceVec(
-    graph: *mut graph_t,
+    graph: *const graph_t,
     nparts: idx_t,
-    pijbm: *mut real_t,
+    pijbm: *const real_t,
     lbvec: *mut real_t,
 ) {
     // idx_t i, j, ncon, *pwgts;

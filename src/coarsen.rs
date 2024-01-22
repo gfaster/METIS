@@ -508,7 +508,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                                 && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], &maxvwgt[..ncon])
                                 && (maxwgt < adjwgt[j as usize]
                                     || (maxwgt == adjwgt[j as usize]
-                                        && BetterVBalance(
+                                        && mcutil::BetterVBalance(
                                             ncon as idx_t,
                                             graph.invtvwgt,
                                             vwgt[(i * ncon)..].as_mut_ptr(),

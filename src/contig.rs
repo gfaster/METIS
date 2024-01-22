@@ -656,7 +656,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                 for j in (1)..(ncand) {
                     // ctrl.pijbm is split, but shouldn't actually alias. I'll have to fix this for
                     // real later
-                    if BetterBalanceKWay(
+                    if mcutil::BetterBalanceKWay(
                         ncon as idx_t,
                         cwgt.as_mut_ptr(),
                         ctrl.ubfactors,

@@ -343,7 +343,7 @@ pub extern "C" fn MultilevelBisect(
         refine::Refine2Way(ctrl, graph, cgraph, tpwgts);
 
         curobj = graph.mincut;
-        let curbal = ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
+        let curbal = mcutil::ComputeLoadImbalanceDiff(graph, 2, ctrl.pijbm, ctrl.ubfactors);
 
         if i == 0
             || (curbal <= 0.0005 && bestobj > curobj)

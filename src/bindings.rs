@@ -2,7 +2,6 @@
 
 #[metis_decl]
 extern "C" {
-
     pub fn SetupCtrl(
         optype: moptype_et,
         options: *const idx_t, // manually verified const
@@ -21,12 +20,6 @@ extern "C" {
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
     pub fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx_t;
-    pub fn ComputeLoadImbalanceDiff(
-        graph: *mut graph_t,
-        nparts: idx_t,
-        pijbm: *mut real_t,
-        ubvec: *mut real_t,
-    ) -> real_t;
     pub fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t;
     pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
@@ -92,28 +85,7 @@ extern "C" {
         niter: idx_t,
     ) -> std::ffi::c_void;
 
-    pub fn BetterBalance2Way(n: idx_t, x: *mut real_t, y: *mut real_t) -> std::ffi::c_int;
-    pub fn ComputeLoadImbalanceDiffVec(
-        graph: *mut graph_t,
-        nparts: idx_t,
-        pijbm: *mut real_t,
-        ubfactors: *mut real_t,
-        diffvec: *mut real_t,
-    ) -> real_t;
-    pub fn ComputeLoadImbalance(graph: *mut graph_t, nparts: idx_t, pijbm: *mut real_t) -> real_t;
-
     pub fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t;
-    pub fn BetterBalanceKWay(
-        ncon: idx_t,
-        vwgt: *const idx_t,
-        ubvec: *const real_t,
-        a1: idx_t,
-        pt1: *const idx_t,
-        bm1: *const real_t,
-        a2: idx_t,
-        pt2: *const idx_t,
-        bm2: *const real_t,
-    ) -> std::ffi::c_int;
     pub fn KWayVolUpdate(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,
@@ -131,13 +103,6 @@ extern "C" {
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
 
-    pub fn BetterVBalance(
-        ncon: idx_t,
-        itvwgt: *mut real_t,
-        v_vwgt: *mut idx_t,
-        u1_vwgt: *mut idx_t,
-        u2_vwgt: *mut idx_t,
-    ) -> std::ffi::c_int;
     pub fn CheckGraph(
         graph: *mut graph_t,
         numflag: std::ffi::c_int,

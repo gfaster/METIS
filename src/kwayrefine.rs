@@ -837,6 +837,6 @@ pub extern "C" fn IsBalanced(
     graph: *mut graph_t,
     ffactor: real_t,
 ) -> std::ffi::c_int {
-    (ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors) <= ffactor)
+    (mcutil::ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors) <= ffactor)
         as _
 }
