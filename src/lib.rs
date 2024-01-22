@@ -26,6 +26,7 @@ pub mod graph;
 pub mod initpart;
 pub mod kmetis;
 pub mod kwayrefine;
+pub mod mcutil;
 pub mod pmetis;
 pub mod refine;
 

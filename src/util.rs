@@ -364,12 +364,10 @@ macro_rules! get_graph_slices {
 
 #[macro_export]
 macro_rules! free_field {
-    ($struct:ident.$field:ident) => {
-        {
-            gk_free_one(std::ptr::addr_of_mut!((*$struct).$field) as *mut *mut std::ffi::c_void);
-            assert_eq!((*$struct).$field, std::ptr::null_mut());
-        }
-    };
+    ($struct:ident.$field:ident) => {{
+        gk_free_one(std::ptr::addr_of_mut!((*$struct).$field) as *mut *mut std::ffi::c_void);
+        assert_eq!((*$struct).$field, std::ptr::null_mut());
+    }};
 }
 
 /// debug level handling from `gk_macros.h`

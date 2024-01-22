@@ -456,49 +456,31 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let _ = std::fs::remove_file(&outfile);
 
     let ret: std::io::Result<()> = (|| {
-        let fpout = std::fs::OpenOptions::new().write(true).create_new(true).open(&outfile)?;
+        let fpout = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&outfile)?;
         let mut fpout = std::io::BufWriter::new(fpout);
-        // if ((fpout = fopen(outfile, "wb")) == std::ptr::null_mut()) {
-        //     return;
-        // }
 
         get_graph_slices!(graph => xadj vwgt adjncy adjwgt);
         if graph.free_xadj != 0 {
             fpout.write_idx(xadj)?;
-            // if (fwrite(graph.xadj, sizeof(idx_t), nvtxs + 1, fpout) != nvtxs + 1) {
-            //     todo!("goto error\0".as_ptr());
-            // }
         }
         if graph.free_vwgt != 0 {
             fpout.write_idx(vwgt)?;
-
-            // if (fwrite(graph.vwgt, sizeof(idx_t), nvtxs * ncon, fpout) != nvtxs * ncon) {
-            //     todo!("goto error\0".as_ptr());
-            // }
         }
         if graph.free_adjncy != 0 {
             fpout.write_idx(adjncy)?;
-            // if (fwrite(graph.adjncy, sizeof(idx_t), xadj[nvtxs], fpout) != xadj[nvtxs]) {
-            //     todo!("goto error\0".as_ptr());
-            // }
         }
         if graph.free_adjwgt != 0 {
             fpout.write_idx(adjwgt)?;
-            // if (fwrite(graph.adjwgt, sizeof(idx_t), xadj[nvtxs], fpout) != xadj[nvtxs]) {
-            //     todo!("goto error\0".as_ptr());
-            // }
         }
         if ctrl.objtype == METIS_OBJTYPE_VOL {
-            get_graph_slices!(graph => vsize);
             if graph.free_vsize != 0 {
+                get_graph_slices!(graph => vsize);
                 fpout.write_idx(vsize)?;
-                // if (fwrite(graph.vsize, sizeof(idx_t), nvtxs, fpout) != nvtxs) {
-                //     todo!("goto error\0".as_ptr());
-                // }
             }
         }
-
-        // fclose(fpout);
         Ok(())
     })();
 
@@ -527,13 +509,6 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     }
 
     graph.ondisk = 1;
-    return;
-
-    // error:
-    // println!("Failed on writing %s\n", outfile);
-    // fclose(fpout);
-    // gk_rmpath(outfile);
-    // graph.ondisk = 0;
 }
 
 /*************************************************************************/
@@ -543,19 +518,12 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    // idx_t nvtxs, ncon, *xadj;
-    // char infile[1024];
-    // FILE *fpin;
 
     if graph.ondisk == 0 {
         return; /* this graph is not on the disk */
     }
     let infile = format!("metis{}.{}", ctrl.pid, graph.gID);
     let ret: std::io::Result<()> = (|| {
-        //   if ((fpin = fopen(infile, "rb")) == std::ptr::null_mut())
-        // {
-        //   return ;
-        // }
         let fpin = std::fs::OpenOptions::new().read(true).open(&infile)?;
         let mut fpin = std::io::BufReader::new(fpin);
 
@@ -566,11 +534,6 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             graph.xadj = imalloc(nvtxs + 1, "graph_ReadFromDisk: xadj\0".as_ptr()) as *mut idx_t;
             get_graph_slices_mut!(graph => xadj);
             fpin.read_idx(xadj)?;
-
-            // if (fread(graph.xadj, sizeof(idx_t), nvtxs+1, fpin) != nvtxs+1)
-            // {
-            //   todo!("goto error");
-            // }
         }
         get_graph_slices_mut!(graph => xadj);
 
@@ -578,10 +541,6 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             graph.vwgt = imalloc(nvtxs * ncon, "graph_ReadFromDisk: vwgt\0".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->vwgt, nvtxs * ncon);
             fpin.read_idx(vwgt)?;
-
-            // if (fread(graph.vwgt, sizeof(idx_t), nvtxs * ncon, fpin) != nvtxs * ncon) {
-            //     todo!("goto error");
-            // }
         }
 
         if graph.free_adjncy != 0 {
@@ -589,9 +548,6 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             graph.adjncy = imalloc(len, "graph_ReadFromDisk: adjncy\0".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->adjncy, len);
             fpin.read_idx(adjncy)?;
-            // if (fread(graph.adjncy, sizeof(idx_t), xadj[nvtxs], fpin) != xadj[nvtxs]) {
-            //     todo!("goto error");
-            // }
         }
 
         if graph.free_adjwgt != 0 {
@@ -599,10 +555,6 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             graph.adjwgt = imalloc(len, "graph_ReadFromDisk: adjwgt\0".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->adjwgt, len);
             fpin.read_idx(adjwgt)?;
-
-            // if (fread(graph.adjwgt, sizeof(idx_t), xadj[nvtxs], fpin) != xadj[nvtxs]) {
-            //     todo!("goto error");
-            // }
         }
 
         if ctrl.objtype == METIS_OBJTYPE_VOL {
@@ -610,15 +562,8 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                 graph.vsize = imalloc(nvtxs, "graph_ReadFromDisk: vsize\0".as_ptr()) as *mut idx_t;
                 mkslice_mut!(graph->vsize, nvtxs);
                 fpin.read_idx(vsize)?;
-                // if (fread(graph.vsize, sizeof(idx_t), nvtxs, fpin) != nvtxs) {
-                //     todo!("goto error");
-                // }
             }
         }
-
-        // fclose(fpin);
-        //  println!("ondisk: deleting %s\n", infile);
-        // gk_rmpath(infile);
         std::mem::drop(fpin);
         graph.gID = 0;
         graph.ondisk = 0;
@@ -634,14 +579,4 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             panic!("Failed to restore graph {infile} from the disk with error {e}")
         }
     };
-
-    // error:
-    // fclose(fpin);
-    // gk_rmpath(infile);
-    // graph.ondisk = 0;
-    // gk_errexit(
-    //     SIGERR,
-    //     "Failed to restore graph %s from the disk.\n",
-    //     infile,
-    // );
 }

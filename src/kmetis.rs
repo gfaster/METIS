@@ -73,7 +73,8 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     }
 
     /* set up the graph */
-    let graph: *mut graph_t = graph::SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
+    let graph: *mut graph_t =
+        graph::SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
 
     /* set up multipliers for making balance computations easier */
     SetupKWayBalMultipliers(ctrl, graph);
