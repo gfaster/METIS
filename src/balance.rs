@@ -509,15 +509,11 @@ pub extern "C" fn McGeneral2WayBalance(
             break;
         }
 
-        let mut from: idx_t = 0;
-        let mut cnum: idx_t = 0;
-        pqueue::select_queue(
+        let (from, cnum) = pqueue::select_queue(
             graph,
             std::slice::from_raw_parts(ctrl.pijbm, ctrl.nparts as usize * ncon),
             std::slice::from_raw_parts(ctrl.ubfactors, ncon),
             &mut queues,
-            &mut from,
-            &mut cnum,
         );
         let to = (from + 1) % 2;
 

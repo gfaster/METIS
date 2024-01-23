@@ -298,7 +298,7 @@ where
 
     /// Returns the key of the top item. The item is not deleted from the queue.
     #[doc(alias = "see_top_key")]
-    pub fn peek_key(&mut self) -> Option<K> {
+    pub fn peek_key(&self) -> Option<K> {
         self.heap.first().map(|n| n.key)
     }
 
