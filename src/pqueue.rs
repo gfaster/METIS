@@ -240,7 +240,7 @@ where
     /// This function returns the item at the top of the queue and removes it from the priority queue
     /// This should never return -1
     ///
-    /// equivallent to pqueue_get_top
+    /// equivalent to pqueue_get_top
     #[doc(alias = "get_top")]
     pub fn pop(&mut self) -> Option<I> {
         Some(self.pop_node()?.1)
@@ -357,22 +357,24 @@ impl IPQueue {
 /// This function selects the partition number and the queue from which we will move vertices out.
 ///
 /// this is originally from fm.c, but I needed to rewrite it early
+///
+/// Returns (from, cnum) from original signature
 pub fn select_queue(
-    graph: &mut crate::graph_t,
+    graph: &crate::graph_t,
     pijbm: &[real_t],
     ubfactors: &[real_t],
-    queues: &mut [RPQueue],
-    from: &mut idx_t,
-    cnum: &mut idx_t,
-) {
+    queues: &[RPQueue],
+) -> (idx_t, idx_t) {
     // idx_t ncon, i, part;
     // real_t max, tmp;
 
     let ncon = graph.ncon;
     let pwgts: &[_] = unsafe { std::slice::from_raw_parts(graph.pwgts, (ncon * 2) as usize) };
 
-    *from = -1;
-    *cnum = -1;
+    let mut from = -1;
+    let mut cnum = -1;
+    // from = -1;
+    // cnum = -1;
 
     /* First determine the side and the queue, irrespective of the presence of nodes.
     The side & queue is determined based on the most violated balancing constraint. */
@@ -386,35 +388,35 @@ pub fn select_queue(
             the partition that is at the max is selected */
             if tmp >= max {
                 max = tmp;
-                *from = part;
-                *cnum = i;
+                from = part;
+                cnum = i;
             }
         }
     }
 
-    if *from != -1 {
+    if from != -1 {
         /* in case the desired queue is empty, select a queue from the same side */
-        if (queues[(2 * *cnum + *from) as usize]).length() == 0 {
+        if (queues[(2 * cnum + from) as usize]).length() == 0 {
             let mut i = 0;
             for ii in 0..ncon {
                 i = ii;
-                if (queues[(2 * i + *from) as usize]).length() > 0 {
-                    max = pwgts[(*from * ncon + i) as usize] as real_t
-                        * pijbm[(*from * ncon + i) as usize]
+                if (queues[(2 * i + from) as usize]).length() > 0 {
+                    max = pwgts[(from * ncon + i) as usize] as real_t
+                        * pijbm[(from * ncon + i) as usize]
                         - ubfactors[(i) as usize];
-                    *cnum = i;
+                    cnum = i;
                     break;
                 }
             }
             i += 1;
             // for (i++; i<ncon; i++) {
             while i < ncon {
-                let tmp = pwgts[(*from * ncon + i) as usize] as real_t
-                    * pijbm[(*from * ncon + i) as usize]
+                let tmp = pwgts[(from * ncon + i) as usize] as real_t
+                    * pijbm[(from * ncon + i) as usize]
                     - ubfactors[i as usize];
-                if tmp > max && (queues[(2 * i + *from) as usize]).length() > 0 {
+                if tmp > max && (queues[(2 * i + from) as usize]).length() > 0 {
                     max = tmp;
-                    *cnum = i;
+                    cnum = i;
                 }
                 i += 1;
             }
@@ -422,7 +424,7 @@ pub fn select_queue(
 
         /*
         printf("Selected1 %"PRIDX"(%"PRIDX") . %"PRIDX" [%5"PRREAL"]\n",
-            *from, *cnum, rpqLength(queues[2*(*cnum)+(*from)]), max);
+            from, cnum, rpqLength(queues[2*(cnum)+(from)]), max);
         */
     } else {
         /* the partitioning does not violate balancing constraints, in which case select
@@ -430,11 +432,11 @@ pub fn select_queue(
         for part in 0..2 {
             for i in 0..ncon {
                 if (queues[(2 * i + part) as usize]).length() > 0
-                    && (*from == -1 || (queues[(2 * i + part) as usize].peek_key().unwrap()) > max)
+                    && (from == -1 || (queues[(2 * i + part) as usize].peek_key().unwrap()) > max)
                 {
                     max = queues[(2 * i + part) as usize].peek_key().unwrap();
-                    *from = part;
-                    *cnum = i;
+                    from = part;
+                    cnum = i;
                 }
             }
         }
@@ -443,6 +445,7 @@ pub fn select_queue(
             *from, *cnum, rpqLength(queues[2*(*cnum)+(*from)]), max);
         */
     }
+    (from, cnum)
 }
 
 // pub struct BatchedPriorityQueueUninit {

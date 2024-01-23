@@ -21,6 +21,7 @@ pub mod coarsen;
 pub mod compress;
 pub mod contig;
 pub mod debug;
+pub mod fm;
 pub mod graph;
 pub mod initpart;
 pub mod kmetis;

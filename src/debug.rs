@@ -123,7 +123,7 @@ pub extern "C" fn ComputeMaxCut(graph: *mut graph_t, nparts: idx_t, where_: *mut
 
     let maxcut = cuts[(util::iargmax(&cuts, 1)) as usize];
 
-    println!("%{} => {:}", util::iargmax(&cuts, 1), maxcut);
+    println!("{} => {:}", util::iargmax(&cuts, 1), maxcut);
 
     return maxcut;
 }
@@ -158,7 +158,8 @@ pub extern "C" fn CheckNodeBnd(graph: *mut graph_t, onbnd: idx_t) -> idx_t {
         }
     }
 
-    return 1;
+    todo!("this is currently untested");
+    // return 1;
 }
 
 /*************************************************************************/
@@ -263,10 +264,12 @@ pub extern "C" fn CheckNodePartitionParams(graph: *mut graph_t) -> idx_t {
             gpwgts[1 as usize],
             gpwgts[2 as usize]
         );
-        return 0;
+        // return 0;
+        todo!("this is currently untested");
     }
 
-    return 1;
+    // return 1;
+    todo!("this is currently untested");
 }
 
 /*************************************************************************/
@@ -301,7 +304,8 @@ pub extern "C" fn IsSeparable(graph: *mut graph_t) -> idx_t {
         }
     }
 
-    return 1;
+    // return 1;
+    todo!("this is currently untested");
 }
 
 /*************************************************************************/

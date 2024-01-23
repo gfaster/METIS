@@ -73,6 +73,7 @@ let ctrl = ctrl.as_mut().unwrap();
 - for blocks of graph pointer references, use the `get_graph_slices` and
   `get_graph_slices_mut` macros.
 
+Comment out C variable declarations:
 ```
 :g/\v^  (int|(\w*_t)) /norm gcc
 ```
