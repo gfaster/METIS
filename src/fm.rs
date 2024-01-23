@@ -50,16 +50,6 @@ pub extern "C" fn FM_2WayCutRefine(
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    // xadj = graph.xadj;
-    // vwgt = graph.vwgt;
-    // adjncy = graph.adjncy;
-    // adjwgt = graph.adjwgt;
-    // where_ = graph.where_;
-    // id = graph.id;
-    // ed = graph.ed;
-    // pwgts = graph.pwgts;
-    // bndptr = graph.bndptr;
-    // bndind = graph.bndind;
     get_graph_slices!(ctrl, graph => xadj vwgt adjncy tvwgt adjwgt);
     get_graph_slices_mut!(ctrl, graph => where_ id ed pwgts bndptr bndind);
     mkslice!(ntpwgts, 2 * graph.ncon);
@@ -68,10 +58,14 @@ pub extern "C" fn FM_2WayCutRefine(
     let mut swaps: Vec<idx_t> = vec![0; nvtxs as usize as usize];
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize as usize];
 
-    let tpwgts = [
-        tvwgt[0 as usize] * ntpwgts[0 as usize] as idx_t,
-        tvwgt[0 as usize] - tvwgt[0 as usize] * ntpwgts[0 as usize] as idx_t,
-    ];
+    let tpwgts = {
+        let tpwgt0 = (tvwgt[0 as usize] as real_t * ntpwgts[0 as usize]) as idx_t;
+        [
+        tpwgt0,
+        tvwgt[0 as usize] - tpwgt0
+    ]};
+    dbg!(&ntpwgts);
+    dbg!(&tpwgts);
 
     // let limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
     let limit = (0.01 * nvtxs as f32).clamp(15.0, 100.0) as idx_t;
@@ -125,9 +119,9 @@ pub extern "C" fn FM_2WayCutRefine(
             );
         }
 
-        let mut nswaps = 0;
+        let mut nswaps: idx_t = 0;
         // for nswaps in (0)..(nvtxs) {
-        while nswaps < nvtxs {
+        while nswaps < nvtxs as idx_t {
             let from = if tpwgts[0 as usize] - pwgts[0 as usize]
                 < tpwgts[1 as usize] - pwgts[1 as usize]
             {
@@ -156,13 +150,14 @@ pub extern "C" fn FM_2WayCutRefine(
             if (newcut < mincut
                 && (tpwgts[0 as usize] - pwgts[0 as usize]).abs() <= origdiff + avgvwgt)
                 || (newcut == mincut && (tpwgts[0 as usize] - pwgts[0 as usize]).abs() < mindiff)
-            {
+            { 
                 mincut = newcut;
                 mindiff = (tpwgts[0 as usize] - pwgts[0 as usize]).abs();
                 mincutorder = nswaps as idx_t;
-            } else if nswaps as idx_t - mincutorder > limit {
+            } else if nswaps - mincutorder > limit {
                 /* We hit the limit, undo last move */
-                newcut += ed[higain as usize] - id[higain as usize];
+                // dead assignment
+                // newcut += ed[higain as usize] - id[higain as usize];
                 inc_dec!(
                     pwgts[from as usize],
                     pwgts[to as usize],
@@ -172,14 +167,14 @@ pub extern "C" fn FM_2WayCutRefine(
             }
 
             where_[higain as usize] = to as idx_t;
-            moved[higain as usize] = nswaps as idx_t;
+            moved[higain as usize] = nswaps;
             swaps[nswaps as usize] = higain as idx_t;
 
             ifset!(
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
                 println!(
-                    "Moved {:6} from {:}. [({:3} {:3}) as usize] {:5} [({:4} {:4}) as usize]",
+                    "Moved {:6} from {:}. [({:3} {:3})] {:5} [({:4} {:4})]",
                     higain,
                     from,
                     ed[higain as usize] - id[higain as usize],
@@ -250,7 +245,7 @@ pub extern "C" fn FM_2WayCutRefine(
         }
         nswaps -= 1;
         // for (nswaps--; nswaps>mincutorder; nswaps--) {
-        while nswaps > mincutorder as usize {
+        while nswaps as idx_t > mincutorder {
             let higain = swaps[nswaps as usize] as usize;
             let to = (where_[higain as usize] + 1) % 2;
             where_[higain as usize] = to;
@@ -438,8 +433,8 @@ pub extern "C" fn FM_Mc2WayCutRefine(
         }
 
         // for nswaps in (0)..(nvtxs) {
-        let mut nswaps = 0;
-        while nswaps < nvtxs {
+        let mut nswaps: idx_t = 0;
+        while nswaps < nvtxs as idx_t {
             // SelectQueue(graph, ctrl.pijbm, ubfactors, queues, &from, &cnum);
             let (from, cnum) = pqueue::select_queue(graph, pijbm, &ubfactors, &queues);
 
@@ -500,7 +495,9 @@ pub extern "C" fn FM_Mc2WayCutRefine(
                 minbalv.copy_from_slice(&newbalv);
             } else if nswaps as idx_t - mincutorder > limit as idx_t {
                 /* We hit the limit, undo last move */
-                newcut += ed[higain as usize] - id[higain as usize];
+                // dead assignment
+                // newcut += ed[higain as usize] - id[higain as usize];
+
                 // iaxpy(ncon, 1, vwgt + higain * ncon, 1, pwgts + from * ncon, 1);
                 blas::iaxpy(
                     ncon,
@@ -528,8 +525,7 @@ pub extern "C" fn FM_Mc2WayCutRefine(
 
             if (ctrl.dbglvl & METIS_DBG_MOVEINFO) != 0 {
                 println!(
-                    "Moved{:6} from {:}({:}) Gain:{:5}, \
-            Cut:{:5}, NPwgts:",
+                    "Moved{:6} from {:}({:}) Gain:{:5}, Cut:{:5}, NPwgts:",
                     higain,
                     from,
                     cnum,
@@ -618,7 +614,7 @@ pub extern "C" fn FM_Mc2WayCutRefine(
         }
         nswaps -= 1;
         // for (nswaps--; nswaps>mincutorder; nswaps--) {
-        while nswaps as idx_t > mincutorder {
+        while nswaps > mincutorder {
             let higain = swaps[nswaps as usize] as usize;
 
             // to = where_[higain as usize] = (where_[higain as usize] + 1) % 2;
@@ -689,84 +685,6 @@ pub extern "C" fn FM_Mc2WayCutRefine(
 
     // WCOREPOP;
 }
-
-// REMOVED -> REMADE IN pqueue.rs
-//
-// /*************************************************************************/
-// /* This function selects the partition number and the queue from which
-//     we will move vertices out. */
-// /*************************************************************************/
-// #[metis_func]
-// pub extern "C" fn SelectQueue(graph: *mut graph_t, pijbm: *mut real_t, ubfactors: *mut real_t, queues: *mut *mut rpq_t, from: *mut idx_t, cnum: *mut idx_t)
-// {
-//   // idx_t ncon, i, part;
-//   // real_t max, tmp;
-//
-//   let ncon = graph.ncon;
-//
-//   *from = -1;
-//   *cnum = -1;
-//
-//   /* First determine the side and the queue, irrespective of the presence of nodes.
-//      The side & queue is determined based on the most violated balancing constraint. */
-//   for (max=0.0, part=0; part<2; part++) {
-//     for i in (0)..(ncon) {
-//       tmp = graph.pwgts[(part*ncon+i) as usize]*pijbm[(part*ncon+i) as usize] - ubfactors[i as usize];
-//       /* the '=' in the test below is to ensure that under tight constraints
-//          the partition that is at the max is selected */
-//       if (tmp >= max) {
-//         max   = tmp;
-//         *from = part;
-//         *cnum = i;
-//       }
-//     }
-//   }
-//
-//
-//   if (*from != -1) {
-//     /* in case the desired queue is empty, select a queue from the same side */
-//     if (rpqLength(queues[(2*(*cnum)+(*from)) as usize]) == 0) {
-//       for i in (0)..(ncon) {
-//         if (rpqLength(queues[(2*i+(*from)) as usize]) > 0) {
-//           max   = graph.pwgts[((*from)*ncon+i) as usize]*pijbm[((*from)*ncon+i) as usize] - ubfactors[i as usize];
-//           *cnum = i;
-//           break;
-//         }
-//       }
-//
-//       for (i++; i<ncon; i++) {
-//         tmp = graph.pwgts[((*from)*ncon+i) as usize]*pijbm[((*from)*ncon+i) as usize] - ubfactors[i as usize];
-//         if (tmp > max && rpqLength(queues[(2*i+(*from)) as usize]) > 0) {
-//           max   = tmp;
-//           *cnum = i;
-//         }
-//       }
-//     }
-//
-//     /*
-//     println!("Selected1 {:}({:}) . {:} [{:5}]",
-//         *from, *cnum, rpqLength(queues[(2*(*cnum)+(*from)) as usize]), max);
-//     */
-//   }
-//   else {
-//     /* the partitioning does not violate balancing constraints, in which case select
-//        a queue based on cut criteria */
-//     for (part=0; part<2; part++) {
-//       for i in (0)..(ncon) {
-//         if (rpqLength(queues[(2*i+part) as usize]) > 0 &&
-//             (*from == -1 || rpqSeeTopKey(queues[(2*i+part) as usize]) > max)) {
-//           max   = rpqSeeTopKey(queues[(2*i+part) as usize]);
-//           *from = part;
-//           *cnum = i;
-//         }
-//       }
-//     }
-//     /*
-//     println!("Selected2 {:}({:}) . {:}",
-//         *from, *cnum, rpqLength(queues[(2*(*cnum)+(*from)) as usize]), max);
-//     */
-//   }
-// }
 
 /*************************************************************************/
 /* Prints statistics about the refinement */

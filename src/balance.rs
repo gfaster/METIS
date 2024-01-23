@@ -48,7 +48,7 @@ pub extern "C" fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *
 **************************************************************************/
 #[metis_func]
 pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
-    eprintln!("called Bnd2WayBalance");
+    // eprintln!("called Bnd2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
@@ -224,7 +224,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
 **************************************************************************/
 #[metis_func]
 pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_t) {
-    eprintln!("called General2WayBalance");
+    // eprintln!("called General2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;

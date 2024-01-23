@@ -16,7 +16,7 @@ use std::slice;
 /// This function is the entry point of cut-based refinement
 #[metis_func]
 pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) {
-    eprintln!("Called RefineKWay");
+    // eprintln!("Called RefineKWay");
     let mut nlevels;
     let contig = (*ctrl).contig;
     let mut ptr: *mut graph_t;
@@ -216,7 +216,7 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 /// I suspect bug in this function (volume)
 #[metis_func]
 pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    eprintln!("Called ComputeKWayPartitionParams");
+    // eprintln!("Called ComputeKWayPartitionParams");
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
@@ -408,7 +408,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
 /// This function projects a partition, and at the same time computes the parameters for refinement.
 #[metis_func]
 pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    eprintln!("Called ProjectKWayPartition");
+    // eprintln!("Called ProjectKWayPartition");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
 
@@ -644,7 +644,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 /// This function computes the boundary definition for balancing.
 #[metis_func]
 pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bndtype: idx_t) {
-    eprintln!("Called ComputeKWayBoundary");
+    // eprintln!("Called ComputeKWayBoundary");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     let mut nbnd;
@@ -704,7 +704,7 @@ pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bn
 /// This function computes the initial gains in the communication volume
 #[metis_func]
 pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    eprintln!("Called ComputeKWayVolGains");
+    // eprintln!("Called ComputeKWayVolGains");
     let ctrl: &mut ctrl_t = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
