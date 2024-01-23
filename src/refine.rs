@@ -192,20 +192,10 @@ pub extern "C" fn Project2WayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
     assert!(!graph.coarser.is_null());
     let cgraph = &*graph.coarser;
-    // let cwhere_ = cgraph.where_;
-    // let cbndptr = cgraph.bndptr;
     mkslice!(cwhere_: cgraph->where_, cgraph.nvtxs);
     mkslice!(cbndptr: cgraph->bndptr, cgraph.nvtxs);
 
     let nvtxs = graph.nvtxs as usize;
-    // cmap    = graph.cmap;
-    // xadj    = graph.xadj;
-    // adjncy  = graph.adjncy;
-    // adjwgt  = graph.adjwgt;
-    //
-    // where_  = graph.where_;
-    // id     = graph.id;
-    // ed     = graph.ed;
     get_graph_slices!(ctrl, graph => xadj adjncy adjwgt);
     get_graph_slices_mut!(ctrl, graph => cmap id ed bndptr bndind where_ pwgts);
 
