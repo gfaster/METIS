@@ -623,13 +623,6 @@ pub struct graph_t {
     /// The inverse of the sum of the vertex weights in the graph
     pub invtvwgt: *mut real_t,
 
-    /// Vertex position vector
-    pub vpos: *mut real_t,
-
-    /// Vertex radius vector
-    pub vrad: *mut real_t,
-
-
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
     pub free_xadj: std::ffi::c_int,
@@ -649,11 +642,6 @@ pub struct graph_t {
     /// This are to keep track control if the corresponding fields correspond to application or
     /// library memory
     pub free_adjwgt: std::ffi::c_int,
-
-    /// This are to keep track control if the corresponding fields correspond to application or
-    /// library memory
-    pub free_vpos: std::ffi::c_int,
-
 
     /// The contraction/coarsening map
     ///  

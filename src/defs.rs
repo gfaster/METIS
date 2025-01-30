@@ -1,4 +1,4 @@
-//! corresponds to defs.h
+// corresponds to defs.h
 
 /*
  * Copyright 1997, Regents of the University of Minnesota

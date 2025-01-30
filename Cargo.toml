@@ -9,7 +9,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-euclid = []
 dual_link = []
 extra_tests = []
 no_rs = []
@@ -17,7 +16,6 @@ no_rs = []
 # comment this line out to just use rust implementations
 # with dual_link enabled, we can run both implementations and compare the outputs
 # default = ["dual_link"]
-default = ["euclid"]
 
 [lib]
 name = "metis"

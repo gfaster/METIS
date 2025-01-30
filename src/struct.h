@@ -91,13 +91,10 @@ typedef struct graph_t {
   idx_t *tvwgt;         /* The sum of the vertex weights in the graph */
   real_t *invtvwgt;     /* The inverse of the sum of the vertex weights in the graph */
 
-  real_t *vpos;          /* Vertex position vector */
-  real_t *vrad;          /* Vertex radius vector */
-
 
   /* These are to keep track control if the corresponding fields correspond to
      application or library memory */
-  int free_xadj, free_vwgt, free_vsize, free_adjncy, free_adjwgt, free_vpos;
+  int free_xadj, free_vwgt, free_vsize, free_adjncy, free_adjwgt;
 
   idx_t *cmap;  /* The contraction/coarsening map */
 

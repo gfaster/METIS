@@ -32,11 +32,6 @@ pub mod refine;
 
 mod dyncall;
 
-#[cfg(feature = "euclid")]
-pub mod euclid;
-#[cfg(feature = "euclid")]
-pub mod vn;
-
 pub(crate) mod blas;
 pub(crate) mod dal;
 pub(crate) mod defs;
