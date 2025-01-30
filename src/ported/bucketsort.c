@@ -12,6 +12,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 
@@ -20,8 +21,8 @@
 * corresponding to the sorted order. The keys are arsumed to start from
 * 0 and they are positive.  This sorting is used during matching.
 **************************************************************************/
-void BucketSortKeysInc(ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys, 
-         idx_t *tperm, idx_t *perm)
+IFUNC(void , BucketSortKeysInc, ( ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys, idx_t *tperm, idx_t *perm));
+void c__libmetis__BucketSortKeysInc( ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys, idx_t *tperm, idx_t *perm)
 {
   idx_t i, ii;
   idx_t *counts;

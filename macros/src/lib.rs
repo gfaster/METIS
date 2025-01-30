@@ -1,7 +1,7 @@
 #![allow(clippy::let_and_return)]
 
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, Span};
 use quote::format_ident;
 use syn::{ItemFn, Token};
 
@@ -27,7 +27,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
         attrs: impl_fn.attrs.clone(),
         vis: syn::parse_quote!(pub),
         sig: impl_fn.sig.clone(),
-        semi_token: Token![;](proc_macro2::Span::call_site()),
+        semi_token: Token![;](Span::call_site()),
     };
     foreign.sig.ident = format_ident!("c__{pfx}{}", fn_name);
     foreign.sig.ident.set_span(fn_name.span());
@@ -43,13 +43,14 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let mut dispatch_sig = impl_fn.sig.clone();
     dispatch_sig.ident = format_ident!("{fn_name}");
     dispatch_sig.ident.set_span(fn_name.span());
-    dispatch_sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
+    dispatch_sig.unsafety = Some(Token!(unsafe)(Span::call_site()));
     dispatch_sig.abi = Some(syn::Abi {
-        extern_token: Token![extern](proc_macro2::Span::call_site()),
-        name: Some(syn::LitStr::new("C", proc_macro2::Span::call_site())),
+        extern_token: Token![extern](Span::call_site()),
+        name: Some(syn::LitStr::new("C", Span::call_site())),
     });
     let dispatch_vis = impl_fn.vis.clone();
-    let dispatch_rs_call = impl_fn.sig.ident.clone();
+    let mut dispatch_rs_call = format_ident!("{rs_link_func}");
+    dispatch_rs_call.set_span(impl_fn.sig.ident.span());
     let dispatch_c_call = foreign.sig.ident.clone();
     let dispatch_c_sym_lit = {
         let sym = format!("{dispatch_c_call}\0");
@@ -74,7 +75,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let mut dispatch_return = impl_fn.sig.output.clone();
     if matches!(dispatch_return, syn::ReturnType::Default) {
         dispatch_return = syn::ReturnType::Type(
-            Token![->](proc_macro2::Span::call_site()),
+            Token![->](Span::call_site()),
             syn::Type::Tuple(syn::TypeTuple {
                 paren_token: syn::token::Paren::default(),
                 elems: syn::punctuated::Punctuated::new(),
@@ -92,6 +93,14 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let resolve_name = format_ident!("resolve_{fn_name}");
 
     let dispatch = quote::quote! {
+        #[export_name = #cannonical_link_func]
+        #[allow(non_snake_case)]
+        #dispatch_vis #dispatch_sig {
+            let actual: #dispatch_fn_ptr = #resolve_name();
+            unsafe { actual(#(#dispatch_args_decl),*) }
+            // type FnPtr = fn ();
+        }
+
         #[doc(hidden)]
         #[no_mangle]
         pub extern "C" fn #resolve_name() -> #dispatch_fn_ptr {
@@ -105,29 +114,25 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
             )};
             unsafe { std::mem::transmute(#dispatch_lib_ident.get()) }
         }
-
-        #[export_name = #cannonical_link_func]
-        #[allow(non_snake_case)]
-        #dispatch_vis #dispatch_sig {
-            let actual: #dispatch_fn_ptr = #resolve_name();
-            unsafe { actual(#(#dispatch_args_decl),*) }
-            // type FnPtr = fn ();
-        }
     };
 
     let prev_span = impl_fn.sig.ident.span();
     impl_fn.sig.ident = format_ident!("{rs_link_func}");
     impl_fn.sig.ident.set_span(prev_span);
+    impl_fn.sig.abi = Some(syn::Abi { 
+        extern_token: Token![extern](Span::call_site()), 
+        name: Some(syn::LitStr::new("C", Span::call_site())) 
+    });
 
-    impl_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
+    impl_fn.sig.unsafety = Some(Token!(unsafe)(Span::call_site()));
 
     // foreign block is so ab_tests can still call out to those functions
     let output: TokenStream = quote::quote! {
-        #[cfg(any(feature = "dual_link", feature = "no_rs"))]
-        extern "C" {
-            #[allow(clippy::too_many_arguments)]
-            #foreign
-        }
+        // #[cfg(any(feature = "dual_link", feature = "no_rs"))]
+        // extern "C" {
+        //     #[allow(clippy::too_many_arguments)]
+        //     #foreign
+        // }
 
         #dispatch
 

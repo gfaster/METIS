@@ -1,5 +1,7 @@
 # METIS C to Rust translation steps
 
+**NOTE**: I'm using this file to transcribe VIM macros, so there are a few non-printable characters
+
 I recommend recording a macro that yanks and executes a command from this
 document.
 
@@ -343,6 +345,49 @@ and jump back up is a pass.
 Once we've committed a version that compiles, we can run `cargo fix` to help
 with some simple style things like `if` statement parentheses.
 
+## 10. Once we compile again
+
+In order to test our changes, we utilize dynamic dispatch on a per function
+basis.
+
+There is no changes needed on the Rust side, but on the C version we need to
+declare each function as an `ifunc` using the `IFUNC` macro defined in
+`ifunc.h` (which should be included manually), and for the function definition
+only to be prefixed with `c__libmetis__`.
+
+See `src/ported/coarsen.c` for examples.
+
+Macro to help:
+```
+0f(€ý5avabJyyPiIFUNC(f(€ý5bi,f(€ý5i, bbi A);j0f(€ý5bic__libmetis__q€kb
+```
+
+To use the old C functions, set `METIS_OVERRIDE_SYMS` to a comma separated list
+of symbols with an optional colon to specify the language. Later occurrences
+overwrite earlier ones. 
+
+There is some magic in parsing symbols, and all of the following are equivalent:
+
+```
+METIS_OVERRIDE_SYMS="SetupCoarseGraph"
+METIS_OVERRIDE_SYMS="SetupCoarseGraph:c"
+METIS_OVERRIDE_SYMS="c__SetupCoarseGraph"
+METIS_OVERRIDE_SYMS="libmetis__SetupCoarseGraph"
+METIS_OVERRIDE_SYMS="libmetis__SetupCoarseGraph:c"
+METIS_OVERRIDE_SYMS="c__libmetis__SetupCoarseGraph"
+METIS_OVERRIDE_SYMS="c__libmetis__SetupCoarseGraph"
+```
+
+Which would be later reset to the Rust version if any of the following
+equivalent settings are found:
+
+```
+METIS_OVERRIDE_SYMS="SetupCoarseGraph:rs"
+METIS_OVERRIDE_SYMS="rs__SetupCoarseGraph"
+METIS_OVERRIDE_SYMS="libmetis__SetupCoarseGraph:rs"
+METIS_OVERRIDE_SYMS="rs__libmetis__SetupCoarseGraph"
+```
+
 ## Things to look out for
 
 - make sure that the `gk_malloc` calls have null-terminated strings
@@ -350,7 +395,7 @@ with some simple style things like `if` statement parentheses.
 - we use a ton of casting to `usize`, but remember that `idx_t` is signed and
   often negative
 
-- often a loop iterator is used outside the loop, typically to do something if
+- sometimes a loop iterator is used outside the loop, typically to do something if
   it didn't break. A for loop cannot be used here because the iterator will not
   ever equal the end bounds, even if it reaches the end. Use a while loop with
   increment at the end of the block.

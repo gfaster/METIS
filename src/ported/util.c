@@ -12,13 +12,15 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function initializes the random number generator 
   */
 /*************************************************************************/
-void InitRandom(idx_t seed)
+IFUNC(void , InitRandom, (idx_t seed));
+void c__libmetis__InitRandom(idx_t seed)
 {
   isrand((seed == -1 ? 4321 : seed)); 
 }
@@ -28,7 +30,8 @@ void InitRandom(idx_t seed)
 /*! Returns the highest weight index of x[i]*y[i] 
  */
 /*************************************************************************/
-idx_t iargmax_nrm(size_t n, idx_t *x, real_t *y)
+IFUNC(idx_t , iargmax_nrm, (size_t n, idx_t *x, real_t *y));
+idx_t c__libmetis__iargmax_nrm(size_t n, idx_t *x, real_t *y)
 {
   idx_t i, max=0;
       
@@ -43,7 +46,8 @@ idx_t iargmax_nrm(size_t n, idx_t *x, real_t *y)
 /*! These functions return the index of the maximum element in a vector
   */
 /*************************************************************************/
-idx_t iargmax_strd(size_t n, idx_t *x, idx_t incx)
+IFUNC(idx_t , iargmax_strd, (size_t n, idx_t *x, idx_t incx));
+idx_t c__libmetis__iargmax_strd(size_t n, idx_t *x, idx_t incx)
 {
   size_t i, max=0;
 
@@ -60,7 +64,8 @@ idx_t iargmax_strd(size_t n, idx_t *x, idx_t incx)
     vector
  */
 /*************************************************************************/
-idx_t rargmax2(size_t n, real_t *x)
+IFUNC(idx_t , rargmax2, (size_t n, real_t *x));
+idx_t c__libmetis__rargmax2(size_t n, real_t *x)
 {
   size_t i, max1, max2;
 
@@ -90,7 +95,8 @@ idx_t rargmax2(size_t n, real_t *x)
 /*! These functions return the index of the second largest elements in the
     vector formed by x.y where '.' is element-wise multiplication */
 /*************************************************************************/
-idx_t iargmax2_nrm(size_t n, idx_t *x, real_t *y)
+IFUNC(idx_t , iargmax2_nrm, (size_t n, idx_t *x, real_t *y));
+idx_t c__libmetis__iargmax2_nrm(size_t n, idx_t *x, real_t *y)
 {
   size_t i, max1, max2;
 
@@ -120,7 +126,8 @@ idx_t iargmax2_nrm(size_t n, idx_t *x, real_t *y)
 /*! converts a signal code into a Metis return code 
  */
 /*************************************************************************/
-int metis_rcode(int sigrval)
+IFUNC(int , metis_rcode, (int sigrval));
+int c__libmetis__metis_rcode(int sigrval)
 {
   switch (sigrval) {
     case 0:

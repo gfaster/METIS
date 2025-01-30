@@ -9,12 +9,14 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************
 * This function performs an edge-based FM refinement
 **************************************************************************/
-void FM_2WayRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
+IFUNC(void , FM_2WayRefine, (ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter));
+void c__libmetis__FM_2WayRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
 {
   if (graph->ncon == 1) 
     FM_2WayCutRefine(ctrl, graph, ntpwgts, niter);
@@ -26,7 +28,8 @@ void FM_2WayRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
 /*************************************************************************/
 /*! This function performs a cut-focused FM refinement */
 /*************************************************************************/
-void FM_2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
+IFUNC(void , FM_2WayCutRefine, (ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter));
+void c__libmetis__FM_2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
 {
   idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, limit, tmp;
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *where, *id, *ed, *bndptr, *bndind, *pwgts;
@@ -204,7 +207,8 @@ void FM_2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter
 /*************************************************************************/
 /*! This function performs a cut-focused multi-constraint FM refinement */
 /*************************************************************************/
-void FM_Mc2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
+IFUNC(void , FM_Mc2WayCutRefine, (ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter));
+void c__libmetis__FM_Mc2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter)
 {
   idx_t i, ii, j, k, l, kwgt, nvtxs, ncon, nbnd, nswaps, from, to, pass, 
         me, limit, tmp, cnum;
@@ -436,8 +440,9 @@ void FM_Mc2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t nit
 /*! This function selects the partition number and the queue from which
     we will move vertices out. */
 /*************************************************************************/ 
-void SelectQueue(graph_t *graph, real_t *pijbm, real_t *ubfactors, 
-         rpq_t **queues, idx_t *from, idx_t *cnum)
+// PORTING: since we use a totally different system for the Rust version, this is not ifunc
+void SelectQueue( graph_t *graph, real_t *pijbm, real_t *ubfactors,
+                              rpq_t **queues, idx_t *from, idx_t *cnum)
 {
   idx_t ncon, i, part;
   real_t max, tmp;
@@ -512,8 +517,8 @@ void SelectQueue(graph_t *graph, real_t *pijbm, real_t *ubfactors,
 /*************************************************************************/
 /*! Prints statistics about the refinement */
 /*************************************************************************/ 
-void Print2WayRefineStats(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         real_t deltabal, idx_t mincutorder)
+IFUNC(void , Print2WayRefineStats, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, real_t deltabal, idx_t mincutorder));
+void c__libmetis__Print2WayRefineStats( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, real_t deltabal, idx_t mincutorder)
 {
   int i;
 

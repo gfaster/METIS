@@ -16,6 +16,7 @@
 
 
 #include "metislib.h"
+#include "ifunc.h"
 
 #define UNMATCHEDFOR2HOP  0.10  /* The fraction of unmatched vertices that triggers 2-hop */
                                   
@@ -25,7 +26,7 @@
     It implements the coarsening phase of the multilevel paradigm. 
  */
 /*************************************************************************/
-IFUNC(graph_t *,CoarsenGraph, ctrl_t *ctrl, graph_t *graph);
+IFUNC(graph_t *,CoarsenGraph, (ctrl_t *ctrl, graph_t *graph));
 graph_t *c__libmetis__CoarsenGraph(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, eqewgts, level=0;
@@ -91,7 +92,9 @@ graph_t *c__libmetis__CoarsenGraph(ctrl_t *ctrl, graph_t *graph)
     graphs, where nlevels is an input parameter.
  */
 /*************************************************************************/
-graph_t *CoarsenGraphNlevels(ctrl_t *ctrl, graph_t *graph, idx_t nlevels)
+
+IFUNC (graph_t *, CoarsenGraphNlevels, (ctrl_t *ctrl, graph_t *graph, idx_t nlevels));
+graph_t *c__libmetis__CoarsenGraphNlevels(ctrl_t *ctrl, graph_t *graph, idx_t nlevels)
 {
   idx_t i, eqewgts, level;
 
@@ -157,7 +160,8 @@ graph_t *CoarsenGraphNlevels(ctrl_t *ctrl, graph_t *graph, idx_t nlevels)
     unmatched adjacent vertices. 
  */
 /**************************************************************************/
-idx_t Match_RM(ctrl_t *ctrl, graph_t *graph)
+IFUNC(idx_t , Match_RM, (ctrl_t *ctrl, graph_t *graph));
+idx_t c__libmetis__Match_RM(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx, 
         last_unmatched, avgdegree, bnum;
@@ -298,7 +302,8 @@ idx_t Match_RM(ctrl_t *ctrl, graph_t *graph)
     given a chance to match with something. 
  */
 /**************************************************************************/
-idx_t Match_SHEM(ctrl_t *ctrl, graph_t *graph)
+IFUNC(idx_t , Match_SHEM, (ctrl_t *ctrl, graph_t *graph));
+idx_t c__libmetis__Match_SHEM(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx, maxwgt, 
         last_unmatched, avgdegree, bnum;
@@ -442,8 +447,9 @@ idx_t Match_SHEM(ctrl_t *ctrl, graph_t *graph)
 /*! This function matches the unmatched vertices using a 2-hop matching 
     that involves vertices that are two hops away from each other. */
 /**************************************************************************/
-idx_t Match_2Hop(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, 
-          idx_t cnvtxs, size_t nunmatched)
+IFUNC(idx_t , Match_2Hop, (ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, idx_t cnvtxs, size_t nunmatched));
+idx_t c__libmetis__Match_2Hop(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
+                 idx_t cnvtxs, size_t nunmatched)
 {
 
   cnvtxs = Match_2HopAny(ctrl, graph, perm, match, cnvtxs, &nunmatched, 2);
@@ -464,8 +470,10 @@ idx_t Match_2Hop(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
     The requirement of the 2-hop matching is a simple non-empty overlap
     between the adjancency lists of the vertices. */
 /**************************************************************************/
-idx_t Match_2HopAny(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, 
-          idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree)
+IFUNC(idx_t , Match_2HopAny,
+      (ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree));
+idx_t c__libmetis__Match_2HopAny(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
+                    idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree)
 {
   idx_t i, pi, ii, j, jj, k, nvtxs;
   idx_t *xadj, *adjncy, *colptr, *rowind;
@@ -543,8 +551,9 @@ idx_t Match_2HopAny(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
     lists.
  */
 /**************************************************************************/
-idx_t Match_2HopAll(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, 
-          idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree)
+IFUNC(idx_t , Match_2HopAll, (ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match, idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree));
+idx_t c__libmetis__Match_2HopAll(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
+                    idx_t cnvtxs, size_t *r_nunmatched, size_t maxdegree)
 {
   idx_t i, pi, pk, ii, j, jj, k, nvtxs, mask, idegree;
   idx_t *xadj, *adjncy;
@@ -629,7 +638,8 @@ idx_t Match_2HopAll(ctrl_t *ctrl, graph_t *graph, idx_t *perm, idx_t *match,
     on the Jaccard coefficient of the adjaceny lists.
  */
 /**************************************************************************/
-idx_t Match_JC(ctrl_t *ctrl, graph_t *graph)
+IFUNC(idx_t , Match_JC, (ctrl_t *ctrl, graph_t *graph));
+idx_t c__libmetis__Match_JC(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, pi, ii, iii, j, jj, jjj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx, 
         last_unmatched, avgdegree, bnum;
@@ -812,7 +822,8 @@ idx_t Match_JC(ctrl_t *ctrl, graph_t *graph)
 /*! This function prints various stats for each graph during coarsening 
  */
 /*************************************************************************/
-void PrintCGraphStats(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , PrintCGraphStats, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__PrintCGraphStats(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i;
 
@@ -831,8 +842,8 @@ void PrintCGraphStats(ctrl_t *ctrl, graph_t *graph)
     to do duplicate detection.
  */
 /*************************************************************************/
-void CreateCoarseGraph(ctrl_t *ctrl, graph_t *graph, idx_t cnvtxs, 
-         idx_t *match)
+IFUNC(void , CreateCoarseGraph, (ctrl_t *ctrl, graph_t *graph, idx_t cnvtxs, idx_t *match));
+void c__libmetis__CreateCoarseGraph(ctrl_t *ctrl, graph_t *graph, idx_t cnvtxs, idx_t *match)
 {
   idx_t j, jj, k, kk, l, m, istart, iend, nvtxs, nedges, ncon, 
         cnedges, v, u, mask;
@@ -1081,7 +1092,8 @@ void CreateCoarseGraph(ctrl_t *ctrl, graph_t *graph, idx_t cnvtxs,
 /*! Setup the various arrays for the coarse graph 
  */
 /*************************************************************************/
-graph_t *SetupCoarseGraph(graph_t *graph, idx_t cnvtxs, int dovsize)
+IFUNC(graph_t *, SetupCoarseGraph, (graph_t *graph, idx_t cnvtxs, int dovsize));
+graph_t *c__libmetis__SetupCoarseGraph(graph_t *graph, idx_t cnvtxs, int dovsize)
 {
   graph_t *cgraph;
 
@@ -1117,7 +1129,8 @@ graph_t *SetupCoarseGraph(graph_t *graph, idx_t cnvtxs, int dovsize)
     it will lead to significant savings 
  */
 /*************************************************************************/
-void ReAdjustMemory(ctrl_t *ctrl, graph_t *graph, graph_t *cgraph) 
+IFUNC(void , ReAdjustMemory, (ctrl_t *ctrl, graph_t *graph, graph_t *cgraph) );
+void c__libmetis__ReAdjustMemory(ctrl_t *ctrl, graph_t *graph, graph_t *cgraph) 
 {
   if (cgraph->nedges > 10000 && cgraph->nedges < 0.9*graph->nedges) {
     cgraph->adjncy = irealloc(cgraph->adjncy, cgraph->nedges, "ReAdjustMemory: adjncy");

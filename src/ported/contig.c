@@ -9,6 +9,7 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -29,8 +30,8 @@
           number of connected components is returned.
 */
 /*************************************************************************/
-idx_t FindPartitionInducedComponents(graph_t *graph, idx_t *where, 
-          idx_t *cptr, idx_t *cind)
+IFUNC(idx_t , FindPartitionInducedComponents, ( graph_t *graph, idx_t *where, idx_t *cptr, idx_t *cind));
+idx_t c__libmetis__FindPartitionInducedComponents( graph_t *graph, idx_t *where, idx_t *cptr, idx_t *cind)
 {
   idx_t i, ii, j, jj, k, me=0, nvtxs, first, last, nleft, ncmps;
   idx_t *xadj, *adjncy;
@@ -112,7 +113,8 @@ idx_t FindPartitionInducedComponents(graph_t *graph, idx_t *where,
            re-ordered graph.
 */
 /*************************************************************************/
-void ComputeBFSOrdering(ctrl_t *ctrl, graph_t *graph, idx_t *bfsperm)
+IFUNC(void , ComputeBFSOrdering, ( ctrl_t *ctrl, graph_t *graph, idx_t *bfsperm));
+void c__libmetis__ComputeBFSOrdering( ctrl_t *ctrl, graph_t *graph, idx_t *bfsperm)
 {
   idx_t i, j, k, nvtxs, first, last;
   idx_t *xadj, *adjncy, *perm;
@@ -164,7 +166,8 @@ void ComputeBFSOrdering(ctrl_t *ctrl, graph_t *graph, idx_t *bfsperm)
 /*! This function checks whether a graph is contiguous or not. 
  */
 /**************************************************************************/
-idx_t IsConnected(graph_t *graph, idx_t report)
+IFUNC(idx_t , IsConnected, ( graph_t *graph, idx_t report));
+idx_t c__libmetis__IsConnected( graph_t *graph, idx_t report)
 {
   idx_t ncmps;
 
@@ -181,7 +184,8 @@ idx_t IsConnected(graph_t *graph, idx_t report)
 /*! This function checks whether or not partition pid is contiguous
   */
 /*************************************************************************/
-idx_t IsConnectedSubdomain(ctrl_t *ctrl, graph_t *graph, idx_t pid, idx_t report)
+IFUNC(idx_t , IsConnectedSubdomain, ( ctrl_t *ctrl, graph_t *graph, idx_t pid, idx_t report));
+idx_t c__libmetis__IsConnectedSubdomain( ctrl_t *ctrl, graph_t *graph, idx_t pid, idx_t report)
 {
   idx_t i, j, k, nvtxs, first, last, nleft, ncmps, wgt;
   idx_t *xadj, *adjncy, *where, *touched, *queue;
@@ -264,8 +268,8 @@ idx_t IsConnectedSubdomain(ctrl_t *ctrl, graph_t *graph, idx_t pid, idx_t report
     pair of arrays cptr, cind.
 */
 /**************************************************************************/
-idx_t FindSepInducedComponents(ctrl_t *ctrl, graph_t *graph, idx_t *cptr, 
-          idx_t *cind)
+IFUNC(idx_t , FindSepInducedComponents, ( ctrl_t *ctrl, graph_t *graph, idx_t *cptr, idx_t *cind));
+idx_t c__libmetis__FindSepInducedComponents( ctrl_t *ctrl, graph_t *graph, idx_t *cptr, idx_t *cind)
 {
   idx_t i, j, k, nvtxs, first, last, nleft, ncmps, wgt;
   idx_t *xadj, *adjncy, *where, *touched, *queue;
@@ -333,7 +337,8 @@ idx_t FindSepInducedComponents(ctrl_t *ctrl, graph_t *graph, idx_t *cptr,
     partitioning vector in graph->where and tries to push them around to 
     remove some of them. */
 /*************************************************************************/
-void EliminateComponents(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , EliminateComponents, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__EliminateComponents( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, jj, k, me, nparts, nvtxs, ncon, ncmps, other, 
         ncand, target;
@@ -528,8 +533,8 @@ void EliminateComponents(ctrl_t *ctrl, graph_t *graph)
 /*! This function moves a collection of vertices and updates their rinfo 
  */
 /*************************************************************************/
-void MoveGroupContigForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, 
-         idx_t *ptr, idx_t *ind)
+IFUNC(void , MoveGroupContigForCut, ( ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, idx_t *ptr, idx_t *ind));
+void c__libmetis__MoveGroupContigForCut( ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, idx_t *ptr, idx_t *ind)
 {
   idx_t i, ii, iii, j, jj, k, l, nvtxs, nbnd, from, me;
   idx_t *xadj, *adjncy, *adjwgt, *where, *bndptr, *bndind;
@@ -598,9 +603,8 @@ void MoveGroupContigForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid,
 /*! This function moves a collection of vertices and updates their rinfo 
  */
 /*************************************************************************/
-void MoveGroupContigForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, 
-         idx_t *ptr, idx_t *ind, idx_t *vmarker, idx_t *pmarker, 
-         idx_t *modind)
+IFUNC(void , MoveGroupContigForVol, ( ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, idx_t *ptr, idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind));
+void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid, idx_t *ptr, idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind)
 {
   idx_t i, ii, iii, j, jj, k, l, nvtxs, from, me, other, xgain;
   idx_t *xadj, *vsize, *adjncy, *where;

@@ -9,13 +9,14 @@
 */
 
 #include "metislib.h"
-
+#include "ifunc.h"
 
 /*************************************************************************/
 /*! This function sets up the graph from the user input */
 /*************************************************************************/
-graph_t *SetupGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t ncon, idx_t *xadj, 
-             idx_t *adjncy, idx_t *vwgt, idx_t *vsize, idx_t *adjwgt) 
+IFUNC(graph_t *, SetupGraph, (ctrl_t *ctrl, idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy, idx_t *vwgt, idx_t *vsize, idx_t *adjwgt));
+graph_t *c__libmetis__SetupGraph( ctrl_t *ctrl, idx_t nvtxs, idx_t ncon, idx_t *xadj,
+                                 idx_t *adjncy, idx_t *vwgt, idx_t *vsize, idx_t *adjwgt) 
 {
   idx_t i, j, k, sum;
   real_t *nvwgt;
@@ -97,7 +98,8 @@ graph_t *SetupGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t ncon, idx_t *xadj,
 /*************************************************************************/
 /*! Set's up the tvwgt/invtvwgt info */
 /*************************************************************************/
-void SetupGraph_tvwgt(graph_t *graph)
+IFUNC(void , SetupGraph_tvwgt, (graph_t *graph));
+void c__libmetis__SetupGraph_tvwgt(graph_t *graph)
 {
   idx_t i;
 
@@ -116,7 +118,8 @@ void SetupGraph_tvwgt(graph_t *graph)
 /*************************************************************************/
 /*! Set's up the label info */
 /*************************************************************************/
-void SetupGraph_label(graph_t *graph)
+IFUNC(void , SetupGraph_label, (graph_t *graph));
+void c__libmetis__SetupGraph_label(graph_t *graph)
 {
   idx_t i;
 
@@ -131,7 +134,8 @@ void SetupGraph_label(graph_t *graph)
 /*************************************************************************/
 /*! Setup the various arrays for the split graph */
 /*************************************************************************/
-graph_t *SetupSplitGraph(graph_t *graph, idx_t snvtxs, idx_t snedges)
+IFUNC(graph_t *, SetupSplitGraph, (graph_t *graph, idx_t snvtxs, idx_t snedges));
+graph_t *c__libmetis__SetupSplitGraph(graph_t *graph, idx_t snvtxs, idx_t snedges)
 {
   graph_t *sgraph;
 
@@ -160,7 +164,8 @@ graph_t *SetupSplitGraph(graph_t *graph, idx_t snvtxs, idx_t snedges)
 /*************************************************************************/
 /*! This function creates and initializes a graph_t data structure */
 /*************************************************************************/
-graph_t *CreateGraph(void)
+IFUNC(graph_t *, CreateGraph, (void));
+graph_t *c__libmetis__CreateGraph(void)
 {
   graph_t *graph;
 
@@ -175,7 +180,8 @@ graph_t *CreateGraph(void)
 /*************************************************************************/
 /*! This function initializes a graph_t data structure */
 /*************************************************************************/
-void InitGraph(graph_t *graph) 
+IFUNC(void , InitGraph, (graph_t *graph) );
+void c__libmetis__InitGraph(graph_t *graph) 
 {
   memset((void *)graph, 0, sizeof(graph_t));
 
@@ -227,7 +233,8 @@ void InitGraph(graph_t *graph)
 /*************************************************************************/
 /*! This function frees the memory storing the structure of the graph */
 /*************************************************************************/
-void FreeSData(graph_t *graph) 
+IFUNC(void , FreeSData, (graph_t *graph) );
+void c__libmetis__FreeSData(graph_t *graph) 
 {
   /* free graph structure */
   if (graph->free_xadj)
@@ -246,7 +253,8 @@ void FreeSData(graph_t *graph)
 /*************************************************************************/
 /*! This function frees the refinement/partition memory stored in a graph */
 /*************************************************************************/
-void FreeRData(graph_t *graph) 
+IFUNC(void , FreeRData, (graph_t *graph) );
+void c__libmetis__FreeRData(graph_t *graph) 
 {
 
   /* The following is for the -minconn and -contig to work properly in
@@ -274,7 +282,8 @@ void FreeRData(graph_t *graph)
 /*************************************************************************/
 /*! This function deallocates any memory stored in a graph */
 /*************************************************************************/
-void FreeGraph(graph_t **r_graph) 
+IFUNC(void , FreeGraph, (graph_t **r_graph) );
+void c__libmetis__FreeGraph(graph_t **r_graph) 
 {
   graph_t *graph;
 
@@ -297,7 +306,8 @@ void FreeGraph(graph_t **r_graph)
 /*! This function writes the key contents of the graph on disk and frees
     the associated memory */
 /*************************************************************************/
-void graph_WriteToDisk(ctrl_t *ctrl, graph_t *graph) 
+IFUNC(void , graph_WriteToDisk, (ctrl_t *ctrl, graph_t *graph) );
+void c__libmetis__graph_WriteToDisk(ctrl_t *ctrl, graph_t *graph) 
 {
   idx_t nvtxs, ncon, *xadj;
   static int gID = 1;
@@ -375,7 +385,8 @@ error:
 /*************************************************************************/
 /*! This function reads the key contents of a graph from the disk */
 /*************************************************************************/
-void graph_ReadFromDisk(ctrl_t *ctrl, graph_t *graph) 
+IFUNC(void , graph_ReadFromDisk, (ctrl_t *ctrl, graph_t *graph) );
+void c__libmetis__graph_ReadFromDisk(ctrl_t *ctrl, graph_t *graph) 
 {
   idx_t nvtxs, ncon, *xadj;
   char infile[1024];

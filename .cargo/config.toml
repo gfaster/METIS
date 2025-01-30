@@ -1,0 +1,3 @@
+[build]
+# Use frame pointers since the dispatch breaks perf call traces
+rustflags="-C force-frame-pointers=on"

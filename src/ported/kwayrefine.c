@@ -9,12 +9,14 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function is the entry point of cut-based refinement */
 /*************************************************************************/
-void RefineKWay(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
+IFUNC(void , RefineKWay, ( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph));
+void c__libmetis__RefineKWay( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
 {
   idx_t i, nlevels, contig=ctrl->contig;
   graph_t *ptr;
@@ -115,7 +117,8 @@ void RefineKWay(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
 /*************************************************************************/
 /*! This function allocates memory for the k-way cut-based refinement */
 /*************************************************************************/
-void AllocateKWayPartitionMemory(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , AllocateKWayPartitionMemory, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__AllocateKWayPartitionMemory( ctrl_t *ctrl, graph_t *graph)
 {
 
   graph->pwgts  = imalloc(ctrl->nparts*graph->ncon, "AllocateKWayPartitionMemory: pwgts");
@@ -148,7 +151,8 @@ void AllocateKWayPartitionMemory(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function computes the initial id/ed  for cut-based partitioning */
 /*************************************************************************/
-void ComputeKWayPartitionParams(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , ComputeKWayPartitionParams, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__ComputeKWayPartitionParams( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, k, l, nvtxs, ncon, nparts, nbnd, mincut, me, other;
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *pwgts, *where, *bndind, *bndptr;
@@ -314,7 +318,8 @@ void ComputeKWayPartitionParams(ctrl_t *ctrl, graph_t *graph)
 /*! This function projects a partition, and at the same time computes the
  parameters for refinement. */
 /*************************************************************************/
-void ProjectKWayPartition(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , ProjectKWayPartition, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__ProjectKWayPartition( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, k, nvtxs, nbnd, nparts, me, other, istart, iend, tid, ted;
   idx_t *xadj, *adjncy, *adjwgt;
@@ -514,7 +519,8 @@ void ProjectKWayPartition(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function computes the boundary definition for balancing. */
 /*************************************************************************/
-void ComputeKWayBoundary(ctrl_t *ctrl, graph_t *graph, idx_t bndtype)
+IFUNC(void , ComputeKWayBoundary, ( ctrl_t *ctrl, graph_t *graph, idx_t bndtype));
+void c__libmetis__ComputeKWayBoundary( ctrl_t *ctrl, graph_t *graph, idx_t bndtype)
 {
   idx_t i, nvtxs, nbnd;
   idx_t *bndind, *bndptr;
@@ -569,7 +575,8 @@ void ComputeKWayBoundary(ctrl_t *ctrl, graph_t *graph, idx_t bndtype)
 /*************************************************************************/
 /*! This function computes the initial gains in the communication volume */
 /*************************************************************************/
-void ComputeKWayVolGains(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , ComputeKWayVolGains, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__ComputeKWayVolGains( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, k, l, nvtxs, nparts, me, other, pid; 
   idx_t *xadj, *vsize, *adjncy, *adjwgt, *where, 
@@ -673,7 +680,8 @@ void ComputeKWayVolGains(ctrl_t *ctrl, graph_t *graph)
 /*! This function checks if the partition weights are within the balance
 constraints */
 /*************************************************************************/
-int IsBalanced(ctrl_t *ctrl, graph_t *graph, real_t ffactor)
+IFUNC(int , IsBalanced, ( ctrl_t *ctrl, graph_t *graph, real_t ffactor));
+int c__libmetis__IsBalanced( ctrl_t *ctrl, graph_t *graph, real_t ffactor)
 {
   return 
     (ComputeLoadImbalanceDiff(graph, ctrl->nparts, ctrl->pijbm, ctrl->ubfactors) 

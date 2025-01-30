@@ -9,11 +9,13 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 /*************************************************************************
 * This function is the entry poidx_t of the bisection balancing algorithms.
 **************************************************************************/
-void Balance2Way(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
+IFUNC(void , Balance2Way, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts));
+void c__libmetis__Balance2Way( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 {
   if (ComputeLoadImbalanceDiff(graph, 2, ctrl->pijbm, ctrl->ubfactors) <= 0) 
     return;
@@ -38,7 +40,8 @@ void Balance2Way(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 * This function balances two partitions by moving boundary nodes
 * from the domain that is overweight to the one that is underweight.
 **************************************************************************/
-void Bnd2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
+IFUNC(void , Bnd2WayBalance, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts));
+void c__libmetis__Bnd2WayBalance( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 {
   idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *where, *id, *ed, *bndptr, *bndind, *pwgts;
@@ -166,7 +169,8 @@ void Bnd2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 * It moves vertices from the domain that is overweight to the one that 
 * is underweight.
 **************************************************************************/
-void General2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
+IFUNC(void , General2WayBalance, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts));
+void c__libmetis__General2WayBalance( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 {
   idx_t i, ii, j, k, kwgt, nvtxs, nbnd, nswaps, from, to, pass, me, tmp;
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *where, *id, *ed, *bndptr, *bndind, *pwgts;
@@ -278,7 +282,8 @@ void General2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 /*************************************************************************
 * This function performs an edge-based FM refinement
 **************************************************************************/
-void McGeneral2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
+IFUNC(void , McGeneral2WayBalance, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts));
+void c__libmetis__McGeneral2WayBalance( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts)
 {
   idx_t i, ii, j, k, l, kwgt, nvtxs, ncon, nbnd, nswaps, from, to, pass, 
         me, limit, tmp, cnum;

@@ -11,6 +11,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 /*************************************************************************/
 /*! This function compresses a graph by merging identical vertices
@@ -22,8 +23,8 @@
  
 */
 /**************************************************************************/
-graph_t *CompressGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
-             idx_t *vwgt, idx_t *cptr, idx_t *cind)
+IFUNC(graph_t *, CompressGraph, ( ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt, idx_t *cptr, idx_t *cind));
+graph_t *c__libmetis__CompressGraph( ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt, idx_t *cptr, idx_t *cind)
 {
   idx_t i, ii, iii, j, jj, k, l, cnvtxs, cnedges;
   idx_t *cxadj, *cadjncy, *cvwgt, *mark, *map;
@@ -147,8 +148,8 @@ graph_t *CompressGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy,
     \returns the number of vertices that were prunned.
 */
 /*************************************************************************/
-graph_t *PruneGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
-             idx_t *vwgt, idx_t *iperm, real_t factor)
+IFUNC(graph_t *, PruneGraph, ( ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt, idx_t *iperm, real_t factor));
+graph_t *c__libmetis__PruneGraph( ctrl_t *ctrl, idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt, idx_t *iperm, real_t factor)
 {
   idx_t i, j, k, l, nlarge, pnvtxs, pnedges;
   idx_t *pxadj, *padjncy, *padjwgt, *pvwgt;

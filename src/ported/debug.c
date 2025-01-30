@@ -11,14 +11,15 @@
  */
 
 #include "metislib.h"
-
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function computes the total edgecut 
  */
 /*************************************************************************/
-idx_t ComputeCut(graph_t *graph, idx_t *where)
+IFUNC(idx_t , ComputeCut, (graph_t *graph, idx_t *where));
+idx_t c__libmetis__ComputeCut(graph_t *graph, idx_t *where)
 {
   idx_t i, j, cut;
 
@@ -45,7 +46,8 @@ idx_t ComputeCut(graph_t *graph, idx_t *where)
 /*! This function computes the total volume 
  */
 /*************************************************************************/
-idx_t ComputeVolume(graph_t *graph, idx_t *where)
+IFUNC(idx_t , ComputeVolume, (graph_t *graph, idx_t *where));
+idx_t c__libmetis__ComputeVolume(graph_t *graph, idx_t *where)
 {
   idx_t i, j, k, me, nvtxs, nparts, totalv;
   idx_t *xadj, *adjncy, *vsize, *marker;
@@ -82,7 +84,8 @@ idx_t ComputeVolume(graph_t *graph, idx_t *where)
 /*! This function computes the cut given the graph and a where vector 
  */
 /*************************************************************************/
-idx_t ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where)
+IFUNC(idx_t , ComputeMaxCut, (graph_t *graph, idx_t nparts, idx_t *where));
+idx_t c__libmetis__ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where)
 {
   idx_t i, j, maxcut;
   idx_t *cuts;
@@ -119,8 +122,8 @@ idx_t ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where)
  * ported to debug_rs.rs
  */
 /*************************************************************************/
-idx_t __attribute__((weak))
-CheckBnd(graph_t *graph) 
+IFUNC(idx_t , CheckBnd, (graph_t *graph) );
+idx_t c__libmetis__CheckBnd(graph_t *graph) 
 {
   idx_t i, j, nvtxs, nbnd;
   idx_t *xadj, *adjncy, *where, *bndptr, *bndind;
@@ -158,8 +161,8 @@ CheckBnd(graph_t *graph)
  * ported to debug_rs.rs
  */
 /*************************************************************************/
-idx_t __attribute__((weak))
-CheckBnd2(graph_t *graph) 
+IFUNC(idx_t , CheckBnd2, (graph_t *graph) );
+idx_t c__libmetis__CheckBnd2(graph_t *graph) 
 {
   idx_t i, j, nvtxs, nbnd, id, ed;
   idx_t *xadj, *adjncy, *where, *bndptr, *bndind;
@@ -196,7 +199,8 @@ CheckBnd2(graph_t *graph)
 /*! This function checks whether or not the boundary information is correct 
  */
 /*************************************************************************/
-idx_t CheckNodeBnd(graph_t *graph, idx_t onbnd) 
+IFUNC(idx_t , CheckNodeBnd, (graph_t *graph, idx_t onbnd) );
+idx_t c__libmetis__CheckNodeBnd(graph_t *graph, idx_t onbnd) 
 {
   idx_t i, j, nvtxs, nbnd;
   idx_t *xadj, *adjncy, *where, *bndptr, *bndind;
@@ -233,7 +237,8 @@ idx_t CheckNodeBnd(graph_t *graph, idx_t onbnd)
 /*! This function checks whether or not the rinfo of a vertex is consistent 
  */
 /*************************************************************************/
-idx_t CheckRInfo(ctrl_t *ctrl, ckrinfo_t *rinfo)
+IFUNC(idx_t , CheckRInfo, (ctrl_t *ctrl, ckrinfo_t *rinfo));
+idx_t c__libmetis__CheckRInfo(ctrl_t *ctrl, ckrinfo_t *rinfo)
 {
   idx_t i, j;
   cnbr_t *nbrs;
@@ -259,7 +264,8 @@ idx_t CheckRInfo(ctrl_t *ctrl, ckrinfo_t *rinfo)
 /*! This function checks the correctness of the NodeFM data structures 
  */
 /*************************************************************************/
-idx_t CheckNodePartitionParams(graph_t *graph)
+IFUNC(idx_t , CheckNodePartitionParams, (graph_t *graph));
+idx_t c__libmetis__CheckNodePartitionParams(graph_t *graph)
 {
   idx_t i, j, k, l, nvtxs, me, other;
   idx_t *xadj, *adjncy, *adjwgt, *vwgt, *where;
@@ -313,7 +319,8 @@ idx_t CheckNodePartitionParams(graph_t *graph)
 /*! This function checks if the separator is indeed a separator 
  */
 /*************************************************************************/
-idx_t IsSeparable(graph_t *graph)
+IFUNC(idx_t , IsSeparable, (graph_t *graph));
+idx_t c__libmetis__IsSeparable(graph_t *graph)
 {
   idx_t i, j, nvtxs, other;
   idx_t *xadj, *adjncy, *where;
@@ -343,7 +350,8 @@ idx_t IsSeparable(graph_t *graph)
 /*! This function recomputes the vrinfo fields and checks them against
     those in the graph->vrinfo structure */
 /*************************************************************************/
-void CheckKWayVolPartitionParams(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , CheckKWayVolPartitionParams, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__CheckKWayVolPartitionParams(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, k, kk, l, nvtxs, nbnd, mincut, minvol, me, other, pid;
   idx_t *xadj, *vsize, *adjncy, *pwgts, *where, *bndind, *bndptr;

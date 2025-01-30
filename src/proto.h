@@ -15,12 +15,6 @@
 #ifndef _LIBMETIS_PROTO_H_
 #define _LIBMETIS_PROTO_H_
 
-#define IFUNC(ret, name, ...) \
-extern ret resolve_##name(__VA_ARGS); \
-static ret *(resolve_inner_##name(__VA_ARGS))(void) {\
-        return resolve_##name; \
-}; \
-ret __attribute__((ifunc("resolve_inner_"#name))) name (VA_ARGS);
 
 /* auxapi.c */
 

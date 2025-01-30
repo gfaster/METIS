@@ -11,6 +11,7 @@
 
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -154,8 +155,9 @@ SIGTHROW:
 /*! This function is the top-level driver of the recursive bisection 
     routine. */
 /*************************************************************************/
-idx_t MlevelRecursiveBisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, 
-          idx_t *part, real_t *tpwgts, idx_t fpart)
+IFUNC(idx_t , MlevelRecursiveBisection, ( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *part, real_t *tpwgts, idx_t fpart));
+idx_t c__libmetis__MlevelRecursiveBisection( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *part,
+                                            real_t *tpwgts, idx_t fpart)
 {
   idx_t i, j, nvtxs, ncon, objval;
   idx_t *label, *where;
@@ -223,7 +225,8 @@ idx_t MlevelRecursiveBisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts,
 /*************************************************************************/
 /*! This function performs a multilevel bisection */
 /*************************************************************************/
-idx_t MultilevelBisect(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
+IFUNC(idx_t , MultilevelBisect, ( ctrl_t *ctrl, graph_t *graph, real_t *tpwgts));
+idx_t c__libmetis__MultilevelBisect( ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
 {
   idx_t i, niparts, bestobj=0, curobj=0, *bestwhere=NULL;
   graph_t *cgraph;
@@ -277,8 +280,8 @@ idx_t MultilevelBisect(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
 /*************************************************************************/
 /*! This function splits a graph into two based on its bisection */
 /*************************************************************************/
-void SplitGraphPart(ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, 
-         graph_t **r_rgraph)
+IFUNC(void , SplitGraphPart, ( ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, graph_t **r_rgraph));
+void c__libmetis__SplitGraphPart( ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, graph_t **r_rgraph)
 {
   idx_t i, j, k, l, istart, iend, mypart, nvtxs, ncon, snvtxs[2], snedges[2];
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *label, *where, *bndptr;

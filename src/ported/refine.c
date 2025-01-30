@@ -9,12 +9,14 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function is the entry point of refinement */
 /*************************************************************************/
-void Refine2Way(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph, real_t *tpwgts)
+IFUNC(void , Refine2Way, ( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph, real_t *tpwgts));
+void c__libmetis__Refine2Way( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph, real_t *tpwgts)
 {
 
   IFSET(ctrl->dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl->UncoarsenTmr));
@@ -51,7 +53,8 @@ void Refine2Way(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph, real_t *tpwgts)
 /*************************************************************************/
 /*! This function allocates memory for 2-way edge refinement */
 /*************************************************************************/
-void Allocate2WayPartitionMemory(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , Allocate2WayPartitionMemory, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Allocate2WayPartitionMemory( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t nvtxs, ncon;
 
@@ -70,7 +73,8 @@ void Allocate2WayPartitionMemory(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function computes the initial id/ed */
 /*************************************************************************/
-void Compute2WayPartitionParams(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , Compute2WayPartitionParams, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Compute2WayPartitionParams( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, nvtxs, ncon, nbnd, mincut, istart, iend, tid, ted, me;
   idx_t *xadj, *vwgt, *adjncy, *adjwgt, *pwgts;
@@ -140,7 +144,8 @@ void Compute2WayPartitionParams(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! Projects a partition and computes the refinement params. */
 /*************************************************************************/
-void Project2WayPartition(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , Project2WayPartition, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Project2WayPartition( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, istart, iend, nvtxs, nbnd, me, tid, ted;
   idx_t *xadj, *adjncy, *adjwgt;

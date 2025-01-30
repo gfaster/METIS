@@ -12,12 +12,13 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 /*************************************************************************/
 /*! This function computes the initial bisection of the coarsest graph */
 /*************************************************************************/
-void Init2WayPartition(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts) 
+IFUNC(void , Init2WayPartition, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts) );
+void c__libmetis__Init2WayPartition( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts) 
 {
   mdbglvl_et dbglvl;
 
@@ -64,7 +65,8 @@ void Init2WayPartition(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
 /*************************************************************************/
 /*! This function computes the initial separator of the coarsest graph */
 /*************************************************************************/
-void InitSeparator(ctrl_t *ctrl, graph_t *graph, idx_t niparts) 
+IFUNC(void , InitSeparator, ( ctrl_t *ctrl, graph_t *graph, idx_t niparts) );
+void c__libmetis__InitSeparator( ctrl_t *ctrl, graph_t *graph, idx_t niparts) 
 {
   real_t ntpwgts[2] = {0.5, 0.5};
   mdbglvl_et dbglvl;
@@ -111,8 +113,8 @@ void InitSeparator(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
     The resulting partition is returned in graph->where.
 */
 /*************************************************************************/
-void RandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , RandomBisection, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__RandomBisection( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, ii, j, k, nvtxs, pwgts[2], zeromaxpwgt, from, me, 
         bestcut=0, icut, mincut, inbfs;
@@ -186,8 +188,8 @@ void RandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
     The resulting partition is returned in graph->where.
 */
 /*************************************************************************/
-void GrowBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , GrowBisection, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__GrowBisection( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, j, k, nvtxs, drain, nleft, first, last, 
         pwgts[2], oneminpwgt, onemaxpwgt, 
@@ -322,8 +324,8 @@ void GrowBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
     partition is returned in graph->where.
 */
 /**************************************************************************/
-void McRandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , McRandomBisection, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__McRandomBisection( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, ii, j, k, nvtxs, ncon, from, bestcut=0, mincut, inbfs, qnum;
   idx_t *bestwhere, *where, *perm, *counts;
@@ -382,8 +384,8 @@ void McRandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
     returned in graph->where.
 */
 /*************************************************************************/
-void McGrowBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , McGrowBisection, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__McGrowBisection( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, j, k, nvtxs, ncon, from, bestcut=0, mincut, inbfs;
   idx_t *bestwhere, *where;
@@ -430,8 +432,8 @@ void McGrowBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
    The resulting partition is returned in graph->where.
 */
 /**************************************************************************/
-void GrowBisectionNode(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , GrowBisectionNode, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__GrowBisectionNode( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, j, k, nvtxs, drain, nleft, first, last, pwgts[2], oneminpwgt, 
         onemaxpwgt, from, me, bestcut=0, icut, mincut, inbfs;
@@ -567,8 +569,8 @@ void GrowBisectionNode(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
    The resulting partition is returned in graph->where.
 */
 /**************************************************************************/
-void GrowBisectionNode2(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, 
-         idx_t niparts)
+IFUNC(void , GrowBisectionNode2, ( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts));
+void c__libmetis__GrowBisectionNode2( ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts)
 {
   idx_t i, j, k, nvtxs, bestcut=0, mincut, inbfs;
   idx_t *xadj, *where, *bndind, *bestwhere;

@@ -10,6 +10,7 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -103,7 +104,8 @@ SIGTHROW:
              itself is stored in the part vector.
 */
 /*************************************************************************/
-idx_t MlevelKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part)
+IFUNC(idx_t , MlevelKWayPartitioning, ( ctrl_t *ctrl, graph_t *graph, idx_t *part));
+idx_t c__libmetis__MlevelKWayPartitioning( ctrl_t *ctrl, graph_t *graph, idx_t *part)
 {
   idx_t i, j, objval=0, curobj=0, bestobj=0;
   real_t curbal=0.0, bestbal=0.0;
@@ -172,7 +174,8 @@ idx_t MlevelKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part)
 /*! This function computes the initial k-way partitioning using PMETIS 
 */
 /*************************************************************************/
-void InitKWayPartitioning(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , InitKWayPartitioning, ( ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__InitKWayPartitioning( ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ntrials, options[METIS_NOPTIONS], curobj=0, bestobj=0;
   idx_t *bestwhere=NULL;
@@ -259,7 +262,8 @@ void InitKWayPartitioning(ctrl_t *ctrl, graph_t *graph)
              itself is stored in the part vector.
 */
 /*************************************************************************/
-idx_t BlockKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part)
+IFUNC(idx_t , BlockKWayPartitioning, ( ctrl_t *ctrl, graph_t *graph, idx_t *part));
+idx_t c__libmetis__BlockKWayPartitioning( ctrl_t *ctrl, graph_t *graph, idx_t *part)
 {
   idx_t i, ii, j, nvtxs, objval=0;
   idx_t *vwgt;
@@ -330,7 +334,8 @@ idx_t BlockKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part)
     The resulting partition is returned in graph->where.
 */
 /*************************************************************************/
-idx_t GrowMultisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
+IFUNC(idx_t , GrowMultisection, ( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where));
+idx_t c__libmetis__GrowMultisection( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
 {
   idx_t i, j, k, l, nvtxs, nleft, first, last; 
   idx_t *xadj, *vwgt, *adjncy;
@@ -412,7 +417,8 @@ idx_t GrowMultisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
 /*! This function balances the partitioning using label propagation. 
 */
 /*************************************************************************/
-void BalanceAndRefineLP(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
+IFUNC(void , BalanceAndRefineLP, ( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where));
+void c__libmetis__BalanceAndRefineLP( ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
 {
   idx_t ii, i, j, k, u, v, nvtxs, iter; 
   idx_t *xadj, *vwgt, *adjncy, *adjwgt;

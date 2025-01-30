@@ -12,6 +12,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -19,7 +20,8 @@
     if \forall i, x[i] <= y[i].
 */
 /**************************************************************************/
-int rvecle(idx_t n, real_t *x, real_t *y)
+IFUNC(int , rvecle, ( idx_t n, real_t *x, real_t *y));
+int c__libmetis__rvecle( idx_t n, real_t *x, real_t *y)
 {
   for (n--; n>=0; n--) {
     if (x[n] > y[n]) 
@@ -35,7 +37,8 @@ int rvecle(idx_t n, real_t *x, real_t *y)
     if \forall i, x[i] >= y[i].
 */
 /**************************************************************************/
-int rvecge(idx_t n, real_t *x, real_t *y)
+IFUNC(int , rvecge, ( idx_t n, real_t *x, real_t *y));
+int c__libmetis__rvecge( idx_t n, real_t *x, real_t *y)
 {
   for (n--; n>=0; n--) {
     if (x[n] < y[n]) 
@@ -51,7 +54,8 @@ int rvecge(idx_t n, real_t *x, real_t *y)
     if \forall i, x1[i]+x2[i] <= y[i]. 
 */
 /**************************************************************************/
-int rvecsumle(idx_t n, real_t *x1, real_t *x2, real_t *y)
+IFUNC(int , rvecsumle, ( idx_t n, real_t *x1, real_t *x2, real_t *y));
+int c__libmetis__rvecsumle( idx_t n, real_t *x1, real_t *x2, real_t *y)
 {
   for (n--; n>=0; n--) {
     if (x1[n]+x2[n] > y[n]) 
@@ -65,7 +69,8 @@ int rvecsumle(idx_t n, real_t *x1, real_t *x2, real_t *y)
 /*************************************************************************/
 /*! This function returns max_i(x[i]-y[i]) */
 /**************************************************************************/
-real_t rvecmaxdiff(idx_t n, real_t *x, real_t *y)
+IFUNC(real_t , rvecmaxdiff, ( idx_t n, real_t *x, real_t *y));
+real_t c__libmetis__rvecmaxdiff( idx_t n, real_t *x, real_t *y)
 {
   real_t max;
 
@@ -83,7 +88,8 @@ real_t rvecmaxdiff(idx_t n, real_t *x, real_t *y)
 /*************************************************************************/
 /*! This function returns true if \forall i, x[i] <= z[i]. */
 /**************************************************************************/
-int ivecle(idx_t n, idx_t *x, idx_t *z)
+IFUNC(int , ivecle, ( idx_t n, idx_t *x, idx_t *z));
+int c__libmetis__ivecle( idx_t n, idx_t *x, idx_t *z)
 {
   for (n--; n>=0; n--) {
     if (x[n] > z[n]) 
@@ -97,7 +103,8 @@ int ivecle(idx_t n, idx_t *x, idx_t *z)
 /*************************************************************************/
 /*! This function returns true if \forall i, x[i] >= z[i]. */
 /**************************************************************************/
-int ivecge(idx_t n, idx_t *x, idx_t *z)
+IFUNC(int , ivecge, ( idx_t n, idx_t *x, idx_t *z));
+int c__libmetis__ivecge( idx_t n, idx_t *x, idx_t *z)
 {
   for (n--; n>=0; n--) {
     if (x[n] < z[n]) 
@@ -111,7 +118,8 @@ int ivecge(idx_t n, idx_t *x, idx_t *z)
 /*************************************************************************/
 /*! This function returns true if \forall i, a*x[i]+y[i] <= z[i]. */
 /**************************************************************************/
-int ivecaxpylez(idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
+IFUNC(int , ivecaxpylez, ( idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z));
+int c__libmetis__ivecaxpylez( idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
 {
   for (n--; n>=0; n--) {
     if (a*x[n]+y[n] > z[n]) 
@@ -125,7 +133,8 @@ int ivecaxpylez(idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
 /*************************************************************************/
 /*! This function returns true if \forall i, a*x[i]+y[i] >= z[i]. */
 /**************************************************************************/
-int ivecaxpygez(idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
+IFUNC(int , ivecaxpygez, ( idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z));
+int c__libmetis__ivecaxpygez( idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
 {
   for (n--; n>=0; n--) {
     if (a*x[n]+y[n] < z[n]) 
@@ -140,8 +149,8 @@ int ivecaxpygez(idx_t n, idx_t a, idx_t *x, idx_t *y, idx_t *z)
 /*! This function checks if v+u2 provides a better balance in the weight 
      vector that v+u1 */
 /*************************************************************************/
-int BetterVBalance(idx_t ncon, real_t *invtvwgt, idx_t *v_vwgt, idx_t *u1_vwgt, 
-        idx_t *u2_vwgt)
+IFUNC(int , BetterVBalance, ( idx_t ncon, real_t *invtvwgt, idx_t *v_vwgt, idx_t *u1_vwgt, idx_t *u2_vwgt));
+int c__libmetis__BetterVBalance( idx_t ncon, real_t *invtvwgt, idx_t *v_vwgt, idx_t *u1_vwgt, idx_t *u2_vwgt)
 {
   idx_t i;
   real_t sum1=0.0, sum2=0.0, diff1=0.0, diff2=0.0;
@@ -166,7 +175,8 @@ int BetterVBalance(idx_t ncon, real_t *invtvwgt, idx_t *v_vwgt, idx_t *u1_vwgt,
 /*! This function takes two ubfactor-centered load imbalance vectors x & y, 
     and returns true if y is better balanced than x. */
 /*************************************************************************/ 
-int BetterBalance2Way(idx_t n, real_t *x, real_t *y)
+IFUNC(int , BetterBalance2Way, ( idx_t n, real_t *x, real_t *y));
+int c__libmetis__BetterBalance2Way( idx_t n, real_t *x, real_t *y)
 {
   real_t nrm1=0.0, nrm2=0.0;
 
@@ -186,9 +196,8 @@ int BetterBalance2Way(idx_t n, real_t *x, real_t *y)
     of the two partitions.
 */
 /*************************************************************************/
-int BetterBalanceKWay(idx_t ncon, idx_t *vwgt, real_t *ubvec, 
-        idx_t a1, idx_t *pt1, real_t *bm1, 
-        idx_t a2, idx_t *pt2, real_t *bm2)
+IFUNC(int , BetterBalanceKWay, ( idx_t ncon, idx_t *vwgt, real_t *ubvec, idx_t a1, idx_t *pt1, real_t *bm1, idx_t a2, idx_t *pt2, real_t *bm2));
+int c__libmetis__BetterBalanceKWay( idx_t ncon, idx_t *vwgt, real_t *ubvec, idx_t a1, idx_t *pt1, real_t *bm1, idx_t a2, idx_t *pt2, real_t *bm2)
 {
   idx_t i;
   real_t tmp, nrm1=0.0, nrm2=0.0, max1=0.0, max2=0.0;
@@ -225,7 +234,8 @@ int BetterBalanceKWay(idx_t ncon, idx_t *vwgt, real_t *ubvec,
 /*! Computes the maximum load imbalance of a partitioning solution over 
     all the constraints. */
 /**************************************************************************/ 
-real_t ComputeLoadImbalance(graph_t *graph, idx_t nparts, real_t *pijbm)
+IFUNC(real_t , ComputeLoadImbalance, ( graph_t *graph, idx_t nparts, real_t *pijbm));
+real_t c__libmetis__ComputeLoadImbalance( graph_t *graph, idx_t nparts, real_t *pijbm)
 {
   idx_t i, j, ncon, *pwgts;
   real_t max, cur;
@@ -253,8 +263,8 @@ real_t ComputeLoadImbalance(graph_t *graph, idx_t nparts, real_t *pijbm)
     unbalance for the respective constraint. 
  */
 /**************************************************************************/ 
-real_t ComputeLoadImbalanceDiff(graph_t *graph, idx_t nparts, real_t *pijbm,
-           real_t *ubvec)
+IFUNC(real_t , ComputeLoadImbalanceDiff, ( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *ubvec));
+real_t c__libmetis__ComputeLoadImbalanceDiff( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *ubvec)
 {
   idx_t i, j, ncon, *pwgts;
   real_t max, cur;
@@ -281,8 +291,8 @@ real_t ComputeLoadImbalanceDiff(graph_t *graph, idx_t nparts, real_t *pijbm,
     It also returns the maximum load imbalance across the partitions &
     constraints. */
 /**************************************************************************/ 
-real_t ComputeLoadImbalanceDiffVec(graph_t *graph, idx_t nparts, real_t *pijbm, 
-         real_t *ubfactors, real_t *diffvec)
+IFUNC(real_t , ComputeLoadImbalanceDiffVec, ( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *ubfactors, real_t *diffvec));
+real_t c__libmetis__ComputeLoadImbalanceDiffVec( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *ubfactors, real_t *diffvec)
 {
   idx_t i, j, ncon, *pwgts;
   real_t cur, max;
@@ -308,8 +318,8 @@ real_t ComputeLoadImbalanceDiffVec(graph_t *graph, idx_t nparts, real_t *pijbm,
 /*************************************************************************/
 /*! Computes the load imbalance of each constraint across the partitions. */
 /**************************************************************************/ 
-void ComputeLoadImbalanceVec(graph_t *graph, idx_t nparts, real_t *pijbm, 
-         real_t *lbvec)
+IFUNC(void , ComputeLoadImbalanceVec, ( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *lbvec));
+void c__libmetis__ComputeLoadImbalanceVec( graph_t *graph, idx_t nparts, real_t *pijbm, real_t *lbvec)
 {
   idx_t i, j, ncon, *pwgts;
   real_t cur;

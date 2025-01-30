@@ -15,18 +15,31 @@ Check [`translation.md`](./translation.md) for my porting process.
 
 Check [`appendix.md`](./appendix.md) for some info on common functions used.
 
+## Disclaimer
+
+This project is in a perpetually broken state until everything is ported. In
+order to make porting easier, we flaunt many rules of Rust. This means that **we
+cause tons of Undefined Behavior**. Once fully ported, I expect METIS to
+require very little, if any, uses of `unsafe`. However, for now, expect
+enabling optimizations to Cause Problems.
+
+To mitigate *some* of this harm, build with:
+
+```bash
+RUSTFLAGS="-Zbox-noalias=false -Zmutable-noalias=false" cargo +nightly b
+```
+
+Furthermore, we rely on a GNU toolchain and unportable (even unspecified)
+behaviors.
+
+This should all change *eventually*.
+
 ## Goals
 
 My immediate goal is to get METIS ported to idiomatic Rust. This is a highly
 mechanical process that is fairly uninteresting. Once that is done, I want to
 try to add support for partitioning euclidian meshes.
 
-##  Downloading METIS
-
-You can download METIS by simply cloning it using the command:
-```
-git clone https://github.com/gfaster/METIS.git
-```
 
 ## Building standalone METIS binaries and library
 
@@ -41,11 +54,17 @@ In Ubuntu systems these can be obtained from the apt package manager (e.g., apt-
 sudo apt-get install build-essential
 ```
 
-Rust and Cargo should be installed via [`rustup`](https://rustup.rs/)
+Rust and Cargo should be installed via [`rustup`](https://rustup.rs/).
+
+Note that during the porting process, we rely on a lot of horrible hacks, which
+means, among other things, that the final build relies on the directory
+structure of `/target`.
 
 ### Building
 
 1. run `cargo build` and/or `cargo test`
+
+## Testing ported functions
 
 
 ## Copyright & License Notice
