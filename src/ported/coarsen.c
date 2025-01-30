@@ -25,7 +25,8 @@
     It implements the coarsening phase of the multilevel paradigm. 
  */
 /*************************************************************************/
-graph_t *CoarsenGraph(ctrl_t *ctrl, graph_t *graph)
+IFUNC(graph_t *,CoarsenGraph, ctrl_t *ctrl, graph_t *graph);
+graph_t *c__libmetis__CoarsenGraph(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, eqewgts, level=0;
 

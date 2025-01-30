@@ -16,6 +16,7 @@ use crate::*;
 
 trait ReadTransmuted {
     fn read_idx(&mut self, buf: &mut [idx_t]) -> std::io::Result<()>;
+    #[expect(dead_code)]
     fn read_real(&mut self, buf: &mut [real_t]) -> std::io::Result<()>;
 }
 
@@ -41,6 +42,7 @@ impl<T: Read> ReadTransmuted for T {
 
 trait WriteTransmuted {
     fn write_idx(&mut self, buf: &[idx_t]) -> std::io::Result<()>;
+    #[expect(dead_code)]
     fn write_real(&mut self, buf: &[real_t]) -> std::io::Result<()>;
 }
 

@@ -39,6 +39,15 @@ fastrand = "2.0.0"
 [build-dependencies]
 cc = "1.0"
 
+[profile.dev.package.macros]
+opt-level = 3
+
+[profile.test.package.macros]
+opt-level = 3
+
+[profile.release.package.macros]
+opt-level = 3
+
 [profile.release]
 debug = true
 

@@ -1,120 +1,125 @@
 #![allow(clippy::let_and_return)]
 
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Ident;
 use quote::format_ident;
-use syn::{ItemFn, Token, Visibility};
+use syn::{ItemFn, Token};
 
 #[proc_macro_attribute]
 pub fn metis_func(input: TokenStream, annotated_item: TokenStream) -> TokenStream {
     let item_fn = syn::parse_macro_input!(annotated_item as ItemFn);
-    if input.is_empty() {
-        metis_func_normal(item_fn)
-    } else {
+    let mut pfx = "libmetis__";
+    if !input.is_empty() {
         let directive = syn::parse_macro_input!(input as Ident);
         let directive_text = directive.to_string();
-        if directive_text != "disabled" {
-            panic!("unknown directive {directive_text} (try \"disabled\")");
+        if directive_text != "no_pfx" {
+            panic!("unknown directive {directive_text} (try \"no_pfx\")");
         }
-        metis_func_disabled(item_fn, directive.span())
+        pfx = "";
     }
+    metis_func_normal(item_fn, pfx)
 }
-fn metis_func_disabled(item_fn: ItemFn, directive_span: Span) -> TokenStream {
-    let mut item_fn = item_fn;
-    let fn_name = &item_fn.sig.ident;
+
+fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
+    let fn_name = &impl_fn.sig.ident;
 
     let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {
-        attrs: item_fn.attrs.clone(),
+        attrs: impl_fn.attrs.clone(),
         vis: syn::parse_quote!(pub),
-        sig: item_fn.sig.clone(),
+        sig: impl_fn.sig.clone(),
         semi_token: Token![;](proc_macro2::Span::call_site()),
     };
-    foreign.sig.ident = format_ident!("libmetis__{}", fn_name);
-    // foreign.sig.ident = item_fn.sig.ident.clone();
+    foreign.sig.ident = format_ident!("c__{pfx}{}", fn_name);
     foreign.sig.ident.set_span(fn_name.span());
     foreign.sig.abi = None;
     foreign.sig.unsafety = None;
 
-    // let link_func = format!("libmetis__{}", fn_name);
+    let cannonical_link_func = format!("{pfx}{fn_name}");
 
-    item_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
-    item_fn.vis = Visibility::Inherited;
+    let rs_link_func = format!("rs__{pfx}{}", fn_name);
+    let dispatch_lib_ident = format_ident!("__LIBRARY_DISPATCH_{fn_name}");
 
-    let sig = item_fn.sig.clone();
-    let call = foreign.sig.ident.clone();
-    let name = fn_name.to_string();
 
-    let args_dec: Vec<_> = item_fn
+    let mut dispatch_sig = impl_fn.sig.clone();
+    dispatch_sig.ident = format_ident!("{fn_name}");
+    dispatch_sig.ident.set_span(fn_name.span());
+    dispatch_sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
+    dispatch_sig.abi = Some(syn::Abi {
+        extern_token: Token![extern](proc_macro2::Span::call_site()),
+        name: Some(syn::LitStr::new("C", proc_macro2::Span::call_site())),
+    });
+    let dispatch_vis = impl_fn.vis.clone();
+    let dispatch_rs_call = impl_fn.sig.ident.clone();
+    let dispatch_c_call = foreign.sig.ident.clone();
+    let dispatch_c_sym_lit = {
+        let sym = format!("{dispatch_c_call}\0");
+        let sym = std::ffi::CStr::from_bytes_with_nul(sym.as_bytes()).expect("c symbol has invalid name");
+        proc_macro2::Literal::c_string(sym)
+    };
+
+    let dispatch_args_decl: Vec<_> = impl_fn
         .sig
         .inputs
         .iter()
         .map(|i| match i {
             syn::FnArg::Typed(syn::PatType { pat, .. }) => pat,
             _ => panic!("metis extern functions can't take self"),
-        })
+        }).cloned()
         .collect();
 
-    let dual_link_err = quote::quote_spanned! {directive_span=>
-        #[cfg(not(any(feature = "dual_link", feature = "no_rs")))]
-        compile_error!(concat!(#name, " is disabled and requires dual_link or no_rs features"));
-    };
+    let dispatch_args = impl_fn.sig.inputs.clone();
 
-    // foreign block is so ab_tests can still call out to those functions
-    let output: TokenStream = quote::quote! {
-        extern "C" {
-            #[allow(clippy::too_many_arguments)]
-            #foreign
-        }
-
-        #dual_link_err
-
-        #[allow(non_snake_case, clippy::too_many_arguments)]
-        pub #sig {
-            #call ( #(#args_dec),*)
-        }
-
-
-        #[cfg(any())]
-        #[allow(non_snake_case, clippy::too_many_arguments, dead_code)]
-        #item_fn
+    // let underscore = Token![_](proc_macro2::Span::call_site());
+    // let underscores = vec![underscore; dispatch_args_decl.len()];
+    let mut dispatch_return = impl_fn.sig.output.clone();
+    if matches!(dispatch_return, syn::ReturnType::Default) {
+        dispatch_return = syn::ReturnType::Type(
+            Token![->](proc_macro2::Span::call_site()),
+            syn::Type::Tuple(syn::TypeTuple {
+                paren_token: syn::token::Paren::default(),
+                elems: syn::punctuated::Punctuated::new(),
+            }).into()
+        )
     }
-    .into();
+    // let dispatch_args_decl = quote::quote! { #(#dispatch_args_decl),* };
 
-    // eprintln!("{}", output);
-
-    output
-}
-
-fn metis_func_normal(item_fn: ItemFn) -> TokenStream {
-    let mut item_fn = item_fn;
-    let fn_name = &item_fn.sig.ident;
-
-    let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {
-        attrs: item_fn.attrs.clone(),
-        vis: syn::parse_quote!(pub),
-        sig: item_fn.sig.clone(),
-        semi_token: Token![;](proc_macro2::Span::call_site()),
+    let dispatch_fn_ptr = quote::quote! {
+        // fn () -> ()
+        unsafe extern "C" fn(#dispatch_args) #dispatch_return
     };
-    foreign.sig.ident = format_ident!("libmetis__{}", fn_name);
-    foreign.sig.ident.set_span(fn_name.span());
-    foreign.sig.abi = None;
-    foreign.sig.unsafety = None;
 
-    let link_func = format!("libmetis__{}", fn_name);
+    // We do resolve functions so that we can link to them from the original source
+    let resolve_name = format_ident!("resolve_{fn_name}");
 
-    item_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
+    let dispatch = quote::quote! {
+        #[doc(hidden)]
+        #[no_mangle]
+        pub extern "C" fn #resolve_name() -> #dispatch_fn_ptr {
+            static #dispatch_lib_ident: crate::dyncall::ICall = unsafe { crate::dyncall::ICall::new(
+                #dispatch_c_sym_lit,
+                &crate::dyncall::LIBMETIS,
+                {
+                    let f: #dispatch_fn_ptr = #dispatch_rs_call;
+                    std::mem::transmute(f)
+                }
+            )};
+            unsafe { std::mem::transmute(#dispatch_lib_ident.get()) }
+        }
 
-    let sig = item_fn.sig.clone();
-    let call = foreign.sig.ident.clone();
-    let args_dec: Vec<_> = item_fn
-        .sig
-        .inputs
-        .iter()
-        .map(|i| match i {
-            syn::FnArg::Typed(syn::PatType { pat, .. }) => pat,
-            _ => panic!("metis extern functions can't take self"),
-        })
-        .collect();
+        #[export_name = #cannonical_link_func]
+        #[allow(non_snake_case)]
+        #dispatch_vis #dispatch_sig {
+            let actual: #dispatch_fn_ptr = #resolve_name();
+            unsafe { actual(#(#dispatch_args_decl),*) }
+            // type FnPtr = fn ();
+        }
+    };
+
+    let prev_span = impl_fn.sig.ident.span();
+    impl_fn.sig.ident = format_ident!("{rs_link_func}");
+    impl_fn.sig.ident.set_span(prev_span);
+
+    impl_fn.sig.unsafety = Some(Token!(unsafe)(proc_macro2::Span::call_site()));
 
     // foreign block is so ab_tests can still call out to those functions
     let output: TokenStream = quote::quote! {
@@ -124,16 +129,11 @@ fn metis_func_normal(item_fn: ItemFn) -> TokenStream {
             #foreign
         }
 
-        #[cfg(feature = "no_rs")]
-        #[allow(non_snake_case, clippy::too_many_arguments)]
-        pub #sig {
-            #call ( #(#args_dec),*)
-        }
+        #dispatch
 
-        #[cfg(not(feature = "no_rs"))]
-        #[cfg_attr(not(feature = "dual_link"), export_name = #link_func)]
+        // #[export_name = #rs_link_func]
         #[allow(non_snake_case, clippy::too_many_arguments)]
-        #item_fn
+        #impl_fn
     }
     .into();
 

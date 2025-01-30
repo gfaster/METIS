@@ -64,8 +64,6 @@ pub extern "C" fn FM_2WayCutRefine(
         tpwgt0,
         tvwgt[0 as usize] - tpwgt0
     ]};
-    dbg!(&ntpwgts);
-    dbg!(&tpwgts);
 
     // let limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
     let limit = (0.01 * nvtxs as f32).clamp(15.0, 100.0) as idx_t;

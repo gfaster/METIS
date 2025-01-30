@@ -30,6 +30,8 @@ pub mod mcutil;
 pub mod pmetis;
 pub mod refine;
 
+mod dyncall;
+
 #[cfg(feature = "euclid")]
 pub mod euclid;
 #[cfg(feature = "euclid")]

@@ -346,7 +346,7 @@ impl IPQueue {
         let ptr = self.locator.to_vec();
         let ind = self.heap.into_iter().map(|Node { val, .. }| val).collect();
         // eprintln!("ptr: {ptr:?}\nind: {ind:?}");
-        if cfg!(debug_asserts) {
+        if cfg!(debug_assertions) {
             dal::DirectAccessList::from_vecs(ptr, ind)
         } else {
             unsafe { dal::DirectAccessList::from_vecs_unchecked(ptr, ind) }

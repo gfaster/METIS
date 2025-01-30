@@ -73,6 +73,8 @@ fn main() {
         .map(|f| f.path())
         .collect();
 
+    assert!(!gklib_files.is_empty(), "found no gklib files");
+
     for file in &gklib_files {
         println!(
             "cargo:rerun-if-changed={}",
@@ -83,10 +85,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/ported");
     println!("cargo:rerun-if-changed=build.rs");
 
-    if do_dual_link || do_no_rs {
-        files.extend(dbg!(ported_files));
-        // panic!()
-    }
+    files.extend(ported_files);
 
     // panic!();
     Command::new("pwd").spawn().unwrap().wait().unwrap();
@@ -130,10 +129,10 @@ fn main() {
         .warnings(false)
         // .pic(false)
         // .link_lib_modifier("-bundle")
-        .compile("metis");
+        .compile("metis_original");
 
     // println!("cargo:rustc-link-search=GKlib/build/install/lib");
-    // println!("cargo:rustc-link-lib=GKlib");
+    println!("cargo:rustc-link-lib=GKlib");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=GKlib");
 }
