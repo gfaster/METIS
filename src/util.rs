@@ -673,6 +673,28 @@ macro_rules! mkslice {
     };
 }
 
+macro_rules! make_cstr {
+    ($s:expr) => {{
+        const BASE: &str = $s;
+        const LEN: usize = BASE.len() + 1;
+        const RET_P: [u8; LEN] = const {
+            let mut ret: [u8; LEN] = [0; LEN];
+            let mut idx = 0;
+            loop {
+                if idx == LEN - 1 {
+                    break;
+                }
+                ret[idx] = BASE.as_bytes()[idx];
+                idx += 1;
+            }
+            ret
+        };
+        const { unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(&RET_P) } }
+    }};
+}
+pub(crate) use make_cstr;
+
+
 /// makes a slice or initialize a vec with a default value
 /// ```
 /// # use metis::slice_default;

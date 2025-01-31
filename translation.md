@@ -388,6 +388,19 @@ METIS_OVERRIDE_SYMS="libmetis__SetupCoarseGraph:rs"
 METIS_OVERRIDE_SYMS="rs__libmetis__SetupCoarseGraph"
 ```
 
+If there's a `*` in the symbol, it will be treated as a glob. Exact matches
+always have priority over globs, and the last glob matched is the version used.
+Note that globs match against the base symbol, which excludes `c__libmetis__`.
+
+```
+# only use C versions of functions
+METIS_OVERRIDE_SYMS="*"
+
+# only use C versions of functions, except SetupCoarseGraph
+METIS_OVERRIDE_SYMS="*,SetupCoarseGraph:rs"
+```
+
+
 ## Things to look out for
 
 - make sure that the `gk_malloc` calls have null-terminated strings
