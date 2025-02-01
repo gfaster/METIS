@@ -146,7 +146,6 @@ pub unsafe extern "C" fn trigger_panic(msg: *const std::ffi::c_char) -> ! {
 /// assert_eq!(iargmax(vals, 3), 1);
 /// assert_eq!(iargmax(vals, 4), 0);
 /// ```
-#[inline(always)]
 pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
     let mut max = 0;
 
@@ -159,9 +158,17 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
 }
 
 /// converts a user provided ufactor into a real ubfactor
-#[inline(always)]
 pub fn i2rubfactor(ufactor: idx_t) -> real_t {
     1.0 + 0.001 * (ufactor as f32)
+}
+
+/// gk_mkblas.h routine
+pub fn rscale(n: usize, alpha: real_t, mut x: &mut [real_t], incx: usize) -> &mut [real_t] {
+    for _ in 0..n {
+        x[0] *= alpha;
+        x = &mut x[incx..];
+    }
+    x
 }
 
 /// Increment and decrement by the same value
@@ -378,6 +385,15 @@ macro_rules! get_graph_slices_optional {
         $(
             let $val = if !$graph.$val.is_null() {
                 Some(std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize))
+            } else {
+                None
+            };
+        )*
+    };
+    (mut $graph:expr => $($val:ident)*) => {
+        $(
+            let mut $val = if !$graph.$val.is_null() {
+                Some(std::slice::from_raw_parts_mut($graph.$val, slice_len!((), $graph, $val) as usize))
             } else {
                 None
             };
@@ -693,7 +709,6 @@ macro_rules! make_cstr {
     }};
 }
 pub(crate) use make_cstr;
-
 
 /// makes a slice or initialize a vec with a default value
 /// ```

@@ -60,10 +60,8 @@ pub extern "C" fn FM_2WayCutRefine(
 
     let tpwgts = {
         let tpwgt0 = (tvwgt[0 as usize] as real_t * ntpwgts[0 as usize]) as idx_t;
-        [
-        tpwgt0,
-        tvwgt[0 as usize] - tpwgt0
-    ]};
+        [tpwgt0, tvwgt[0 as usize] - tpwgt0]
+    };
 
     // let limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
     let limit = (0.01 * nvtxs as f32).clamp(15.0, 100.0) as idx_t;
@@ -148,7 +146,7 @@ pub extern "C" fn FM_2WayCutRefine(
             if (newcut < mincut
                 && (tpwgts[0 as usize] - pwgts[0 as usize]).abs() <= origdiff + avgvwgt)
                 || (newcut == mincut && (tpwgts[0 as usize] - pwgts[0 as usize]).abs() < mindiff)
-            { 
+            {
                 mincut = newcut;
                 mindiff = (tpwgts[0 as usize] - pwgts[0 as usize]).abs();
                 mincutorder = nswaps as idx_t;

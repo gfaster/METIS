@@ -3,11 +3,15 @@
 //! Set `METIS_OVERRIDE_SYMS` to do so. See [`translation.md`](../translation.md) for more info.
 
 use crate::util::make_cstr;
-use std::{borrow::Cow, collections::{HashMap, HashSet}, ffi::{c_void, CStr, CString}, ptr::NonNull, sync::{LazyLock, OnceLock}};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    ffi::{c_void, CStr, CString},
+    ptr::NonNull,
+    sync::{LazyLock, OnceLock},
+};
 
-pub static LIBMETIS: Library = Library::new(
-    make_cstr!(env!("LIBMETIS_PORTED"))
-);
+pub static LIBMETIS: Library = Library::new(make_cstr!(env!("LIBMETIS_PORTED")));
 
 pub struct Library {
     name: &'static CStr,
@@ -55,13 +59,12 @@ unsafe impl Send for Library {}
 unsafe impl Sync for Library {}
 
 /// exported symbols that are never prefixed
-const EXPORTS: &[&str] = &[
-];
+const EXPORTS: &[&str] = &[];
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 enum Version {
     Rust,
-    C
+    C,
 }
 
 const VAR: &str = "METIS_OVERRIDE_SYMS";
@@ -69,7 +72,7 @@ static SYM_OVERRIDES: LazyLock<Overrides> = LazyLock::new(Overrides::init_overri
 #[derive(Default)]
 struct Overrides {
     globs: Vec<(Glob<'static>, Version)>,
-    exact: HashMap<Box<[u8]>, Version>
+    exact: HashMap<Box<[u8]>, Version>,
 }
 
 impl Overrides {
@@ -77,13 +80,18 @@ impl Overrides {
         let name = name.as_ref();
         let name = name.strip_suffix(&[0u8]).unwrap_or(name);
         if let Some(&exact_ver) = self.exact.get(name) {
-            return exact_ver
+            return exact_ver;
         }
         let short_name = name.strip_prefix(b"c__").unwrap_or(name);
         let short_name = short_name.strip_prefix(b"rs__").unwrap_or(short_name);
         let short_name = short_name.strip_prefix(b"libmetis__").unwrap_or(short_name);
-        if let Some(&(_, glob_ver)) = self.globs.iter().rev().find(|(glob, _)| glob.matches(short_name)) {
-            return glob_ver
+        if let Some(&(_, glob_ver)) = self
+            .globs
+            .iter()
+            .rev()
+            .find(|(glob, _)| glob.matches(short_name))
+        {
+            return glob_ver;
         }
         Version::Rust
     }
@@ -114,18 +122,18 @@ impl Overrides {
                         _ => {
                             let mut out = std::io::stderr();
                             writeln!(out, "Bad spec: {spec:?}").unwrap();
-                            continue
+                            continue;
                         }
                     }
                 };
                 ret.globs.push((Glob::new_owned(glob), ver));
                 continue;
             }
-            let (sym, spec) = if let Some(split@(sym, _)) = arg.split_once(':') {
+            let (sym, spec) = if let Some(split @ (sym, _)) = arg.split_once(':') {
                 if sym == "c" || sym == "rs" {
                     let mut out = std::io::stderr();
                     writeln!(out, "Schema: <symbol>:<version> OR <full_symbol>").unwrap();
-                    continue
+                    continue;
                 }
                 split
             } else if let Some(sym) = arg.strip_prefix("c__") {
@@ -147,7 +155,7 @@ impl Overrides {
                     _ => {
                         let mut out = std::io::stderr();
                         writeln!(out, "Bad spec: {spec:?}").unwrap();
-                        continue
+                        continue;
                     }
                 }
             };
@@ -185,7 +193,11 @@ unsafe impl Sync for ICall {}
 
 impl ICall {
     #[allow(dead_code)]
-    pub const unsafe fn new(c_sym: &'static CStr, library: &'static Library, rs_ver: NonNull<c_void>) -> Self {
+    pub const unsafe fn new(
+        c_sym: &'static CStr,
+        library: &'static Library,
+        rs_ver: NonNull<c_void>,
+    ) -> Self {
         ICall {
             func: OnceLock::new(),
             sym_name: c_sym,
@@ -196,7 +208,11 @@ impl ICall {
     }
 
     #[allow(dead_code)]
-    pub const unsafe fn new_referenced(c_sym: &'static CStr, c_ver: NonNull<c_void>, rs_ver: NonNull<c_void>) -> Self {
+    pub const unsafe fn new_referenced(
+        c_sym: &'static CStr,
+        c_ver: NonNull<c_void>,
+        rs_ver: NonNull<c_void>,
+    ) -> Self {
         ICall {
             func: OnceLock::new(),
             sym_name: c_sym,
@@ -223,12 +239,17 @@ impl ICall {
                         let sym = unsafe { libc::dlsym(lib.as_ptr(), self.sym_name.as_ptr()) };
                         let Some(sym) = NonNull::new(sym) else {
                             // probably an error state -- but definitely unusable
-                            let msg = get_dlerror().unwrap_or_else(|| "Could not get valid handle, but no error".into());
-                            panic!("could not resolve `{}`: {msg}", self.sym_name.to_string_lossy());
+                            let msg = get_dlerror().unwrap_or_else(|| {
+                                "Could not get valid handle, but no error".into()
+                            });
+                            panic!(
+                                "could not resolve `{}`: {msg}",
+                                self.sym_name.to_string_lossy()
+                            );
                         };
                         sym
                     }
-                },
+                }
             }
         })
     }
@@ -246,21 +267,20 @@ impl Glob<'static> {
             template: Cow::Owned(g.as_ref().to_owned()),
         }
     }
-
 }
 
 impl<'a> Glob<'a> {
     #[allow(dead_code)]
     pub const fn new_str(b: &'a str) -> Self {
         Self {
-            template: Cow::Borrowed(b.as_bytes())
+            template: Cow::Borrowed(b.as_bytes()),
         }
     }
 
     #[allow(dead_code)]
     pub const fn new_bytes(b: &'a [u8]) -> Self {
         Self {
-            template: Cow::Borrowed(b)
+            template: Cow::Borrowed(b),
         }
     }
 
@@ -274,10 +294,10 @@ impl<'a> Glob<'a> {
         }
         fn initial(mut g: &[u8], mut s: &[u8]) -> bool {
             let Some(star_idx) = g.iter().position(|&c| c == b'*') else {
-                return g == s
+                return g == s;
             };
             if &g[..star_idx] != &s[..star_idx] {
-                return false
+                return false;
             }
             g = &g[star_idx + 1..];
             s = &s[star_idx..];
@@ -290,7 +310,7 @@ impl<'a> Glob<'a> {
             g = &g[leading_stars..];
             if g.is_empty() {
                 // eprintln!("empty glob => {:?}", std::str::from_utf8(s));
-                return true
+                return true;
             }
             if let Some(lit_len) = g.iter().position(|&c| c == b'*') {
                 debug_assert!(lit_len >= 1);
@@ -298,7 +318,7 @@ impl<'a> Glob<'a> {
                 g = &g[lit_len..];
                 for s in subslices(s, lit) {
                     if inner(g, s) {
-                        return true
+                        return true;
                     }
                 }
                 false
@@ -310,7 +330,6 @@ impl<'a> Glob<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,7 +340,10 @@ mod tests {
         fn case(glob: &str, haystack: &str) {
             eprintln!("begin with ===> g: {glob:?}, s: {haystack:?}");
             let g = Glob::new_bytes(glob.as_bytes());
-            assert!(g.matches(haystack), "glob {glob:?} did not match {haystack:?}")
+            assert!(
+                g.matches(haystack),
+                "glob {glob:?} did not match {haystack:?}"
+            )
         }
         case("abc", "abc");
         case("a", "a");

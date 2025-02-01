@@ -39,7 +39,6 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let rs_link_func = format!("rs__{pfx}{}", fn_name);
     let dispatch_lib_ident = format_ident!("__LIBRARY_DISPATCH_{fn_name}");
 
-
     let mut dispatch_sig = impl_fn.sig.clone();
     dispatch_sig.ident = format_ident!("{fn_name}");
     dispatch_sig.ident.set_span(fn_name.span());
@@ -54,7 +53,8 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let dispatch_c_call = foreign.sig.ident.clone();
     let dispatch_c_sym_lit = {
         let sym = format!("{dispatch_c_call}\0");
-        let sym = std::ffi::CStr::from_bytes_with_nul(sym.as_bytes()).expect("c symbol has invalid name");
+        let sym =
+            std::ffi::CStr::from_bytes_with_nul(sym.as_bytes()).expect("c symbol has invalid name");
         proc_macro2::Literal::c_string(sym)
     };
 
@@ -65,7 +65,8 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
         .map(|i| match i {
             syn::FnArg::Typed(syn::PatType { pat, .. }) => pat,
             _ => panic!("metis extern functions can't take self"),
-        }).cloned()
+        })
+        .cloned()
         .collect();
 
     let dispatch_args = impl_fn.sig.inputs.clone();
@@ -79,7 +80,8 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
             syn::Type::Tuple(syn::TypeTuple {
                 paren_token: syn::token::Paren::default(),
                 elems: syn::punctuated::Punctuated::new(),
-            }).into()
+            })
+            .into(),
         )
     }
     // let dispatch_args_decl = quote::quote! { #(#dispatch_args_decl),* };
@@ -119,9 +121,9 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let prev_span = impl_fn.sig.ident.span();
     impl_fn.sig.ident = format_ident!("{rs_link_func}");
     impl_fn.sig.ident.set_span(prev_span);
-    impl_fn.sig.abi = Some(syn::Abi { 
-        extern_token: Token![extern](Span::call_site()), 
-        name: Some(syn::LitStr::new("C", Span::call_site())) 
+    impl_fn.sig.abi = Some(syn::Abi {
+        extern_token: Token![extern](Span::call_site()),
+        name: Some(syn::LitStr::new("C", Span::call_site())),
     });
 
     impl_fn.sig.unsafety = Some(Token!(unsafe)(Span::call_site()));

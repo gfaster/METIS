@@ -184,5 +184,4 @@ fn make_so(source: &[PathBuf]) {
         .unwrap();
     let status = cmd.wait().unwrap();
     assert!(status.success())
-
 }

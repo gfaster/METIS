@@ -23,11 +23,16 @@ extern "C" {
     pub fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t;
     pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
-    pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
     pub fn ismalloc(
         nmemb: usize,
         val: idx_t,
-        msg: *const std::ffi::c_uchar,
+        msg: *const std::ffi::c_char,
+    ) -> *mut std::ffi::c_void;
+    pub fn rsmalloc(
+        nmemb: usize,
+        val: real_t,
+        msg: *const std::ffi::c_char,
     ) -> *mut std::ffi::c_void;
     pub fn rmalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
     pub fn irealloc(
