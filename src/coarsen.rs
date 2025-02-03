@@ -1524,10 +1524,7 @@ pub extern "C" fn SetupCoarseGraph(
         c"SetupCoarseGraph: vwgt".as_ptr(),
     ) as _;
     cgraph.tvwgt = imalloc(cgraph.ncon as usize, c"SetupCoarseGraph: tvwgt".as_ptr()) as _;
-    cgraph.invtvwgt = rmalloc(
-        cgraph.ncon as usize,
-        c"SetupCoarseGraph: invtvwgt".as_ptr(),
-    ) as _;
+    cgraph.invtvwgt = rmalloc(cgraph.ncon as usize, c"SetupCoarseGraph: invtvwgt".as_ptr()) as _;
 
     if dovsize {
         cgraph.vsize = imalloc(cnvtxs as usize, c"SetupCoarseGraph: vsize".as_ptr()) as _;

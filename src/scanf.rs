@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{any::Any, io, ptr::NonNull};
 
 use crate::{idx_t, real_t};
@@ -41,7 +42,7 @@ fn take_while_limited<'a>(
 
 type ReadItemFn = unsafe fn(&mut io::Cursor<&[u8]>, Option<NonNull<u8>>) -> Result;
 
-trait ReadItem {
+pub trait ReadItem {
     fn read_item(cur: &mut io::Cursor<&[u8]>) -> std::result::Result<Self, Error>
     where
         Self: Sized;

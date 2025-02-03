@@ -1,18 +1,19 @@
+#![expect(non_snake_case)]
 /*
- * Copyright 1997, Regents of the University of Minnesota
- *
- * io.c
- *
- * This file contains routines related to I/O
- *
- * Started 8/28/94
- * George
- *
- * $Id: io.c 17513 2014-08-05 16:20:50Z dominique $
- *
- */
+* Copyright 1997, Regents of the University of Minnesota
+*
+* io.c
+*
+* This file contains routines related to I/O
+*
+* Started 8/28/94
+* George
+*
+* $Id: io.c 17513 2014-08-05 16:20:50Z dominique $
+*
+*/
 
-const MAXLINE: usize = 1280000;
+// const MAXLINE: usize = 1280000;
 
 use std::{
     ffi::OsString,
@@ -75,7 +76,7 @@ fn extend_filename(p: &Path, ext: impl std::fmt::Display) -> PathBuf {
     // this is bad to preserve original semantics as much as possible
     let mut filename: Vec<u8> = Vec::new();
     filename.extend_from_slice(p.as_os_str().as_encoded_bytes());
-    write!(filename, "{ext}");
+    write!(filename, "{ext}").unwrap();
     let filename = unsafe { OsString::from_encoded_bytes_unchecked(filename) };
     PathBuf::from(filename)
 }
@@ -147,14 +148,14 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
 
     // nfields = sscanf(line, "%"SCIDX" %"SCIDX" %"SCIDX" %"SCIDX, &(graph.nvtxs), &(graph.nedges), &fmt, &ncon);
 
-    if (graph.nvtxs <= 0 || graph.nedges <= 0) {
+    if graph.nvtxs <= 0 || graph.nedges <= 0 {
         panic!(
             "The supplied nvtxs:{:} and nedges:{:} must be positive.",
             graph.nvtxs, graph.nedges
         );
     }
 
-    if (fmt > 111) {
+    if fmt > 111 {
         panic!("Cannot read this type of file format [fmt={fmt:}]!");
     }
 
@@ -168,7 +169,7 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
 
     /*println!("{:s %} {:} {:}", fmtstr, readvs, readvw, readew); */
 
-    if (ncon > 0 && !readvw) {
+    if ncon > 0 && !readvw {
         panic!(
             concat!(
                 "------------------------------------------------------------------------------\n",
@@ -182,18 +183,18 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
     }
 
     graph.nedges *= 2;
-    graph.ncon = (if ncon == 0 { 1 } else { ncon });
+    graph.ncon = if ncon == 0 { 1 } else { ncon };
     let ncon = graph.ncon as usize;
 
     graph.xadj = ismalloc(graph.nvtxs as usize + 1, 0, c"ReadGraph: xadj".as_ptr()) as *mut idx_t;
     graph.adjncy = imalloc(graph.nedges as usize, c"ReadGraph: adjncy".as_ptr()) as *mut idx_t;
     graph.vwgt =
         ismalloc(ncon * graph.nvtxs as usize, 1, c"ReadGraph: vwgt".as_ptr()) as *mut idx_t;
-    graph.adjwgt = (if readew {
+    graph.adjwgt = if readew {
         imalloc(graph.nedges as usize, c"ReadGraph: adjwgt".as_ptr()) as *mut idx_t
     } else {
         std::ptr::null_mut()
-    });
+    };
     graph.vsize = ismalloc(graph.nvtxs as usize, 1, c"ReadGraph: vsize".as_ptr()) as *mut idx_t;
     get_graph_slices_mut!(graph => xadj adjncy vsize vwgt);
     get_graph_slices_optional!(mut graph => adjwgt);
@@ -222,27 +223,27 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
         let mut curstr = line.as_ref();
 
         /* Read vertex sizes */
-        if (readvs) {
+        if readvs {
             vsize[i as usize] = match strtoidx(&mut curstr) {
                 Ok(i) => i,
                 Err(e) => panic!(
-                    "The line for vertex {} does not have vsize information",
+                    "The line for vertex {} does not have vsize information [{e}]",
                     i + 1
                 ),
             };
-            if (vsize[i as usize] < 0) {
+            if vsize[i as usize] < 0 {
                 panic!("The size for vertex {:} must be >= 0", i + 1);
             }
         }
 
         /* Read vertex weights */
-        if (readvw) {
+        if readvw {
             for l in (0)..(ncon) {
                 vwgt[(i*ncon+l) as usize] = match strtoidx(&mut curstr) {
-        Ok(i) => i,
-        Err(e) => panic!("The line for vertex {:} does not have enough weights for the {:} constraints.", i+1, ncon)
-    };
-                if (vwgt[(i * ncon + l) as usize] < 0) {
+                    Ok(i) => i,
+                    Err(e) => panic!("The line for vertex {:} does not have enough weights for the {:} constraints. [{e}]", i+1, ncon)
+                };
+                if vwgt[(i * ncon + l) as usize] < 0 {
                     panic!(
                         "The weight vertex {:} and constraint {:} must be >= 0",
                         i + 1,
@@ -256,17 +257,17 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
             let Ok(edge) = strtoidx(&mut curstr) else {
                 break; /* End of line */
             };
-            if (edge < 1 || edge > graph.nvtxs) {
+            if edge < 1 || edge > graph.nvtxs {
                 panic!("Edge {:} for vertex {:} is out of bounds", edge, i + 1);
             }
 
             let mut ewgt = 1;
-            if (readew) {
+            if readew {
                 ewgt = match strtoidx(&mut curstr) {
                     Ok(i) => i,
-                    Err(e) => panic!("Premature end of line for vertex {}", i + 1),
+                    Err(e) => panic!("Premature end of line for vertex {} [{e}]", i + 1),
                 };
-                if (ewgt <= 0) {
+                if ewgt <= 0 {
                     panic!(
                         "The weight ({:}) for edge ({:}, {:}) must be positive.",
                         ewgt,
@@ -276,7 +277,7 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
                 }
             }
 
-            if (k == graph.nedges) {
+            if k == graph.nedges {
                 panic!(
                     "There are more edges in the file than the {:} specified.",
                     graph.nedges / 2
@@ -284,7 +285,7 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
             }
 
             adjncy[k as usize] = edge - 1;
-            if (readew) {
+            if readew {
                 adjwgt.as_mut().unwrap()[k as usize] = ewgt
             };
             {
@@ -296,16 +297,16 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
     // gk_fclose(fpin);
     drop(fpin);
 
-    if (k != graph.nedges) {
+    if k != graph.nedges {
         println!("------------------------------------------------------------------------------");
         println!("***  I detected an error in your input file  ***\n");
         println!(
             "In the first line of the file, you specified that the graph contained \
-      {:} edges. However, I only found {:} edges in the file.",
+                {:} edges. However, I only found {:} edges in the file.",
             graph.nedges / 2,
             k / 2
         );
-        if (2 * k == graph.nedges) {
+        if 2 * k == graph.nedges {
             println!(
                 "\n *> I detected that you specified twice the number of edges that you have in"
             );
@@ -326,114 +327,112 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
 /* This function reads in a mesh */
 /*************************************************************************/
 
-/*
-pub fn ReadMesh(params: &params_t) -> *mut mesh_t
-{
-  // idx_t i, j, k, l, nfields, ncon, node;
-  // idx_t *eptr, *eind, *ewgt;
-  // size_t nlines, ntokens;
-  // char *line=std::ptr::null_mut(), *curstr, *newstr;
-  // size_t lnlen=0;
-  // FILE *fpin;
-  // mesh_t *mesh;
-  if (!gk_fexists(params.filename))
-    {
-        errexit("File %s does not exist!", params.filename);
-    }
-
-  mesh = CreateMesh();
-
-  /* get some file stats */
-  gk_getfilestats(params.filename, &nlines, &ntokens, std::ptr::null_mut(), std::ptr::null_mut());
-
-  fpin = gk_fopen(params.filename, "r", __func__);
-
-  /* Skip comment lines until you get to the first valid line */
-  do {
-    if (gk_getline(&line, &lnlen, fpin) == -1)
-    {
-        errexit("Premature end of input file: file: %s", params.filename);
-    }
-  } while (line[0 as usize] == '%');
-
-
-  mesh.ncon = 0;
-  nfields = sscanf(line, "%"SCIDX" %"SCIDX, &(mesh.ne), &(mesh.ncon));
-
-  if (nfields < 1)
-{
-errexit("The input file does not specify the number of elements.");
-    }
-
-  if (mesh.ne <= 0)
-{
-    errexit("The supplied number of elements:{:} must be positive.", mesh.ne);
-}
-
-  if (mesh.ne > nlines)
-    errexit("The file has %zu lines which smaller than the number of "
-            "elements of {:} specified in the header line.", nlines, mesh.ne);
-
-  ncon = mesh.ncon;
-  eptr = mesh.eptr = ismalloc(mesh.ne+1, 0, "ReadMesh: eptr");
-  eind = mesh.eind = imalloc(ntokens, "ReadMesh: eind");
-  ewgt = mesh.ewgt = ismalloc((ncon == 0 ? 1 : ncon)*mesh.ne, 1, "ReadMesh: ewgt");
-
-
-  /*----------------------------------------------------------------------
-   * Read the mesh file
-   *---------------------------------------------------------------------*/
-  for (eptr[0 as usize]=0, k=0, i=0; i<mesh.ne; i++) {
-    do {
-      if (gk_getline(&line, &lnlen, fpin) == -1)
-{
-    errexit("Premature end of input file while reading element {:}.", i+1);
-}
-    } while (line[0 as usize] == '%');
-
-    curstr = line;
-    newstr = std::ptr::null_mut();
-
-    /* Read element weights */
-    for l in (0)..(ncon) {
-      ewgt[(i*ncon+l) as usize] = strtoidx(curstr, &newstr, 10);
-      if (newstr == curstr)
-        errexit("The line for vertex {:} does not have enough weights "
-                "for the {:} constraints.", i+1, ncon);
-      if (ewgt[(i*ncon+l) as usize] < 0)
-{
-errexit("The weight for element {:} and constraint {:} must be >= 0", i+1, l);
-        }
-      curstr = newstr;
-    }
-
-    while (1) {
-      node = strtoidx(curstr, &newstr, 10);
-      if (newstr == curstr)
-    {
-        break; /* End of line */
-    }
-      curstr = newstr;
-
-      if (node < 1)
-    {
-        errexit("Node {:} for element {:} is out of bounds", node, i+1);
-    }
-
-      eind[k as usize] = node-1;k+=1;
-    }
-    eptr[(i+1) as usize] = k;
-  }
-  gk_fclose(fpin);
-
-  mesh.ncon = (if ncon == 0  {  1  } else {  ncon });
-  mesh.nn   = imax(eptr[mesh.ne], eind, 1)+1;
-
-  gk_free((void *)&line, LTERM);
-
-  return mesh;
-}
-*/
+// pub fn ReadMesh(params: &params_t) -> *mut mesh_t
+// {
+//   // idx_t i, j, k, l, nfields, ncon, node;
+//   // idx_t *eptr, *eind, *ewgt;
+//   // size_t nlines, ntokens;
+//   // char *line=std::ptr::null_mut(), *curstr, *newstr;
+//   // size_t lnlen=0;
+//   // FILE *fpin;
+//   // mesh_t *mesh;
+//   if (!gk_fexists(params.filename))
+//     {
+//         errexit("File %s does not exist!", params.filename);
+//     }
+//
+//   mesh = CreateMesh();
+//
+//   /* get some file stats */
+//   gk_getfilestats(params.filename, &nlines, &ntokens, std::ptr::null_mut(), std::ptr::null_mut());
+//
+//   fpin = gk_fopen(params.filename, "r", __func__);
+//
+//   /* Skip comment lines until you get to the first valid line */
+//   do {
+//     if (gk_getline(&line, &lnlen, fpin) == -1)
+//     {
+//         errexit("Premature end of input file: file: %s", params.filename);
+//     }
+//   } while (line[0 as usize] == '%');
+//
+//
+//   mesh.ncon = 0;
+//   nfields = sscanf(line, "%"SCIDX" %"SCIDX, &(mesh.ne), &(mesh.ncon));
+//
+//   if (nfields < 1)
+// {
+// errexit("The input file does not specify the number of elements.");
+//     }
+//
+//   if (mesh.ne <= 0)
+// {
+//     errexit("The supplied number of elements:{:} must be positive.", mesh.ne);
+// }
+//
+//   if (mesh.ne > nlines)
+//     errexit("The file has %zu lines which smaller than the number of "
+//             "elements of {:} specified in the header line.", nlines, mesh.ne);
+//
+//   ncon = mesh.ncon;
+//   eptr = mesh.eptr = ismalloc(mesh.ne+1, 0, "ReadMesh: eptr");
+//   eind = mesh.eind = imalloc(ntokens, "ReadMesh: eind");
+//   ewgt = mesh.ewgt = ismalloc((ncon == 0 ? 1 : ncon)*mesh.ne, 1, "ReadMesh: ewgt");
+//
+//
+//   /*----------------------------------------------------------------------
+//    * Read the mesh file
+//    *---------------------------------------------------------------------*/
+//   for (eptr[0 as usize]=0, k=0, i=0; i<mesh.ne; i++) {
+//     do {
+//       if (gk_getline(&line, &lnlen, fpin) == -1)
+// {
+//     errexit("Premature end of input file while reading element {:}.", i+1);
+// }
+//     } while (line[0 as usize] == '%');
+//
+//     curstr = line;
+//     newstr = std::ptr::null_mut();
+//
+//     /* Read element weights */
+//     for l in (0)..(ncon) {
+//       ewgt[(i*ncon+l) as usize] = strtoidx(curstr, &newstr, 10);
+//       if (newstr == curstr)
+//         errexit("The line for vertex {:} does not have enough weights "
+//                 "for the {:} constraints.", i+1, ncon);
+//       if (ewgt[(i*ncon+l) as usize] < 0)
+// {
+// errexit("The weight for element {:} and constraint {:} must be >= 0", i+1, l);
+//         }
+//       curstr = newstr;
+//     }
+//
+//     while (1) {
+//       node = strtoidx(curstr, &newstr, 10);
+//       if (newstr == curstr)
+//     {
+//         break; /* End of line */
+//     }
+//       curstr = newstr;
+//
+//       if (node < 1)
+//     {
+//         errexit("Node {:} for element {:} is out of bounds", node, i+1);
+//     }
+//
+//       eind[k as usize] = node-1;k+=1;
+//     }
+//     eptr[(i+1) as usize] = k;
+//   }
+//   gk_fclose(fpin);
+//
+//   mesh.ncon = (if ncon == 0  {  1  } else {  ncon });
+//   mesh.nn   = imax(eptr[mesh.ne], eind, 1)+1;
+//
+//   gk_free((void *)&line, LTERM);
+//
+//   return mesh;
+// }
 
 /*************************************************************************/
 /* This function reads in the target partition weights. If no file is
@@ -475,7 +474,7 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
     let mut line = String::new();
     while fpin.read_line(&mut line).unwrap() != 0 {
         // gk_strchr_replace(line, " ", "");
-        line.replace(" ", "");
+        let line = line.replace(" ", "");
 
         /* start extracting the fields */
 
@@ -494,7 +493,7 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         //     curstr = newstr;
 
         let to;
-        if let Some(s) = (curstr.strip_prefix('-')) {
+        if let Some(s) = curstr.strip_prefix('-') {
             curstr = s;
             to = match strtoidx(&mut curstr) {
                 Ok(x) => x,
@@ -508,21 +507,21 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
 
         let fromcnum;
         let tocnum;
-        if let Some(s) = (curstr.strip_prefix(':')) {
+        if let Some(s) = curstr.strip_prefix(':') {
             curstr = s;
             fromcnum = match strtoidx(&mut curstr) {
-        Ok(x) => x,
-        Err(e) => panic!("The 'fromcnum' component of line <{line}> in the tpwgts file is incorrect. [{e}]")
-      };
+                Ok(x) => x,
+                Err(e) => panic!("The 'fromcnum' component of line <{line}> in the tpwgts file is incorrect. [{e}]")
+            };
 
             // if (curstr[0 as usize] == '-') {
-            if let Some(s) = (curstr.strip_prefix('-')) {
+            if let Some(s) = curstr.strip_prefix('-') {
                 curstr = s;
 
                 tocnum = match strtoidx(&mut curstr) {
-          Ok(x) => x,
-          Err(e) => panic!("The 'tocnum' component of line <{line}> in the tpwgts file is incorrect. [{e}]")
-        };
+                    Ok(x) => x,
+                    Err(e) => panic!("The 'tocnum' component of line <{line}> in the tpwgts file is incorrect. [{e}]")
+                };
             } else {
                 tocnum = fromcnum;
             }
@@ -532,7 +531,7 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         }
 
         let awgt;
-        if let Some(s) = (curstr.strip_prefix('=')) {
+        if let Some(s) = curstr.strip_prefix('=') {
             curstr = s;
             awgt = match strtoreal(&mut curstr) {
                 Ok(x) => x,
@@ -547,16 +546,16 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         /*println!("Read: {:}-{:}:{:}-{:}={:}",
         from, to, fromcnum, tocnum, awgt);*/
 
-        if (from < 0 || to < 0 || from >= params.nparts as idx_t || to >= params.nparts as idx_t) {
+        if from < 0 || to < 0 || from >= params.nparts as idx_t || to >= params.nparts as idx_t {
             panic!("Invalid partition range for {:}:{:}", from, to);
         }
-        if (fromcnum < 0 || tocnum < 0 || fromcnum as usize >= ncon || tocnum as usize >= ncon) {
+        if fromcnum < 0 || tocnum < 0 || fromcnum as usize >= ncon || tocnum as usize >= ncon {
             panic!(
                 "Invalid constraint number range for {:}:{:}",
                 fromcnum, tocnum
             );
         }
-        if (awgt <= 0.0 || awgt >= 1.0) {
+        if awgt <= 0.0 || awgt >= 1.0 {
             panic!("Invalid partition weight of {:}", awgt);
         }
         mkslice_mut!(params->tpwgts, params.nparts * ncon);
@@ -577,25 +576,24 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         let mut nleft = params.nparts;
         mkslice!(params->tpwgts, params.nparts * ncon);
         for i in (0)..(params.nparts) {
-            if (tpwgts[(i * ncon + j) as usize] > 0.0) {
+            if tpwgts[(i * ncon + j) as usize] > 0.0 {
                 twgt += tpwgts[(i * ncon + j) as usize];
-                nleft;
                 nleft -= 1;
             }
         }
 
         /* Rescale the weights to be on the safe side */
-        if (nleft == 0) {
+        if nleft == 0 {
             mkslice_mut!(params->tpwgts, params.nparts * ncon);
             util::rscale(params.nparts, 1.0 / twgt, &mut tpwgts[j..], ncon);
         }
 
         /* Assign the left-over weight to the remaining partitions */
-        if (nleft > 0) {
-            if (twgt > 1.0) {
+        if nleft > 0 {
+            if twgt > 1.0 {
                 panic!(
                     "The total specified target partition weights for constraint #{} \
-                 of {:} exceeds 1.0.",
+                        of {:} exceeds 1.0.",
                     j, twgt
                 );
             }
@@ -603,11 +601,11 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
             let awgt = (1.0 - twgt) / (nleft as real_t);
             for i in (0)..(params.nparts) {
                 mkslice_mut!(params->tpwgts, params.nparts * ncon);
-                tpwgts[(i * ncon + j) as usize] = (if tpwgts[(i * ncon + j) as usize] < 0.0 {
+                tpwgts[(i * ncon + j) as usize] = if tpwgts[(i * ncon + j) as usize] < 0.0 {
                     awgt
                 } else {
                     tpwgts[(i * ncon + j) as usize]
-                });
+                };
             }
         }
     }
@@ -669,7 +667,7 @@ pub unsafe fn WritePartition(fname: &Path, part: *mut idx_t, n: idx_t, nparts: i
 
     mkslice!(part, n);
     for i in (0)..(n) {
-        writeln!(fpout, "{}", part[i as usize]);
+        writeln!(fpout, "{}", part[i as usize]).unwrap();
     }
 
     // gk_fclose(fpout);
@@ -698,7 +696,7 @@ pub unsafe fn WriteMeshPartition(
 
     mkslice!(epart, ne);
     for i in (0)..(ne) {
-        writeln!(fpout, "{}", epart[i as usize]);
+        writeln!(fpout, "{}", epart[i as usize]).unwrap();
     }
 
     // gk_fclose(fpout);
@@ -712,7 +710,7 @@ pub unsafe fn WriteMeshPartition(
 
     mkslice!(npart, nn);
     for i in (0)..(nn) {
-        writeln!(fpout, "{}", npart[i as usize]);
+        writeln!(fpout, "{}", npart[i as usize]).unwrap();
     }
 
     // gk_fclose(fpout);
@@ -734,7 +732,7 @@ pub unsafe fn WritePermutation(fname: &Path, iperm: *mut idx_t, n: idx_t) {
 
     mkslice!(iperm, n);
     for i in (0)..(n) {
-        writeln!(fpout, "{}", iperm[i as usize]);
+        writeln!(fpout, "{}", iperm[i as usize]).unwrap();
     }
 
     // gk_fclose(fpout);
@@ -759,7 +757,7 @@ pub unsafe fn WriteGraph(graph: &graph_t, filename: &Path) {
     /* determine if the graph has non-unity vwgt, vsize, or adjwgt */
     if let Some(vwgt) = vwgt {
         for i in (0)..(nvtxs * ncon) {
-            if (vwgt[i as usize] != 1) {
+            if vwgt[i as usize] != 1 {
                 hasvwgt = true;
                 break;
             }
@@ -767,7 +765,7 @@ pub unsafe fn WriteGraph(graph: &graph_t, filename: &Path) {
     }
     if let Some(vsize) = vsize {
         for i in (0)..(nvtxs) {
-            if (vsize[i as usize] != 1) {
+            if vsize[i as usize] != 1 {
                 hasvsize = true;
                 break;
             }
@@ -775,7 +773,7 @@ pub unsafe fn WriteGraph(graph: &graph_t, filename: &Path) {
     }
     if let Some(adjwgt) = adjwgt {
         for i in (0)..(xadj[nvtxs as usize]) {
-            if (adjwgt[i as usize] != 1) {
+            if adjwgt[i as usize] != 1 {
                 hasewgt = true;
                 break;
             }
@@ -789,36 +787,37 @@ pub unsafe fn WriteGraph(graph: &graph_t, filename: &Path) {
         .unwrap();
 
     /* write the header line */
-    write!(fpout, "{:} {}", nvtxs, xadj[nvtxs as usize] / 2);
-    if (hasvwgt || hasvsize || hasewgt) {
+    write!(fpout, "{:} {}", nvtxs, xadj[nvtxs as usize] / 2).unwrap();
+    if hasvwgt || hasvsize || hasewgt {
         write!(
             fpout,
             " {}{}{}",
             hasvsize as i8, hasvwgt as i8, hasewgt as i8
-        );
-        if (hasvwgt) {
-            write!(fpout, " {}", graph.ncon);
+        )
+        .unwrap();
+        if hasvwgt {
+            write!(fpout, " {}", graph.ncon).unwrap();
         }
     }
     // note no trailing newline
 
     /* write the rest of the graph */
     for i in (0)..(nvtxs) {
-        writeln!(fpout);
+        writeln!(fpout).unwrap();
         if let Some(vsize) = vsize {
-            writeln!(fpout, " {}", vsize[i as usize]);
+            writeln!(fpout, " {}", vsize[i as usize]).unwrap();
         }
 
         if let Some(vwgt) = vwgt {
             for j in (0)..(ncon) {
-                write!(fpout, " {}", vwgt[(i * ncon + j) as usize]);
+                write!(fpout, " {}", vwgt[(i * ncon + j) as usize]).unwrap();
             }
         }
 
         for j in (xadj[i as usize])..(xadj[i as usize]) {
-            write!(fpout, " {}", adjncy[j as usize] + 1);
+            write!(fpout, " {}", adjncy[j as usize] + 1).unwrap();
             if let Some(adjwgt) = adjwgt {
-                write!(fpout, " {}", adjwgt[j as usize]);
+                write!(fpout, " {}", adjwgt[j as usize]).unwrap();
             }
         }
     }
