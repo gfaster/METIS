@@ -541,15 +541,15 @@ pub fn GrowBisectionNode(
     let oneminpwgt = (1.0 / (*ctrl.ubfactors)) * (*graph.tvwgt as f32) * 0.5;
 
     /* Allocate refinement memory. Allocate sufficient memory for both edge and node */
-    graph.pwgts = imalloc(3, "GrowBisectionNode: pwgts\0".as_ptr()) as _;
-    graph.where_ = imalloc(nvtxs as usize, "GrowBisectionNode: where_\0".as_ptr()) as _;
-    graph.bndptr = imalloc(nvtxs as usize, "GrowBisectionNode: bndptr\0".as_ptr()) as _;
-    graph.bndind = imalloc(nvtxs as usize, "GrowBisectionNode: bndind\0".as_ptr()) as _;
-    graph.id = imalloc(nvtxs as usize, "GrowBisectionNode: id\0".as_ptr()) as _;
-    graph.ed = imalloc(nvtxs as usize, "GrowBisectionNode: ed\0".as_ptr()) as _;
+    graph.pwgts = imalloc(3, c"GrowBisectionNode: pwgts".as_ptr()) as _;
+    graph.where_ = imalloc(nvtxs as usize, c"GrowBisectionNode: where_".as_ptr()) as _;
+    graph.bndptr = imalloc(nvtxs as usize, c"GrowBisectionNode: bndptr".as_ptr()) as _;
+    graph.bndind = imalloc(nvtxs as usize, c"GrowBisectionNode: bndind".as_ptr()) as _;
+    graph.id = imalloc(nvtxs as usize, c"GrowBisectionNode: id".as_ptr()) as _;
+    graph.ed = imalloc(nvtxs as usize, c"GrowBisectionNode: ed".as_ptr()) as _;
     graph.nrinfo = gk_malloc(
         nvtxs as usize * std::mem::size_of::<nrinfo_t>(),
-        "GrowBisectionNode: nrinfo\0".as_ptr(),
+        c"GrowBisectionNode: nrinfo".as_ptr(),
     ) as _;
 
     get_graph_slices_mut!(graph => where_ bndind);

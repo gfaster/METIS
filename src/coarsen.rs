@@ -68,7 +68,7 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
         if (*graph).cmap.is_null() {
             (*graph).cmap = imalloc(
                 (*graph).nvtxs as usize,
-                "CoarsenGraph: graph.cmap\0".as_ptr(),
+                c"CoarsenGraph: graph.cmap".as_ptr(),
             ) as _;
         }
 
@@ -166,7 +166,7 @@ pub extern "C" fn CoarsenGraphNlevels(
         if (*graph).cmap.is_null() {
             (*graph).cmap = imalloc(
                 (*graph).nvtxs as usize,
-                "CoarsenGraph: graph.cmap\0".as_ptr(),
+                c"CoarsenGraph: graph.cmap".as_ptr(),
             ) as _;
         }
 
@@ -1510,27 +1510,27 @@ pub extern "C" fn SetupCoarseGraph(
           detection by adding ahead of time the self-loop. That optimization
           requires a +1 adjncy/adjwgt array for the limit case where_ the
           coarser graph is of the same size of the previous graph. */
-    cgraph.xadj = imalloc(cnvtxs as usize + 1, "SetupCoarseGraph: xadj\0".as_ptr()) as _;
+    cgraph.xadj = imalloc(cnvtxs as usize + 1, c"SetupCoarseGraph: xadj".as_ptr()) as _;
     cgraph.adjncy = imalloc(
         graph.nedges as usize + 1,
-        "SetupCoarseGraph: adjncy\0".as_ptr(),
+        c"SetupCoarseGraph: adjncy".as_ptr(),
     ) as _;
     cgraph.adjwgt = imalloc(
         graph.nedges as usize + 1,
-        "SetupCoarseGraph: adjwgt\0".as_ptr(),
+        c"SetupCoarseGraph: adjwgt".as_ptr(),
     ) as _;
     cgraph.vwgt = imalloc(
         cgraph.ncon as usize * cnvtxs as usize,
-        "SetupCoarseGraph: vwgt\0".as_ptr(),
+        c"SetupCoarseGraph: vwgt".as_ptr(),
     ) as _;
-    cgraph.tvwgt = imalloc(cgraph.ncon as usize, "SetupCoarseGraph: tvwgt\0".as_ptr()) as _;
+    cgraph.tvwgt = imalloc(cgraph.ncon as usize, c"SetupCoarseGraph: tvwgt".as_ptr()) as _;
     cgraph.invtvwgt = rmalloc(
         cgraph.ncon as usize,
-        "SetupCoarseGraph: invtvwgt\0".as_ptr(),
+        c"SetupCoarseGraph: invtvwgt".as_ptr(),
     ) as _;
 
     if dovsize {
-        cgraph.vsize = imalloc(cnvtxs as usize, "SetupCoarseGraph: vsize\0".as_ptr()) as _;
+        cgraph.vsize = imalloc(cnvtxs as usize, c"SetupCoarseGraph: vsize".as_ptr()) as _;
     }
 
     return cgraph;
@@ -1553,12 +1553,12 @@ pub extern "C" fn ReAdjustMemory(
         cgraph.adjncy = irealloc(
             cgraph.adjncy as _,
             cgraph.nedges as usize,
-            "ReAdjustMemory: adjncy\0".as_ptr(),
+            c"ReAdjustMemory: adjncy".as_ptr(),
         ) as _;
         cgraph.adjwgt = irealloc(
             cgraph.adjwgt as _,
             cgraph.nedges as usize,
-            "ReAdjustMemory: adjwgt\0".as_ptr(),
+            c"ReAdjustMemory: adjwgt".as_ptr(),
         ) as _;
     }
 }

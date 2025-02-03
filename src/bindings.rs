@@ -34,11 +34,11 @@ extern "C" {
         val: real_t,
         msg: *const std::ffi::c_char,
     ) -> *mut std::ffi::c_void;
-    pub fn rmalloc(nmemb: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn rmalloc(nmemb: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
     pub fn irealloc(
         old: *mut std::ffi::c_void,
         nmemb: usize,
-        msg: *const std::ffi::c_uchar,
+        msg: *const std::ffi::c_char,
     ) -> *mut std::ffi::c_void;
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
     pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
@@ -138,7 +138,7 @@ extern "C" {
     /// gk_malloc calls made before are not valid to be freed.
     pub fn gk_malloc_init() -> std::ffi::c_int;
     pub fn gk_malloc_cleanup(showstats: std::ffi::c_int) -> std::ffi::c_void;
-    pub fn gk_malloc(size: usize, msg: *const std::ffi::c_uchar) -> *mut std::ffi::c_void;
+    pub fn gk_malloc(size: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
 
     /// my wrapper for gk_free that isn't variadic
     pub fn gk_free_one(ptr: *mut *mut std::ffi::c_void) -> std::ffi::c_void;

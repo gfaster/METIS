@@ -142,15 +142,15 @@ pub extern "C" fn CompressGraph(
         }
 
         /* Allocate memory for the compressed graph */
-        graph.xadj = imalloc(cnvtxs as usize + 1, "CompressGraph: xadj\0".as_ptr()) as _;
-        graph.vwgt = imalloc(cnvtxs as usize, "CompressGraph: vwgt\0".as_ptr()) as _;
+        graph.xadj = imalloc(cnvtxs as usize + 1, c"CompressGraph: xadj".as_ptr()) as _;
+        graph.vwgt = imalloc(cnvtxs as usize, c"CompressGraph: vwgt".as_ptr()) as _;
         graph.vwgt.write_bytes(0, cnvtxs as usize); // prolly unnecessary, but matches og
-        graph.adjncy = imalloc(cnedges as usize, "CompressGraph: adjncy\0".as_ptr()) as _;
+        graph.adjncy = imalloc(cnedges as usize, c"CompressGraph: adjncy".as_ptr()) as _;
         mkslice_mut!(cxadj: graph->xadj, cnvtxs + 1);
         mkslice_mut!(cvwgt: graph->vwgt, cnvtxs);
         mkslice_mut!(cadjncy: graph->adjncy, cnedges);
         {
-            graph.adjwgt = imalloc(cnedges as usize, "CompressGraph: adjwgt\0".as_ptr()) as _;
+            graph.adjwgt = imalloc(cnedges as usize, c"CompressGraph: adjwgt".as_ptr()) as _;
             graph.adjwgt.write_bytes(1, cnedges as usize);
         }
 
@@ -217,7 +217,7 @@ pub extern "C" fn PruneGraph(
     let mut graph: *mut graph_t = ptr::null_mut();
 
     let nvtxs = nvtxs as usize;
-    // let perm = imalloc(nvtxs, "PruneGraph: perm\0".as_ptr()) as _;
+    // let perm = imalloc(nvtxs, c"PruneGraph: perm".as_ptr()) as _;
     let mut perm: Vec<idx_t> = vec![0; nvtxs];
 
     mkslice!(xadj, nvtxs + 1);
@@ -254,11 +254,11 @@ pub extern "C" fn PruneGraph(
         let graph = graph.as_mut().unwrap();
 
         /* Allocate memory for the prunned graph*/
-        graph.xadj = imalloc(pnvtxs + 1, "PruneGraph: xadj\0".as_ptr()) as _;
-        graph.vwgt = imalloc(pnvtxs, "PruneGraph: vwgt\0".as_ptr()) as _;
-        graph.adjncy = imalloc(pnedges, "PruneGraph: adjncy\0".as_ptr()) as _;
+        graph.xadj = imalloc(pnvtxs + 1, c"PruneGraph: xadj".as_ptr()) as _;
+        graph.vwgt = imalloc(pnvtxs, c"PruneGraph: vwgt".as_ptr()) as _;
+        graph.adjncy = imalloc(pnedges, c"PruneGraph: adjncy".as_ptr()) as _;
         // graph.vwgt = ismalloc(pnedges, 1, "PruneGraph: adjwgt") as _;
-        graph.adjwgt = imalloc(pnedges, "PruneGraph: adjwgt\0".as_ptr()) as _;
+        graph.adjwgt = imalloc(pnedges, c"PruneGraph: adjwgt".as_ptr()) as _;
         mkslice_mut!(pxadj: graph->xadj, pnvtxs + 1);
         mkslice_mut!(pvwgt: graph->vwgt, pnvtxs);
         pvwgt.fill(1);

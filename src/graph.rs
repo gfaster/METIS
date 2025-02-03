@@ -115,12 +115,12 @@ pub extern "C" fn SetupGraph(
             (*graph).vwgt = vwgt;
             (*graph).free_vwgt = 0;
         } else {
-            vwgt = ismalloc(ncon * nvtxs, 1, "SetupGraph: vwgt\0".as_ptr()) as *mut idx_t;
+            vwgt = ismalloc(ncon * nvtxs, 1, c"SetupGraph: vwgt".as_ptr()) as *mut idx_t;
             (*graph).vwgt = vwgt;
         }
 
-        (*graph).tvwgt = imalloc(ncon, "SetupGraph: tvwgts\0".as_ptr()) as *mut idx_t;
-        (*graph).invtvwgt = rmalloc(ncon, "SetupGraph: invtvwgts\0".as_ptr()) as *mut real_t;
+        (*graph).tvwgt = imalloc(ncon, c"SetupGraph: tvwgts".as_ptr()) as *mut idx_t;
+        (*graph).invtvwgt = rmalloc(ncon, c"SetupGraph: invtvwgts".as_ptr()) as *mut real_t;
         for i in (0)..(ncon) {
             mkslice_mut!(vwgt, ncon * nvtxs);
             // (*graph).tvwgt[i]    = isum(nvtxs, vwgt+i, ncon);
@@ -139,12 +139,12 @@ pub extern "C" fn SetupGraph(
                 (*graph).vsize = vsize;
                 (*graph).free_vsize = 0;
             } else {
-                vsize = ismalloc(nvtxs, 1, "SetupGraph: vsize\0".as_ptr()) as *mut idx_t;
+                vsize = ismalloc(nvtxs, 1, c"SetupGraph: vsize".as_ptr()) as *mut idx_t;
                 (*graph).vsize = vsize;
             }
 
             /* Allocate memory for edge weights and initialize them to the sum of the vsize */
-            adjwgt = imalloc(graph.nedges as usize, "SetupGraph: adjwgt\0".as_ptr()) as *mut idx_t;
+            adjwgt = imalloc(graph.nedges as usize, c"SetupGraph: adjwgt".as_ptr()) as *mut idx_t;
             (*graph).adjwgt = adjwgt;
             {
                 get_graph_slices!(graph => xadj vsize adjncy);
@@ -162,7 +162,7 @@ pub extern "C" fn SetupGraph(
                 graph.adjwgt = adjwgt;
                 graph.free_adjwgt = 0;
             } else {
-                adjwgt = ismalloc(graph.nedges as usize, 1, "SetupGraph: adjwgt\0".as_ptr())
+                adjwgt = ismalloc(graph.nedges as usize, 1, c"SetupGraph: adjwgt".as_ptr())
                     as *mut idx_t;
                 graph.adjwgt = adjwgt;
             }
@@ -192,10 +192,10 @@ pub extern "C" fn SetupGraph_tvwgt(graph: *mut graph_t) {
     let ncon = graph.ncon as usize;
     let _nvtxs = graph.nvtxs as usize;
     if graph.tvwgt == std::ptr::null_mut() {
-        graph.tvwgt = imalloc(ncon, "SetupGraph_tvwgt: tvwgt\0".as_ptr()) as *mut idx_t;
+        graph.tvwgt = imalloc(ncon, c"SetupGraph_tvwgt: tvwgt".as_ptr()) as *mut idx_t;
     }
     if graph.invtvwgt == std::ptr::null_mut() {
-        graph.invtvwgt = rmalloc(ncon, "SetupGraph_tvwgt: invtvwgt\0".as_ptr()) as *mut real_t;
+        graph.invtvwgt = rmalloc(ncon, c"SetupGraph_tvwgt: invtvwgt".as_ptr()) as *mut real_t;
     }
     get_graph_slices!(graph => vwgt);
     get_graph_slices_mut!(graph => tvwgt invtvwgt);
@@ -223,7 +223,7 @@ pub extern "C" fn SetupGraph_label(graph: *mut graph_t) {
 
     let nvtxs = graph.nvtxs as usize;
     if graph.label == std::ptr::null_mut() {
-        graph.label = imalloc(nvtxs, "SetupGraph_label: label\0".as_ptr()) as *mut idx_t;
+        graph.label = imalloc(nvtxs, c"SetupGraph_label: label".as_ptr()) as *mut idx_t;
     }
     get_graph_slices_mut!(graph => label);
 
@@ -254,16 +254,16 @@ pub extern "C" fn SetupSplitGraph(
         let sncon = sgraph.ncon as usize;
 
         /* Allocate memory for the split graph */
-        sgraph.xadj = imalloc(snvtxs + 1, "SetupSplitGraph: xadj\0".as_ptr()) as *mut idx_t;
-        sgraph.vwgt = imalloc(sncon * snvtxs, "SetupSplitGraph: vwgt\0".as_ptr()) as *mut idx_t;
-        sgraph.adjncy = imalloc(snedges, "SetupSplitGraph: adjncy\0".as_ptr()) as *mut idx_t;
-        sgraph.adjwgt = imalloc(snedges, "SetupSplitGraph: adjwgt\0".as_ptr()) as *mut idx_t;
-        sgraph.label = imalloc(snvtxs, "SetupSplitGraph: label\0".as_ptr()) as *mut idx_t;
-        sgraph.tvwgt = imalloc(sncon, "SetupSplitGraph: tvwgt\0".as_ptr()) as *mut idx_t;
-        sgraph.invtvwgt = rmalloc(sncon, "SetupSplitGraph: invtvwgt\0".as_ptr()) as *mut real_t;
+        sgraph.xadj = imalloc(snvtxs + 1, c"SetupSplitGraph: xadj".as_ptr()) as *mut idx_t;
+        sgraph.vwgt = imalloc(sncon * snvtxs, c"SetupSplitGraph: vwgt".as_ptr()) as *mut idx_t;
+        sgraph.adjncy = imalloc(snedges, c"SetupSplitGraph: adjncy".as_ptr()) as *mut idx_t;
+        sgraph.adjwgt = imalloc(snedges, c"SetupSplitGraph: adjwgt".as_ptr()) as *mut idx_t;
+        sgraph.label = imalloc(snvtxs, c"SetupSplitGraph: label".as_ptr()) as *mut idx_t;
+        sgraph.tvwgt = imalloc(sncon, c"SetupSplitGraph: tvwgt".as_ptr()) as *mut idx_t;
+        sgraph.invtvwgt = rmalloc(sncon, c"SetupSplitGraph: invtvwgt".as_ptr()) as *mut real_t;
 
         if !graph.vsize.is_null() {
-            sgraph.vsize = imalloc(snvtxs, "SetupSplitGraph: vsize\0".as_ptr()) as *mut idx_t;
+            sgraph.vsize = imalloc(snvtxs, c"SetupSplitGraph: vsize".as_ptr()) as *mut idx_t;
         }
     }
 
@@ -277,7 +277,7 @@ pub extern "C" fn SetupSplitGraph(
 pub extern "C" fn CreateGraph() -> *mut graph_t {
     let graph = gk_malloc(
         std::mem::size_of::<graph_t>(),
-        "CreateGraph: graph\0".as_ptr(),
+        c"CreateGraph: graph".as_ptr(),
     ) as *mut graph_t;
 
     InitGraph(graph);
@@ -533,35 +533,35 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         let ncon = graph.ncon as usize;
 
         if graph.free_xadj != 0 {
-            graph.xadj = imalloc(nvtxs + 1, "graph_ReadFromDisk: xadj\0".as_ptr()) as *mut idx_t;
+            graph.xadj = imalloc(nvtxs + 1, c"graph_ReadFromDisk: xadj".as_ptr()) as *mut idx_t;
             get_graph_slices_mut!(graph => xadj);
             fpin.read_idx(xadj)?;
         }
         get_graph_slices_mut!(graph => xadj);
 
         if graph.free_vwgt != 0 {
-            graph.vwgt = imalloc(nvtxs * ncon, "graph_ReadFromDisk: vwgt\0".as_ptr()) as *mut idx_t;
+            graph.vwgt = imalloc(nvtxs * ncon, c"graph_ReadFromDisk: vwgt".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->vwgt, nvtxs * ncon);
             fpin.read_idx(vwgt)?;
         }
 
         if graph.free_adjncy != 0 {
             let len = xadj[nvtxs] as usize;
-            graph.adjncy = imalloc(len, "graph_ReadFromDisk: adjncy\0".as_ptr()) as *mut idx_t;
+            graph.adjncy = imalloc(len, c"graph_ReadFromDisk: adjncy".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->adjncy, len);
             fpin.read_idx(adjncy)?;
         }
 
         if graph.free_adjwgt != 0 {
             let len = xadj[nvtxs] as usize;
-            graph.adjwgt = imalloc(len, "graph_ReadFromDisk: adjwgt\0".as_ptr()) as *mut idx_t;
+            graph.adjwgt = imalloc(len, c"graph_ReadFromDisk: adjwgt".as_ptr()) as *mut idx_t;
             mkslice_mut!(graph->adjwgt, len);
             fpin.read_idx(adjwgt)?;
         }
 
         if ctrl.objtype == METIS_OBJTYPE_VOL {
             if graph.free_vsize != 0 {
-                graph.vsize = imalloc(nvtxs, "graph_ReadFromDisk: vsize\0".as_ptr()) as *mut idx_t;
+                graph.vsize = imalloc(nvtxs, c"graph_ReadFromDisk: vsize".as_ptr()) as *mut idx_t;
                 mkslice_mut!(graph->vsize, nvtxs);
                 fpin.read_idx(vsize)?;
             }

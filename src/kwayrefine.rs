@@ -169,33 +169,33 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
     graph.pwgts = imalloc(
         (ctrl.nparts * graph.ncon) as usize,
-        "AllocateKWayPartitionMemory: pwgts\0".as_ptr(),
+        c"AllocateKWayPartitionMemory: pwgts".as_ptr(),
     ) as _;
     graph.where_ = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: where\0".as_ptr(),
+        c"AllocateKWayPartitionMemory: where".as_ptr(),
     ) as _;
     graph.bndptr = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: bndptr\0".as_ptr(),
+        c"AllocateKWayPartitionMemory: bndptr".as_ptr(),
     ) as _;
     graph.bndind = imalloc(
         graph.nvtxs as usize,
-        "AllocateKWayPartitionMemory: bndind\0".as_ptr(),
+        c"AllocateKWayPartitionMemory: bndind".as_ptr(),
     ) as _;
 
     match ctrl.objtype {
         METIS_OBJTYPE_CUT => {
             graph.ckrinfo = gk_malloc(
                 graph.nvtxs as usize * std::mem::size_of::<ckrinfo_t>(),
-                "AllocateKWayPartitionMemory: ckrinfo\0".as_ptr(),
+                c"AllocateKWayPartitionMemory: ckrinfo".as_ptr(),
             ) as *mut _;
         }
 
         METIS_OBJTYPE_VOL => {
             graph.vkrinfo = gk_malloc(
                 graph.nvtxs as usize * std::mem::size_of::<vkrinfo_t>(),
-                "AllocateKWayVolPartitionMemory: vkrinfo\0".as_ptr(),
+                c"AllocateKWayVolPartitionMemory: vkrinfo".as_ptr(),
             ) as *mut _;
 
             /* This is to let the cut-based -minconn and -contig large-scale graph

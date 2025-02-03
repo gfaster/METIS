@@ -81,12 +81,12 @@ pub extern "C" fn Allocate2WayPartitionMemory(_ctrl: *mut ctrl_t, graph: *mut gr
     let nvtxs = graph.nvtxs as usize;
     let ncon = graph.ncon as usize;
 
-    graph.pwgts = imalloc(2 * ncon, "Allocate2WayPartitionMemory: pwgts\0".as_ptr()) as _;
-    graph.where_ = imalloc(nvtxs, "Allocate2WayPartitionMemory: where_\0".as_ptr()) as _;
-    graph.bndptr = imalloc(nvtxs, "Allocate2WayPartitionMemory: bndptr\0".as_ptr()) as _;
-    graph.bndind = imalloc(nvtxs, "Allocate2WayPartitionMemory: bndind\0".as_ptr()) as _;
-    graph.id = imalloc(nvtxs, "Allocate2WayPartitionMemory: id\0".as_ptr()) as _;
-    graph.ed = imalloc(nvtxs, "Allocate2WayPartitionMemory: ed\0".as_ptr()) as _;
+    graph.pwgts = imalloc(2 * ncon, c"Allocate2WayPartitionMemory: pwgts".as_ptr()) as _;
+    graph.where_ = imalloc(nvtxs, c"Allocate2WayPartitionMemory: where_".as_ptr()) as _;
+    graph.bndptr = imalloc(nvtxs, c"Allocate2WayPartitionMemory: bndptr".as_ptr()) as _;
+    graph.bndind = imalloc(nvtxs, c"Allocate2WayPartitionMemory: bndind".as_ptr()) as _;
+    graph.id = imalloc(nvtxs, c"Allocate2WayPartitionMemory: id".as_ptr()) as _;
+    graph.ed = imalloc(nvtxs, c"Allocate2WayPartitionMemory: ed".as_ptr()) as _;
 }
 
 /*************************************************************************/
