@@ -42,9 +42,10 @@ pub extern "C" fn BucketSortKeysInc(
 
     util::make_csr(max as usize + 1, &mut counts);
 
-    for i in tperm {
-        let cnt = &mut counts[keys[*i as usize] as usize];
-        perm[*cnt as usize] = *i;
+    for &i in tperm {
+        let key = keys[i as usize] as usize;
+        let cnt = &mut counts[key];
+        perm[*cnt as usize] = i;
         *cnt += 1;
     }
 }

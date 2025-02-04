@@ -28,6 +28,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "gpmetis"
 
+# [[bin]]
+# name = "playground"
+# panic = "abort"
+
 [dependencies]
 macros = {path = "./macros"}
 libc = "0.2"

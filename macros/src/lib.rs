@@ -114,7 +114,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
                     std::mem::transmute(f)
                 }
             )};
-            unsafe { std::mem::transmute(#dispatch_lib_ident.get()) }
+            unsafe { std::mem::transmute::<std::ptr::NonNull<std::ffi::c_void>, #dispatch_fn_ptr>(#dispatch_lib_ident.get()) }
         }
     };
 

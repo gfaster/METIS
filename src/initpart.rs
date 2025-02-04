@@ -266,7 +266,8 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
 
         let mut pwgts = [0, *graph.tvwgt];
 
-        queue[0] = irandInRange(nvtxs as idx_t);
+        let val = irandInRange(nvtxs as idx_t);
+        queue[0] = val;
         touched[queue[0] as usize] = 1;
         let mut first = 0;
         let mut last = 1;

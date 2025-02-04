@@ -458,6 +458,7 @@ pub fn make_csr(n: usize, a: &mut [idx_t]) {
     );
     debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
     if n == 0 {
+        a[0] = 0;
         return;
     }
 

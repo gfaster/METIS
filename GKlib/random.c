@@ -70,6 +70,7 @@ static int mti=NN+1;
 #endif /* USE_GKRAND */
 
 /* initializes mt[NN] with a seed */
+#ifdef RS_NO_HARD_REPLACE /* replaced in gklib_replace.rs */
 void gk_randinit(uint64_t seed)
 {
 #ifdef USE_GKRAND
@@ -133,4 +134,4 @@ uint32_t gk_randint32(void)
 #endif
 }
 
-
+#endif /* RS_NO_HARD_REPLACE */

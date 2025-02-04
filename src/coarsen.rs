@@ -245,10 +245,10 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
     mkslice!(ctrl->maxvwgt, ncon * nvtxs);
 
-    let mut match_ = vec![UNMATCHED as i32; nvtxs];
-    let mut perm = vec![0; nvtxs];
-    let mut tperm = vec![0; nvtxs];
-    let mut degrees = vec![0; nvtxs];
+    let mut match_: Vec<idx_t> = vec![UNMATCHED as i32; nvtxs];
+    let mut perm: Vec<idx_t> = vec![0; nvtxs];
+    let mut tperm: Vec<idx_t> = vec![0; nvtxs];
+    let mut degrees: Vec<idx_t> = vec![0; nvtxs];
 
     /* Determine a "random" traversal order that is biased towards
     low-degree vertices */
@@ -256,8 +256,8 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
     let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
     for i in (0)..(nvtxs) {
-        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
-        degrees[i as usize] = if bnum > avgdegree { avgdegree } else { bnum };
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as f64).sqrt() as idx_t;
+        degrees[i as usize] = avgdegree.min(bnum);
     }
     bucketsort::BucketSortKeysInc(
         ctrl,
@@ -389,7 +389,6 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     CreateCoarseGraph(ctrl, graph, cnvtxs, match_.as_mut_ptr());
 
     // WCOREPOP;
-
     return cnvtxs;
 }
 

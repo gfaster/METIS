@@ -32,6 +32,7 @@ pub mod params;
 pub mod pmetis;
 pub mod refine;
 pub mod scanf;
+pub mod gklib_replace;
 
 mod dyncall;
 
