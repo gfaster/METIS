@@ -17,7 +17,7 @@ fn main() {
     //     .expect("cargo feature is either 1 or 0")
     //     != 0;
 
-    let mut files: Vec<_> = read_dir("src")
+    let files: Vec<_> = read_dir("src")
         .expect("src/ files exist")
         .filter_map(|f| f.ok())
         .filter(|f| f.file_name().as_bytes().ends_with(b".c"))
@@ -85,7 +85,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/ported");
     println!("cargo:rerun-if-changed=build.rs");
 
-    files.extend(ported_files.clone());
+    // files.extend(ported_files.clone());
 
     // panic!();
     Command::new("pwd").spawn().unwrap().wait().unwrap();

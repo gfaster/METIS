@@ -842,94 +842,113 @@ pub fn from_csr_iter(a: &[idx_t]) -> impl Iterator<Item = idx_t> + '_ {
 
 #[cfg(test)]
 mod test {
+    use crate::dyncall::{ab_test, ab_test_eq};
     #[allow(unused_imports)]
     use crate::idx_t;
 
-    #[ab_test_eq(super::iargmax_nrm)]
-    fn iargmax_nrm() -> idx_t {
-        let x = &[1, 3, 2, 4];
-        let y = &[5.0, 3.0, 3.0, 1.0];
-        let n = x.len();
+    use super::*;
 
-        assert_eq!(x.len(), y.len());
+    #[test]
+    fn ab_iargmax_nrm() {
+        ab_test_eq("*", || {
+            let x = &[1, 3, 2, 4];
+            let y = &[5.0, 3.0, 3.0, 1.0];
+            let n = x.len();
 
-        unsafe { iargmax_nrm(n, x.as_ptr(), y.as_ptr()) }
+            assert_eq!(x.len(), y.len());
+
+            unsafe { iargmax_nrm(n, x.as_ptr(), y.as_ptr()) }
+        });
     }
 
-    #[ab_test_eq(super::iargmax_nrm)]
-    fn iargmax_nrm_same() -> idx_t {
-        let x = &[1, 2, 3, 4, 6];
-        let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
-        let n = x.len();
+    #[test]
+    fn ab_iargmax_nrm_same() {
+        ab_test_eq("*", || {
+            let x = &[1, 2, 3, 4, 6];
+            let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
+            let n = x.len();
 
-        assert_eq!(x.len(), y.len());
+            assert_eq!(x.len(), y.len());
 
-        unsafe { iargmax_nrm(n, x.as_ptr(), y.as_ptr()) }
+            unsafe { iargmax_nrm(n, x.as_ptr(), y.as_ptr()) }
+        });
     }
 
-    #[ab_test_eq(super::iargmax2_nrm)]
-    fn iargmax2_nrm() -> idx_t {
-        let x = &[1, 3, 2, 4];
-        let y = &[5.0, 3.0, 3.0, 1.0];
-        let n = x.len();
+    #[test]
+    fn ab_iargmax2_nrm() {
+        ab_test_eq("*", || {
+            let x = &[1, 3, 2, 4];
+            let y = &[5.0, 3.0, 3.0, 1.0];
+            let n = x.len();
 
-        assert_eq!(x.len(), y.len());
+            assert_eq!(x.len(), y.len());
 
-        unsafe { iargmax2_nrm(n, x.as_ptr(), y.as_ptr()) }
+            unsafe { iargmax2_nrm(n, x.as_ptr(), y.as_ptr()) }
+        });
     }
 
-    #[ab_test_eq(super::iargmax2_nrm)]
-    fn iargmax2_nrm_same() -> idx_t {
-        let x = &[1, 2, 3, 4, 6];
-        let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
-        let n = x.len();
+    #[test]
+    fn ab_iargmax2_nrm_same() {
+        ab_test_eq("*", || {
+            let x = &[1, 2, 3, 4, 6];
+            let y = &[12.0, 6.0, 4.0, 3.0, 2.0];
+            let n = x.len();
 
-        assert_eq!(x.len(), y.len());
+            assert_eq!(x.len(), y.len());
 
-        unsafe { iargmax2_nrm(n, x.as_ptr(), y.as_ptr()) }
+            unsafe { iargmax2_nrm(n, x.as_ptr(), y.as_ptr()) }
+        });
     }
 
-    #[ab_test_eq(super::iargmax_strd)]
-    fn iargmax_strd_basic() -> i32 {
-        let x = &[1, 3, 2, 4];
-        let n = x.len();
-        let incx = 1;
+    #[test]
+    fn iargmax_strd_basic() {
+        ab_test_eq("*", || {
+            let x = &[1, 3, 2, 4];
+            let n = x.len();
+            let incx = 1;
 
-        assert!((n * incx as usize) <= x.len());
+            assert!((n * incx as usize) <= x.len());
 
-        unsafe { iargmax_strd(n, x.as_ptr(), incx) }
+            unsafe { iargmax_strd(n, x.as_ptr(), incx) }
+        });
     }
 
-    #[ab_test_eq(super::iargmax_strd)]
-    fn iargmax_strd_stride() -> i32 {
-        let x = &[1, 3, 2, 4, 3, 2, 1, 5, 1];
-        let n = 3;
-        let incx = 3;
+    #[test]
+    fn iargmax_strd_stride() {
+        ab_test_eq("*", || {
+            let x = &[1, 3, 2, 4, 3, 2, 1, 5, 1];
+            let n = 3;
+            let incx = 3;
 
-        assert!((n * incx as usize) <= x.len());
+            assert!((n * incx as usize) <= x.len());
 
-        unsafe { iargmax_strd(n, x.as_ptr(), incx) }
+            unsafe { iargmax_strd(n, x.as_ptr(), incx) }
+        });
     }
 
-    #[ab_test_basic(super::iargmax_strd)]
+    #[test]
     fn iargmax_strd_stride_expl() {
-        let x = &[1, 3, 2, 4, 3, 2, 5, 2, 1];
-        let n = 3;
-        let incx = 3;
-        assert!((n * incx as usize) == x.len());
-        assert_eq!(unsafe { iargmax_strd(n, x.as_ptr(), incx) }, 2);
+        ab_test("*", || {
+            let x = &[1, 3, 2, 4, 3, 2, 5, 2, 1];
+            let n = 3;
+            let incx = 3;
+            assert!((n * incx as usize) == x.len());
+            assert_eq!(unsafe { iargmax_strd(n, x.as_ptr(), incx) }, 2);
 
-        let n = 4;
-        let incx = 2;
-        assert!((n * incx as usize) <= x.len());
-        assert_eq!(unsafe { iargmax_strd(n, x.as_ptr(), incx) }, 3);
+            let n = 4;
+            let incx = 2;
+            assert!((n * incx as usize) <= x.len());
+            assert_eq!(unsafe { iargmax_strd(n, x.as_ptr(), incx) }, 3);
+        });
     }
 
-    #[ab_test_eq(super::rargmax2)]
-    fn rargmax2() -> idx_t {
-        let x = &[12.0, 6.0, 4.0, 3.0, 2.0];
-        let n = x.len();
+    #[test]
+    fn ab_rargmax2() {
+        ab_test_eq("*", || {
+            let x = &[12.0, 6.0, 4.0, 3.0, 2.0];
+            let n = x.len();
 
-        unsafe { rargmax2(n, x.as_ptr()) }
+            unsafe { super::rargmax2(n, x.as_ptr()) }
+        });
     }
 }

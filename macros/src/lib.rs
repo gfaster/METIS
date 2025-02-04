@@ -43,10 +43,12 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     dispatch_sig.ident = format_ident!("{fn_name}");
     dispatch_sig.ident.set_span(fn_name.span());
     dispatch_sig.unsafety = Some(Token!(unsafe)(Span::call_site()));
+    // always need extern C because in tests, dispatch is what the ifunc resolves to
     dispatch_sig.abi = Some(syn::Abi {
         extern_token: Token![extern](Span::call_site()),
         name: Some(syn::LitStr::new("C", Span::call_site())),
     });
+    let dispatch_sig_ident = &dispatch_sig.ident;
     let dispatch_vis = impl_fn.vis.clone();
     let mut dispatch_rs_call = format_ident!("{rs_link_func}");
     dispatch_rs_call.set_span(impl_fn.sig.ident.span());
@@ -92,7 +94,8 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     };
 
     // We do resolve functions so that we can link to them from the original source
-    let resolve_name = format_ident!("resolve_{fn_name}");
+    let resolve_name = format_ident!("resolve_static_{fn_name}");
+    let resolve_name_exported = format_ident!("resolve_{fn_name}");
 
     let dispatch = quote::quote! {
         #[export_name = #cannonical_link_func]
@@ -100,12 +103,22 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
         #dispatch_vis #dispatch_sig {
             let actual: #dispatch_fn_ptr = #resolve_name();
             unsafe { actual(#(#dispatch_args_decl),*) }
-            // type FnPtr = fn ();
         }
 
         #[doc(hidden)]
         #[no_mangle]
-        pub extern "C" fn #resolve_name() -> #dispatch_fn_ptr {
+        pub extern "C" fn #resolve_name_exported() -> #dispatch_fn_ptr {
+            if cfg!(test) {
+                #dispatch_sig_ident
+            } else {
+                #resolve_name()
+            }
+        }
+
+        #[doc(hidden)]
+        fn #resolve_name() -> #dispatch_fn_ptr {
+            #![deny(unused)]
+
             static #dispatch_lib_ident: crate::dyncall::ICall = unsafe { crate::dyncall::ICall::new(
                 #dispatch_c_sym_lit,
                 &crate::dyncall::LIBMETIS,
@@ -114,7 +127,30 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
                     std::mem::transmute(f)
                 }
             )};
-            unsafe { std::mem::transmute::<std::ptr::NonNull<std::ffi::c_void>, #dispatch_fn_ptr>(#dispatch_lib_ident.get()) }
+            #[cfg(test)]
+            let actual: std::ptr::NonNull<std::ffi::c_void> = {
+                thread_local!{
+                    static EPOCH: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+                    static CURRENT: std::cell::Cell<std::ptr::NonNull<std::ffi::c_void>> =
+                        const { std::cell::Cell::new(std::ptr::NonNull::dangling()) };
+                }
+                let actual_epoch = crate::dyncall::ICall::epoch();
+                if actual_epoch != EPOCH.get() {
+                    let p = #dispatch_lib_ident.get_dynamic();
+                    CURRENT.set(p);
+                    EPOCH.set(actual_epoch);
+                    p
+                } else {
+                    CURRENT.get()
+                }
+            };
+
+            #[cfg(not(test))]
+            let actual: std::ptr::NonNull<std::ffi::c_void> = {
+                #dispatch_lib_ident.get()
+            };
+
+            unsafe { std::mem::transmute::<std::ptr::NonNull<std::ffi::c_void>, #dispatch_fn_ptr>(actual) }
         }
     };
 

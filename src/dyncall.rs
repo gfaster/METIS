@@ -5,10 +5,12 @@
 use crate::util::make_cstr;
 use std::{
     borrow::Cow,
+    cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     ffi::{c_void, CStr, CString},
     ptr::NonNull,
-    sync::{LazyLock, OnceLock},
+    sync::{atomic::AtomicPtr, LazyLock, OnceLock},
+    thread::LocalKey,
 };
 
 pub static LIBMETIS: Library = Library::new(make_cstr!(env!("LIBMETIS_PORTED")));
@@ -80,6 +82,9 @@ impl Overrides {
         let name = name.as_ref();
         let name = name.strip_suffix(&[0u8]).unwrap_or(name);
         if let Some(&exact_ver) = self.exact.get(name) {
+            #[cfg(test)]
+            ICall::update_last_resolve();
+
             return exact_ver;
         }
         let short_name = name.strip_prefix(b"c__").unwrap_or(name);
@@ -91,21 +96,16 @@ impl Overrides {
             .rev()
             .find(|(glob, _)| glob.matches(short_name))
         {
+            #[cfg(test)]
+            ICall::update_last_resolve();
+
             return glob_ver;
         }
         Version::Rust
     }
 
-    fn init_overrides() -> Self {
+    fn init_with(args: &str) -> Self {
         use std::io::Write;
-        let Some(args) = std::env::var_os(VAR) else {
-            return Overrides::default();
-        };
-        let Ok(args) = args.into_string() else {
-            let mut out = std::io::stderr();
-            writeln!(out, "{VAR} is invalid utf-8").unwrap();
-            return Overrides::default();
-        };
         let mut ret = Self::default();
         for arg in args.split(',') {
             if arg.contains('*') {
@@ -165,6 +165,26 @@ impl Overrides {
         }
         ret
     }
+
+    fn init_overrides() -> Self {
+        use std::io::Write;
+        let Some(args) = std::env::var_os(VAR) else {
+            return Overrides::default();
+        };
+        let Ok(args) = args.into_string() else {
+            let mut out = std::io::stderr();
+            writeln!(out, "{VAR} is invalid utf-8").unwrap();
+            return Overrides::default();
+        };
+        Self::init_with(&args)
+    }
+}
+
+thread_local! {
+    static LOCAL_OVERRIDES: RefCell<Overrides> = RefCell::new(Overrides::default());
+    // start at 1 so we can allow a dangling pointer and use wrapping-panic for the safety
+    static LOCAL_EPOCH: Cell<u64> = const { Cell::new(1) };
+    static LOCAL_EPOCH_LAST_RESOLVE: Cell<u64> = const { Cell::new(0) };
 }
 
 fn clear_dlerror() {
@@ -180,12 +200,32 @@ fn get_dlerror() -> Option<String> {
     Some(s)
 }
 
+pub struct OverrideKey {
+    _no_construct: (),
+}
+
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn set_local_overrides(overrides: &str) -> OverrideKey {
+    LOCAL_OVERRIDES.with(|l| *l.borrow_mut() = Overrides::init_with(overrides));
+    let Some(x) = LOCAL_EPOCH.get().checked_add(1) else {
+        panic!("Local epoch overflowed")
+    };
+    LOCAL_EPOCH.set(x);
+    OverrideKey { _no_construct: () }
+}
+
+impl Drop for OverrideKey {
+    fn drop(&mut self) {
+        LOCAL_OVERRIDES.with(|l| *l.borrow_mut() = Overrides::default());
+    }
+}
+
 pub struct ICall {
     func: OnceLock<NonNull<c_void>>,
     sym_name: &'static CStr,
     library: Option<&'static Library>,
     rs_ver: NonNull<c_void>,
-    c_ver: Option<NonNull<c_void>>,
+    c_ver: OnceLock<NonNull<c_void>>,
 }
 
 unsafe impl Send for ICall {}
@@ -203,54 +243,65 @@ impl ICall {
             sym_name: c_sym,
             library: Some(library),
             rs_ver,
-            c_ver: None,
+            c_ver: OnceLock::new(),
         }
     }
 
-    #[allow(dead_code)]
-    pub const unsafe fn new_referenced(
-        c_sym: &'static CStr,
-        c_ver: NonNull<c_void>,
-        rs_ver: NonNull<c_void>,
-    ) -> Self {
-        ICall {
-            func: OnceLock::new(),
-            sym_name: c_sym,
-            library: None,
-            rs_ver,
-            c_ver: Some(c_ver),
+    #[cfg_attr(not(test), expect(dead_code))]
+    fn update_last_resolve() {
+        LOCAL_EPOCH_LAST_RESOLVE.set(Self::epoch());
+    }
+
+    pub fn epoch() -> u64 {
+        LOCAL_EPOCH.get()
+    }
+
+    #[cfg_attr(not(test), expect(dead_code))]
+    fn last_resolve_epoch() -> u64 {
+        LOCAL_EPOCH_LAST_RESOLVE.get()
+    }
+
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn get_dynamic(&'static self) -> NonNull<c_void> {
+        let ver = LOCAL_OVERRIDES.with(|ov| ov.borrow().get(self.sym_name.to_bytes()));
+        let ret = self.get_ver(ver);
+        // eprintln!("resolved {ver:?} of {:?}", self.sym_name);
+        ret
+    }
+
+    fn get_c_func(&'static self) -> NonNull<c_void> {
+        *self.c_ver.get_or_init(|| {
+            let lib = self.library.expect("library handle object exists").get();
+            clear_dlerror();
+            let sym = unsafe { libc::dlsym(lib.as_ptr(), self.sym_name.as_ptr()) };
+            let Some(sym) = NonNull::new(sym) else {
+                // probably an error state -- but definitely unusable
+                let msg = get_dlerror()
+                    .unwrap_or_else(|| "Could not get valid handle, but no error".into());
+                panic!(
+                    "could not resolve `{}`: {msg}",
+                    self.sym_name.to_string_lossy()
+                );
+            };
+            sym
+        })
+    }
+
+    fn get_ver(&'static self, ver: Version) -> NonNull<c_void> {
+        match ver {
+            Version::Rust => self.rs_ver,
+            Version::C => self.get_c_func(),
         }
     }
 
+    #[cfg_attr(test, expect(dead_code))]
     pub fn get(&'static self) -> NonNull<c_void> {
         // let overrides = &*SYM_OVERRIDES;
         // println!("{overrides:?}");
         // panic!("");
         *self.func.get_or_init(|| {
             let ver = SYM_OVERRIDES.get(self.sym_name.to_bytes());
-            match ver {
-                Version::Rust => self.rs_ver,
-                Version::C => {
-                    if let Some(c_ver) = self.c_ver {
-                        c_ver
-                    } else {
-                        let lib = self.library.expect("library handle object exists").get();
-                        clear_dlerror();
-                        let sym = unsafe { libc::dlsym(lib.as_ptr(), self.sym_name.as_ptr()) };
-                        let Some(sym) = NonNull::new(sym) else {
-                            // probably an error state -- but definitely unusable
-                            let msg = get_dlerror().unwrap_or_else(|| {
-                                "Could not get valid handle, but no error".into()
-                            });
-                            panic!(
-                                "could not resolve `{}`: {msg}",
-                                self.sym_name.to_string_lossy()
-                            );
-                        };
-                        sym
-                    }
-                }
-            }
+            self.get_ver(ver)
         })
     }
 }
@@ -330,6 +381,48 @@ impl<'a> Glob<'a> {
     }
 }
 
+/// runs the provided function twice. Once with no overrides and once with the overrides specified
+/// by the overrides argument
+///
+/// Will panic if the provided override isn't used
+#[cfg(test)]
+pub(crate) fn ab_test<F, T>(overrides: &str, mut f: F) -> (T, T)
+where
+    F: FnMut() -> T,
+{
+    let no_override = f();
+    let key = crate::dyncall::set_local_overrides(overrides);
+    let with_overrides = f();
+    drop(key);
+    let last_resolve_epoch = ICall::last_resolve_epoch();
+    let current_epoch = ICall::epoch();
+    assert_eq!(
+        last_resolve_epoch, current_epoch,
+        "No dynamic overrides actually occurred in AB test!"
+    );
+    (no_override, with_overrides)
+}
+
+/// runs the provided function twice. Once with no overrides and once with the overrides specified
+/// by the overrides argument
+///
+/// Will panic if the provided override isn't used
+#[cfg(test)]
+pub(crate) fn ab_test_eq<F, T>(overrides: &str, f: F)
+where
+    F: FnMut() -> T,
+    T: Eq + std::fmt::Debug,
+{
+    let (no_override, with_overrides) = ab_test(overrides, f);
+    assert_eq!(no_override, with_overrides)
+}
+
+#[cfg(test)]
+#[metis_func]
+pub unsafe extern "C" fn TestVerify() -> u32 {
+    0xdeadbeaf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -382,5 +475,58 @@ mod tests {
         case("*A", "--AA-");
         case("*A", "A-");
         case("S*1*2*E", "S---13---E");
+    }
+
+    #[test]
+    fn runtime_version_switching() {
+        const RUST_EXPECTED: u32 = 0xdeadbeaf;
+        const C_EXPECTED: u32 = 0xabad1dea;
+
+        let (rs_ver, c_ver) = ab_test("TestVerify", || unsafe { TestVerify() });
+
+        assert_eq!(
+            (rs_ver, c_ver),
+            (0xdeadbeaf, 0xabad1dea),
+            "Runtime version switching failed:\n  \
+            rust version:\n    \
+            expected: {RUST_EXPECTED:#X}\n    \
+            actual: {rs_ver:#X}\n  \
+            c version:\n    \
+            expected: {C_EXPECTED:#X}\n    \
+            actual: {c_ver:#X}\n  \
+            "
+        )
+    }
+
+    #[test]
+    fn runtime_version_switching_from_c() {
+        const RUST_EXPECTED: u32 = 0xdeadbeaf;
+        const C_EXPECTED: u32 = 0xabad1dea;
+
+        extern "C" {
+            fn call_test_verify_from_c() -> u32;
+        }
+
+        let (rs_ver, c_ver) = ab_test("TestVerify", || unsafe { call_test_verify_from_c() });
+
+        assert_eq!(
+            (rs_ver, c_ver),
+            (0xdeadbeaf, 0xabad1dea),
+            "Runtime version switching failed:\n  \
+            rust version:\n    \
+            expected: {RUST_EXPECTED:#X}\n    \
+            actual: {rs_ver:#X}\n  \
+            c version:\n    \
+            expected: {C_EXPECTED:#X}\n    \
+            actual: {c_ver:#X}\n  \
+            "
+        )
+    }
+
+    #[test]
+    #[should_panic = "No dynamic overrides"]
+    fn ab_test_fail_when_bad_symbol() {
+        // oh no, we misspelled it
+        let _ = ab_test("TetVerify", || unsafe { TestVerify() });
     }
 }

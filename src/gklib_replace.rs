@@ -5,7 +5,6 @@ pub extern "C" fn gk_randinit(seed: u64) {
     fastrand::seed(seed);
 }
 
-
 #[no_mangle]
 pub extern "C" fn gk_randint64() -> u64 {
     // must be positive, or you get horrible segfaults!

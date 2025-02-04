@@ -22,6 +22,7 @@ pub mod compress;
 pub mod contig;
 pub mod debug;
 pub mod fm;
+pub mod gklib_replace;
 pub mod graph;
 pub mod graphio;
 pub mod initpart;
@@ -32,7 +33,6 @@ pub mod params;
 pub mod pmetis;
 pub mod refine;
 pub mod scanf;
-pub mod gklib_replace;
 
 mod dyncall;
 
