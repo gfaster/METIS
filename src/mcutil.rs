@@ -262,10 +262,9 @@ pub extern "C" fn BetterBalanceKWay(
     return 0;
 }
 
-/*************************************************************************/
-/* Computes the maximum load imbalance of a partitioning solution over
-all the constraints. */
-/**************************************************************************/
+/// Computes the maximum load imbalance of a partitioning solution over all the constraints.
+///
+/// Only used for debug printing, so no tests right now
 #[metis_func]
 pub extern "C" fn ComputeLoadImbalance(
     graph: *const graph_t,
@@ -401,5 +400,97 @@ pub extern "C" fn ComputeLoadImbalanceVec(
                 lbvec[i] = cur;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::dyncall::ab_test_single_eq;
+    use crate::graph_gen::GraphBuilder;
+
+    #[test]
+    fn ab_ComputeLoadImbalanceVec() {
+        ab_test_single_eq("ComputeLoadImbalanceVec:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_ComputeLoadImbalanceDiffVec() {
+        ab_test_single_eq("ComputeLoadImbalanceDiffVec:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_ComputeLoadImbalanceDiff() {
+        ab_test_single_eq("ComputeLoadImbalanceDiff:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_BetterVBalance() {
+        // need larger numbers here, so making graph only once
+        fastrand::seed(999);
+        let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+        g.edge_list(
+            std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
+        );
+        g.set_seed(4321);
+        g.random_adjwgt();
+
+        ab_test_single_eq("BetterVBalance:rs", || g.clone().call().unwrap());
+    }
+
+    #[test]
+    fn ab_BetterBalanceKWay() {
+        ab_test_single_eq("BetterBalanceKWay:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_BetterBalance2Way() {
+        ab_test_single_eq("BetterBalance2Way:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
     }
 }

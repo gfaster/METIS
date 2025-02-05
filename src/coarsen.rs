@@ -871,11 +871,10 @@ pub extern "C" fn Match_2HopAll(
     return cnvtxs;
 }
 
-/*************************************************************************/
-/* This function finds a matching by selecting an adjacent vertex based
-   on the Jaccard coefficient of the adjaceny lists.
-*/
-/**************************************************************************/
+/// Finds a matching by selecting an adjacent vertex based
+/// on the Jaccard coefficient of the adjaceny lists.
+///
+/// Not actually used in Metis??
 #[metis_func]
 pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
@@ -1115,12 +1114,10 @@ pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
     println!(" ]");
 }
 
-/*************************************************************************/
-/* This function creates the coarser graph. Depending on the size of the
-   candidate adjancency lists it either uses a hash table or an array
-   to do duplicate detection.
-*/
-/*************************************************************************/
+/// Creates the coarser graph.
+///
+/// Depending on the size of the candidate adjancency lists it either uses a hash table or an array
+/// to do duplicate detection.
 #[metis_func]
 pub extern "C" fn CreateCoarseGraph(
     ctrl: *mut ctrl_t,
@@ -1481,11 +1478,8 @@ pub extern "C" fn CreateCoarseGraph(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* Setup the various arrays for the coarse graph
- */
-/*************************************************************************/
 #[metis_func]
+/// Setup the various arrays for the coarse graph
 pub extern "C" fn SetupCoarseGraph(
     graph: *mut graph_t,
     cnvtxs: idx_t,
@@ -1556,5 +1550,79 @@ pub extern "C" fn ReAdjustMemory(
             cgraph.nedges as usize,
             c"ReAdjustMemory: adjwgt".as_ptr(),
         ) as _;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder};
+
+    use super::*;
+
+    #[test]
+    fn ab_CoarsenGraph() {
+        ab_test_single_eq("CoarsenGraph:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "needs ometis"]
+    fn ab_CoarsenGraphNlevels() {
+        ab_test_single_eq("ab_CoarsenGraphNlevels:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_CreateCoarseGraph() {
+        ab_test_single_eq("CreateCoarseGraph:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_SetupCoarseGraph() {
+        ab_test_single_eq("SetupCoarseGraph:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_ReAdjustMemory() {
+        ab_test_single_eq("ReAdjustMemory:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
     }
 }

@@ -4,13 +4,16 @@ use fastrand::Rng;
 
 use crate::{
     dal::{DirectAccessList, DirectAccessMap},
+    util::make_csr,
     *,
 };
 
+#[derive(Clone)]
 pub struct GraphBuilder {
     op: Optype,
     nparts: usize,
     ncon: usize,
+    seed: idx_t,
     xadj: Vec<idx_t>,
     adjncy: Vec<idx_t>,
     adjwgt: Option<Vec<idx_t>>,
@@ -37,6 +40,7 @@ impl GraphBuilder {
             op,
             nparts,
             ncon,
+            seed: 4321,
             xadj: Vec::new(),
             adjncy: Vec::new(),
             adjwgt: None,
@@ -54,6 +58,7 @@ impl GraphBuilder {
             op,
             nparts,
             ncon: 1,
+            seed: 4321,
             xadj: Vec::new(),
             adjncy: Vec::new(),
             adjwgt: None,
@@ -142,7 +147,7 @@ impl GraphBuilder {
         &mut self.adjncy[istart..iend]
     }
 
-    fn insert_edge(&mut self, from_free: idx_t, free: &mut pqueue::IPQueue, vtx_pair: [idx_t; 2]) {
+    fn insert_edge(&mut self, from_free: idx_t, free: &mut pqueue::rs::IPQueue, vtx_pair: [idx_t; 2]) {
         let [from, to] = vtx_pair;
         debug_assert_ne!(from, to);
         eprint!("from {from} to {to} ");
@@ -165,10 +170,52 @@ impl GraphBuilder {
         }
     }
 
+    pub fn edge_list(&mut self, edges: impl IntoIterator<Item = (idx_t, idx_t)>) {
+        fn inner(this: &mut GraphBuilder, mut edges: Vec<(idx_t, idx_t)>) {
+            assert!(this.xadj.is_empty(), "already set edges");
+            edges.retain(|&(l, r)| l != r);
+            let part = edges.len();
+            edges.extend_from_within(..);
+            edges[part..].iter_mut().for_each(|e| *e = (e.1, e.0));
+            edges.sort_unstable();
+            edges.dedup();
+            edges.sort_unstable_by_key(|&(l, r)| (r, l));
+            edges.dedup();
+
+            let max = *edges
+                .iter()
+                .flat_map(|(l, r)| [l, r])
+                .max()
+                .expect("empty edge list") as usize;
+            let mut degress = vec![0; max + 1];
+            for &(l, r) in &edges {
+                degress[l as usize] += 1;
+                // degress[r as usize] += 1;
+            }
+            // TODO: this clone is unnecessary, and can be done by modifying xadj and reverting
+            let mut xadj = degress.clone();
+            xadj.push(idx_t::MIN);
+            make_csr(max as usize + 1, &mut xadj);
+            let mut adjncy = vec![0; xadj[max as usize + 1] as usize];
+            for &(l, r) in &edges {
+                // only need one side since we duplicate
+                let l_idx = (degress[l as usize] + xadj[l as usize]) as usize - 1;
+                // let r_idx = (degress[r as usize] + xadj[r as usize]) as usize - 1;
+                adjncy[l_idx] = r;
+                // adjncy[r_idx] = l;
+                degress[l as usize] -= 1;
+                // degress[r as usize] -= 1;
+            }
+            this.adjncy = adjncy;
+            this.xadj = xadj;
+        }
+        inner(self, edges.into_iter().collect())
+    }
+
     /// using vertex degrees specified by `with_vtx_degrees`, make random edges
     pub fn random_edges(&mut self) {
         let mut rng = fastrand::Rng::new();
-        let mut remaining_vtx = pqueue::IPQueue::new(self.nvtxs());
+        let mut remaining_vtx = pqueue::rs::IPQueue::new(self.nvtxs());
 
         for (i, deg) in util::from_csr_iter(&self.xadj).enumerate() {
             if deg > 0 {
@@ -260,13 +307,16 @@ impl GraphBuilder {
             .take()
             .unwrap_or(Vec::with_capacity(self.adjncy.len()));
         adjwgt.clear();
-        adjwgt.extend((0..self.adjncy.len()).map(|_| rng.u32(1..20) as idx_t));
+        adjwgt.extend((0..self.adjncy.len()).map(|_| rng.u32(1..50) as idx_t));
         for vtx in self.vtxs() {
             for (pos, &other) in self.adj(vtx as idx_t).iter().enumerate() {
                 self.adj(other)
                     .iter()
                     .position(|&v| v == vtx as idx_t)
-                    .map(|iadj| adjwgt[pos + self.xadj[iadj] as usize] = adjwgt[vtx]);
+                    .map(|iadj| {
+                        adjwgt[pos + self.xadj[vtx] as usize] =
+                            adjwgt[self.xadj[other as usize] as usize + iadj]
+                    });
             }
         }
         self.adjwgt = Some(adjwgt);
@@ -289,6 +339,10 @@ impl GraphBuilder {
         self.initial_part = iptype;
     }
 
+    pub fn set_seed(&mut self, seed: idx_t) {
+        self.seed = seed;
+    }
+
     pub fn set_from_options_arr(&mut self, options: &[idx_t; METIS_NOPTIONS as usize]) {
         macro_rules! match_setting {
             ($options:ident[$idx:ident] == $base:ident::{$($var:ident),* $(,)?}) => {
@@ -307,6 +361,7 @@ impl GraphBuilder {
                 }
             };
         }
+        self.seed = options[METIS_OPTION_SEED as usize];
         if let Some(iptype) =
             match_setting!(options[METIS_OPTION_IPTYPE] == Iptype::{Rb, Random, Grow, Edge, Node})
         {
@@ -331,6 +386,7 @@ impl GraphBuilder {
         options[METIS_OPTION_CTYPE as usize] = self.edge_match as i32;
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as i32;
         options[METIS_OPTION_ONDISK as usize] = 1;
+        options[METIS_OPTION_SEED as usize] = self.seed;
         let res = match self.op {
             Optype::Kmetis => unsafe {
                 kmetis::METIS_PartGraphKway(

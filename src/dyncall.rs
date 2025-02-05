@@ -381,17 +381,21 @@ impl<'a> Glob<'a> {
     }
 }
 
-/// runs the provided function twice. Once with no overrides and once with the overrides specified
-/// by the overrides argument
+/// runs the provided function twice. Once with the first overrides and once with the second overrides
 ///
 /// Will panic if the provided override isn't used
 #[cfg(test)]
-pub(crate) fn ab_test<F, T>(overrides: &str, mut f: F) -> (T, T)
+pub(crate) fn ab_test_multi<F, T>(overrides: (&str, &str), mut f: F) -> (T, T)
 where
     F: FnMut() -> T,
 {
+    let seed = 4321;
+    fastrand::seed(seed);
+    let key = crate::dyncall::set_local_overrides(overrides.0);
     let no_override = f();
-    let key = crate::dyncall::set_local_overrides(overrides);
+    drop(key);
+    let key = crate::dyncall::set_local_overrides(overrides.1);
+    fastrand::seed(seed);
     let with_overrides = f();
     drop(key);
     let last_resolve_epoch = ICall::last_resolve_epoch();
@@ -401,6 +405,72 @@ where
         "No dynamic overrides actually occurred in AB test!"
     );
     (no_override, with_overrides)
+}
+
+/// runs the provided function twice. Once with no overrides and once with the overrides specified
+/// by the overrides argument
+///
+/// Will panic if the provided override isn't used
+#[cfg(test)]
+pub(crate) fn ab_test_multi_eq<F, T>(overrides: (&str, &str), f: F)
+where
+    F: FnMut() -> T,
+    T: Eq + std::fmt::Debug,
+{
+    let (no_override, with_overrides) = ab_test_multi(overrides, f);
+    assert_eq!(no_override, with_overrides)
+}
+
+/// runs the provided function twice. Once with no overrides and once with the overrides specified
+/// by the overrides argument
+///
+/// Will panic if the provided override isn't used
+#[cfg(test)]
+pub(crate) fn ab_test<F, T>(overrides: &str, f: F) -> (T, T)
+where
+    F: FnMut() -> T,
+{
+    ab_test_multi(("", overrides), f)
+}
+
+/// runs the provided function three times. the second time with all C functions and the third with all C
+/// functions, with overrides added, returning the second and third runs. The first run is to
+/// ensure the override is used
+#[cfg(test)]
+pub(crate) fn ab_test_single<F, T>(overrides: &str, mut f: F) -> (T, T)
+where
+    F: FnMut() -> T,
+{
+    {
+        // make sure the override is used
+        fastrand::seed(0);
+        let key = crate::dyncall::set_local_overrides(overrides);
+        let _ = f();
+        drop(key);
+        let last_resolve_epoch = ICall::last_resolve_epoch();
+        let current_epoch = ICall::epoch();
+        assert_eq!(
+            last_resolve_epoch, current_epoch,
+            "No dynamic overrides actually occurred in AB test!"
+        );
+    }
+
+    let overrides = format!("*,{overrides}");
+    ab_test_multi((&"*", &overrides), f)
+}
+
+/// runs the provided function three times. the second time with all C functions and the third with all C
+/// functions, with overrides added. Asserts the results of the second and third are equal
+///
+/// Will panic if the provided override isn't used
+#[cfg(test)]
+pub(crate) fn ab_test_single_eq<F, T>(overrides: &str, f: F)
+where
+    F: FnMut() -> T,
+    T: Eq + std::fmt::Debug,
+{
+    let (no_override, with_overrides) = ab_test_single(overrides, f);
+    assert_eq!(no_override, with_overrides)
 }
 
 /// runs the provided function twice. Once with no overrides and once with the overrides specified

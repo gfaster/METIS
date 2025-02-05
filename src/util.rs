@@ -184,8 +184,9 @@ pub fn rscale(n: usize, alpha: real_t, mut x: &mut [real_t], incx: usize) -> &mu
 #[macro_export]
 macro_rules! inc_dec {
     ($a:expr, $b:expr, $val:expr) => {
-        $a += $val;
-        $b -= $val;
+        let val = $val;
+        $a += val;
+        $b -= val;
     };
 }
 

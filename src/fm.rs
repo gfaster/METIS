@@ -64,13 +64,13 @@ pub extern "C" fn FM_2WayCutRefine(
     };
 
     // let limit = gk_min(gk_max(0.01 * nvtxs, 15), 100);
-    let limit = (0.01 * nvtxs as f32).clamp(15.0, 100.0) as idx_t;
+    let limit = (0.01 * nvtxs as f64).clamp(15.0, 100.0) as idx_t;
     let avgvwgt = ((pwgts[0 as usize] + pwgts[1 as usize]) / 20)
         .min(2 * (pwgts[0 as usize] + pwgts[1 as usize]) / nvtxs as idx_t);
 
     // queues[0 as usize] = rpqCreate(nvtxs);
     // queues[1 as usize] = rpqCreate(nvtxs);
-    let mut queues: [_; 2] = std::array::from_fn(|_| IPQueue::new(nvtxs));
+    let mut queues: [_; 2] = std::array::from_fn(|_| RPQueue::new(nvtxs));
 
     ifset!(
         ctrl.dbglvl,
@@ -94,8 +94,8 @@ pub extern "C" fn FM_2WayCutRefine(
         // newcut = mincut = initcut = graph.mincut;
         let mut mindiff = (tpwgts[0 as usize] - pwgts[0 as usize]).abs();
 
-        assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
-        assert!(debug::CheckBnd(graph) != 0);
+        debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
+        debug_assert!(debug::CheckBnd(graph) != 0);
 
         /* Insert boundary nodes in the priority queues */
         let mut nbnd = graph.nbnd as usize;
@@ -111,7 +111,7 @@ pub extern "C" fn FM_2WayCutRefine(
             // );
             queues[where_[bndind[i as usize] as usize] as usize].insert(
                 bndind[i],
-                ed[bndind[i as usize] as usize] - id[bndind[i as usize] as usize],
+                (ed[bndind[i as usize] as usize] - id[bndind[i as usize] as usize]) as real_t,
             );
         }
 
@@ -216,7 +216,7 @@ pub extern "C" fn FM_2WayCutRefine(
                         if moved[k as usize] == -1 {
                             // rpqUpdate(queues[where_[k as usize] as usize], k, ed[k as usize] - id[k as usize]);
                             queues[where_[k as usize] as usize]
-                                .update(k as idx_t, ed[k as usize] - id[k as usize]);
+                                .update(k as idx_t, (ed[k as usize] - id[k as usize]) as real_t);
                         }
                     }
                 } else {
@@ -225,7 +225,7 @@ pub extern "C" fn FM_2WayCutRefine(
                         BNDInsert!(nbnd, bndind, bndptr, k);
                         if moved[k as usize] == -1 {
                             queues[where_[k as usize] as usize]
-                                .insert(k as idx_t, ed[k as usize] - id[k as usize]);
+                                .insert(k as idx_t, (ed[k as usize] - id[k as usize]) as real_t);
                         }
                     }
                 }
@@ -350,11 +350,12 @@ pub extern "C" fn FM_Mc2WayCutRefine(
     mkslice!(ctrl->pijbm, ctrl.nparts as usize * ncon);
 
     // let limit = gk_min(gk_max(0.01 * nvtxs, 25), 150);
-    let limit = (nvtxs / 100).clamp(25, 150);
+    // let limit = (nvtxs / 100).clamp(25, 150);
+    let limit = (nvtxs as f64 * 0.01).clamp(25.0, 150.0) as idx_t;
 
     /* Determine a fudge factor to allow the refinement routines to get out
     of tight balancing constraints. */
-    let ffactor = 0.5 / 20.0_f32.max(nvtxs as real_t);
+    let ffactor = (0.5 / 20.0_f64.max(nvtxs as f64)) as real_t;
 
     /* Initialize the queues */
     // queues = (rpq_t **)wspacemalloc(ctrl, 2*ncon*sizeof(rpq_t *));
@@ -738,5 +739,41 @@ pub extern "C" fn Print2WayRefineStats(
             mcutil::ComputeLoadImbalance(graph, 2, ctrl.pijbm),
             deltabal,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::dyncall::ab_test_single_eq;
+    use crate::graph_gen::GraphBuilder;
+
+    #[test]
+    fn ab_FM_Mc2WayCutRefine() {
+        ab_test_single_eq("FM_Mc2WayCutRefine:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_seed(4321);
+            g.random_adjwgt();
+            // g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_FM_2WayCutRefine() {
+        ab_test_single_eq("FM_2WayCutRefine:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.set_seed(4321);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_adjwgt();
+            // g.random_tpwgts();
+            g.call().unwrap()
+        });
     }
 }

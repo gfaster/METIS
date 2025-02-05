@@ -215,6 +215,7 @@ pub fn metis_decl(_input: TokenStream, annotated_item: TokenStream) -> TokenStre
             ext_signature.vis = syn::Visibility::Inherited;
             let extern_decl: TokenStream = quote::quote! {
                 extern "C" {
+                    #[allow(non_snake_case)]
                     #ext_signature
                 }
                 #[inline(always)]

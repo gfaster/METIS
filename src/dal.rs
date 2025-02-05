@@ -168,8 +168,8 @@ impl DirectAccessList {
     }
 }
 
-impl From<pqueue::IPQueue> for DirectAccessList {
-    fn from(value: pqueue::IPQueue) -> Self {
+impl From<pqueue::rs::IPQueue> for DirectAccessList {
+    fn from(value: pqueue::rs::IPQueue) -> Self {
         value.to_dal()
     }
 }
