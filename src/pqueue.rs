@@ -1,3 +1,9 @@
+//! Priority queues with update functionality
+//!
+//! This module has two submodules which contain the C and Rust implementations of the queue. The
+//! implementations cannot be hotswapped at runtime (because of extensions in the Rust version that
+//! don't exist in the C version), but we can easily choose which version we use. It's also worth
+//! noting that `fm.c` will always choose the C version.
 #![allow(dead_code)]
 /*
 \file  gk_mkpqueue.h
@@ -9,8 +15,8 @@
 */
 
 
-// pub use rs::*;
-pub use c::*;
+pub use rs::*;
+// pub use c::*;
 
 pub mod c {
     #![allow(non_snake_case)]
@@ -364,7 +370,7 @@ pub mod rs {
             self.heap.push(Node { key, val: index });
             while i > 0 {
                 let j = (i - 1) >> 1;
-                if key < self.heap[j].key {
+                if key > self.heap[j].key {
                     self.heap[i] = self.heap[j];
                     self.locator[self.heap[i].idx()] = i as idx_t;
                     i = j;
@@ -394,11 +400,11 @@ pub mod rs {
                     let newkey = end.key;
                     let oldkey = self.heap[i.idx()].key;
 
-                    if newkey < oldkey {
+                    if newkey > oldkey {
                         /* Filter-up */
                         while i > 0 {
                             let j = (i - 1) >> 1;
-                            if newkey < self.heap[j.idx()].key {
+                            if newkey > self.heap[j.idx()].key {
                                 self.heap[i.idx()] = self.heap[j.idx()];
                                 self.locator[self.heap[i.idx()].idx()] = i;
                                 i = j;
@@ -414,14 +420,14 @@ pub mod rs {
                             if j >= nnodes {
                                 break;
                             }
-                            if self.heap[j].key < newkey {
-                                if j + 1 < nnodes && self.heap[j + 1].key < self.heap[j].key {
+                            if self.heap[j].key > newkey {
+                                if j + 1 < nnodes && self.heap[j + 1].key > self.heap[j].key {
                                     j += 1;
                                 }
                                 self.heap[i.idx()] = self.heap[j];
                                 self.locator[self.heap[i.idx()].idx()] = i;
                                 i = j as idx_t;
-                            } else if j + 1 < nnodes && self.heap[j + 1].key < newkey {
+                            } else if j + 1 < nnodes && self.heap[j + 1].key > newkey {
                                 j += 1;
                                 self.heap[i.idx()] = self.heap[j];
                                 self.locator[self.heap[i.idx()].idx()] = i;
@@ -444,7 +450,7 @@ pub mod rs {
         /// This function updates the key values associated for a particular item
         pub fn update(&mut self, node: I, newkey: K) {
             let oldkey = self.heap[self.locator[node.idx()].idx()].key;
-            if (newkey >= oldkey) && (oldkey >= newkey) {
+            if newkey == oldkey {
                 return;
             }
 
@@ -453,11 +459,11 @@ pub mod rs {
 
             let mut i = self.locator[node.idx()];
 
-            if newkey < oldkey {
+            if newkey > oldkey {
                 /* Filter-up */
                 while i > 0 {
                     let j = (i.idx() - 1) >> 1;
-                    if newkey < self.heap[j].key {
+                    if newkey > self.heap[j].key {
                         self.heap[i.idx()] = self.heap[j];
                         self.locator[self.heap[i.idx()].idx()] = i;
                         i = j as idx_t;
@@ -473,14 +479,14 @@ pub mod rs {
                     if j >= nnodes {
                         break;
                     }
-                    if self.heap[j].key < newkey {
-                        if j + 1 < nnodes && self.heap[j + 1].key < self.heap[j].key {
+                    if self.heap[j].key > newkey {
+                        if j + 1 < nnodes && self.heap[j + 1].key > self.heap[j].key {
                             j += 1;
                         }
                         self.heap[i.idx()] = self.heap[j];
                         self.locator[self.heap[i.idx()].idx()] = i;
                         i = j as idx_t;
-                    } else if j + 1 < nnodes && self.heap[j + 1].key < newkey {
+                    } else if j + 1 < nnodes && self.heap[j + 1].key > newkey {
                         j += 1;
                         self.heap[i.idx()] = self.heap[j];
                         self.locator[self.heap[i.idx()].idx()] = i;
@@ -525,14 +531,14 @@ pub mod rs {
                 if j >= self.length() {
                     break;
                 }
-                if self.heap[j].key < key {
-                    if j + 1 < self.length() && self.heap[j + 1].key < self.heap[j].key {
+                if self.heap[j].key > key {
+                    if j + 1 < self.length() && self.heap[j + 1].key > self.heap[j].key {
                         j += 1;
                     }
                     self.heap[i] = self.heap[j];
                     self.locator[self.heap[i].val.idx()] = i as idx_t;
                     i = j;
-                } else if j + 1 < self.length() && self.heap[j + 1].key < key {
+                } else if j + 1 < self.length() && self.heap[j + 1].key > key {
                     j += 1;
                     self.heap[i] = self.heap[j];
                     self.locator[self.heap[i].val.idx()] = i as idx_t;
@@ -593,7 +599,7 @@ pub mod rs {
             assert!(locator[heap[0].idx()] == 0);
             for i in 1..nnodes {
                 assert!(locator[heap[i].idx()] == i as idx_t);
-                assert!(heap[i].key >= heap[(i - 1) / 2].key);
+                assert!(heap[i].key <= heap[(i - 1) / 2].key);
             }
 
             assert_eq!(locator.iter().filter(|&&i| i != -1).count(), nnodes);
@@ -752,7 +758,7 @@ pub mod rs {
                 for x in 0..10 {
                     heap.insert(x, x);
                 }
-                let mut it = 0..10;
+                let mut it = (0..10).rev();
                 while let Some(k) = heap.pop() {
                     assert_eq!(Some(k), it.next());
                 }
@@ -771,7 +777,7 @@ pub mod rs {
                 for x in 0..100 {
                     let k = items[x as usize];
                     heap.insert(x, k);
-                    truth.push((Reverse(k), k)); // std::heap is max-heap
+                    truth.push((k, k)); // std::heap is max-heap
                 }
 
                 for _ in 0..80 {
@@ -802,7 +808,7 @@ pub mod rs {
                 for x in 35..100 {
                     let k = items[x as usize];
                     heap.insert(x, k);
-                    truth.push((Reverse(k), k));
+                    truth.push((k, k));
                 }
                 for x in 0..35 {
                     heap.delete(x);
@@ -823,7 +829,9 @@ pub mod rs {
             #[test]
             fn update_entries() {
                 let mut queue = IndexedPriorityQueue::new(10);
-                let v = vec![0, 3, 2, 1, 5, 9, 7, 6, 4, 8];
+                let mut v = vec![0, 3, 2, 1, 5, 9, 7, 6, 4, 8];
+                v.reverse();
+
                 for i in 0..10 {
                     queue.insert(i, v[i as usize]);
                 }
@@ -843,7 +851,8 @@ pub mod rs {
             #[test]
             fn delete_indices() {
                 let mut queue = IndexedPriorityQueue::new(10);
-                let v = vec![0, 3, 2, 1, 5, 9, 7, 6, 4, 8];
+                let mut v = vec![0, 3, 2, 1, 5, 9, 7, 6, 4, 8];
+                v.reverse();
                 let step = 3;
                 for i in 0..10 {
                     queue.insert(i, v[i as usize]);
@@ -895,7 +904,7 @@ mod tests {
     }
 
     #[test]
-    fn random_order() {
+    fn ab_random_order() {
         let mut rq = rs::IPQueue::new(10);
         let mut cq = c::IPQueue::new(10);
         let v = vec![0, 3, 2, 1, 5, 9, 7, 6, 4, 8];
