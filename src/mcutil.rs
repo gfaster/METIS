@@ -493,4 +493,18 @@ mod tests {
             g.call().unwrap()
         });
     }
+
+    // #[test]
+    // fn ab_ComputeLoadImbalanceDiffVec_contig_regression() {
+    //     ab_test_single_eq("ComputeLoadImbalanceDiffVec:rs", || {
+    //         let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
+    //         g.set_seed(18231);
+    //         g.edge_list(
+    //             std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+    //         );
+    //         g.set_contig(true);
+    //         g.random_adjwgt();
+    //         g.call().unwrap()
+    //     });
+    // }
 }

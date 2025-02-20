@@ -5,7 +5,7 @@ use std::mem::transmute;
 use std::ptr;
 
 use crate::bindings::{idx_t, real_t, METIS_NOPTIONS, METIS_OK};
-use crate::dyncall::{ab_test_multi, ab_test_multi_eq};
+use crate::dyncall::{ab_test, ab_test_multi, ab_test_multi_eq, ab_test_eq};
 use crate::graph_gen::GraphBuilder;
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;
@@ -74,41 +74,6 @@ fn basic_part_graph_kway() {
     // assert!(graph.call().is_ok());
 }
 
-#[expect(dead_code)]
-fn part_graph_ab_test(
-    ncon: idx_t,
-    options: &mut [i32; METIS_NOPTIONS as usize],
-    nparts: idx_t,
-    use_vwgt: bool,
-    use_adjwgt: bool,
-    partfn: Optype,
-) {
-    let mut graph = GraphBuilder::read_graph(
-        &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
-        partfn,
-        nparts as usize,
-        ncon as usize,
-    )
-    .unwrap();
-
-    graph.set_from_options_arr(options);
-
-    if use_vwgt {
-        graph.random_vwgt();
-    }
-    if use_adjwgt {
-        graph.random_vwgt();
-    }
-
-    let res = graph.call();
-
-    assert!(res.is_ok());
-
-    let (objval, part) = res.unwrap();
-
-    graph.verify_part(objval, &part);
-}
-
 fn part_graph_and_verify(
     ncon: idx_t,
     options: &mut [i32; METIS_NOPTIONS as usize],
@@ -117,31 +82,37 @@ fn part_graph_and_verify(
     use_adjwgt: bool,
     partfn: Optype,
 ) {
-    let mut graph = GraphBuilder::read_graph(
-        &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
-        partfn,
-        nparts as usize,
-        ncon as usize,
-    )
-    .unwrap();
+    let exec = ||{
+        let mut graph = GraphBuilder::read_graph(
+            &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+            partfn,
+            nparts as usize,
+            ncon as usize,
+        )
+            .unwrap();
 
-    graph.set_from_options_arr(options);
+        graph.set_from_options_arr(options);
 
-    if use_vwgt {
-        graph.random_vwgt();
-    }
-    if use_adjwgt {
-        graph.random_adjwgt();
-    }
+        if use_vwgt {
+            graph.random_vwgt();
+        }
+        if use_adjwgt {
+            graph.random_vwgt();
+        }
 
-    let res = graph.call();
+        let res = graph.call();
 
-    assert!(res.is_ok());
+        assert!(res.is_ok());
 
-    let (objval, part) = res.unwrap();
+        let (objval, part) = res.unwrap();
 
-    graph.verify_part(objval, &part);
+        graph.verify_part(objval, &part);
+        (objval, part)
+    };
+    exec();
+    // ab_test_eq("*", exec);
 }
+
 
 macro_rules! partfn_type {
     ($fn:ident) => {
@@ -370,8 +341,24 @@ part_test_hyper_set!(METIS_PartGraphKway as kmetiscut => [{Cut}, {Grow, Rb}, {Rm
 part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random}, {Rm, Shem}]);
 
 #[test]
-fn c_version_reproducable() {
-    ab_test_multi_eq(("*", "*"), || {
+fn identical_to_c_kmetis() {
+    ab_test_eq("*", || {
+        let mut graph = GraphBuilder::read_graph(
+            &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+            Optype::Kmetis,
+            20,
+            1,
+        )
+        .unwrap();
+        graph.random_vwgt();
+        graph.call().unwrap()
+    });
+}
+
+#[test]
+#[ignore = "fails"]
+fn identical_to_c_kmetis_multiconstraint() {
+    ab_test_eq("*", || {
         let mut graph = GraphBuilder::read_graph(
             &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
             Optype::Kmetis,

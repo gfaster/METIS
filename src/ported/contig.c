@@ -654,7 +654,7 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
               break;
           }
           if (l == orinfo->nnbrs) 
-            xgain -= vsize[ii];
+            xgain -= vsize[ii]; // GAVIN: this should maybe be +?
         }
         else {
           /* Remote vertex: increase if 'to' is a new subdomain */
@@ -663,7 +663,7 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
               break;
           }
           if (l == orinfo->nnbrs) 
-            xgain -= vsize[ii];
+            xgain -= vsize[ii]; // GAVIN: should this be +?
 
           /* Remote vertex: decrease if i is the only connection to 'from' */
           for (l=0; l<orinfo->nnbrs; l++) {
@@ -695,7 +695,8 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }
 
-  ASSERT(ComputeCut(graph, where) == graph->mincut);
+  ASSERTP(ComputeCut(graph, where) == graph->mincut,
+      ("%"PRIDX" %"PRIDX"\n", ComputeCut(graph, where), graph->mincut));
   ASSERTP(ComputeVolume(graph, where) == graph->minvol,
       ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
 

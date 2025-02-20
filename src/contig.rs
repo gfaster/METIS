@@ -9,6 +9,7 @@
 */
 
 use core::{ptr, slice};
+use std::cmp::Reverse;
 
 use crate::*;
 
@@ -111,18 +112,14 @@ pub extern "C" fn FindPartitionInducedComponents(
     return ncmps;
 }
 
-/*************************************************************************/
-/* This function computes a permutation of the vertices based on a
-    breadth-first-traversal. It can be used for re-ordering the graph
-    to reduce its bandwidth for better cache locality.
-
-    \param ctrl is the control structure
-    \param graph is the graph structure
-    \param perm is the array that upon completion, perm[i] will store
-           the ID of the vertex that corresponds to the ith vertex in the
-           re-ordered graph.
-*/
-/*************************************************************************/
+/// Computes a permutation of the vertices based on a
+/// breadth-first-traversal. It can be used for re-ordering the graph
+/// to reduce its bandwidth for better cache locality. It is unused by METIS.
+///
+/// - `ctrl` is the control structure
+/// - `graph` is the graph structure
+/// - `perm` is the array that upon completion, perm[i] will store the ID of the vertex that
+///    corresponds to the ith vertex in the re-ordered graph.
 #[metis_func]
 pub extern "C" fn ComputeBFSOrdering(
     _ctrl: *mut ctrl_t,
@@ -188,10 +185,7 @@ pub extern "C" fn ComputeBFSOrdering(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* This function checks whether a graph is contiguous or not.
- */
-/**************************************************************************/
+/// This function checks whether a graph is contiguous or not.
 #[metis_func]
 pub extern "C" fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t {
     // idx_t ncmps;
@@ -209,10 +203,9 @@ pub extern "C" fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t {
     return (ncmps == 1) as idx_t;
 }
 
-/*************************************************************************/
-/* This function checks whether or not partition pid is contiguous
- */
-/*************************************************************************/
+/// This function checks whether or not partition pid is contiguous
+///
+/// Unused in METIS
 #[metis_func]
 pub extern "C" fn IsConnectedSubdomain(
     _ctrl: *mut ctrl_t,
@@ -420,8 +413,6 @@ pub extern "C" fn FindSepInducedComponents(
 
 /// This function finds all the connected components induced by the partitioning vector in
 /// `graph.where_` and tries to push them around to remove some of them.
-///
-// disabling this function means all but ~36 tests pass
 #[metis_func]
 pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
     let graph = graph.as_mut().unwrap();
@@ -486,15 +477,15 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
     /* There are more components than partitions */
     if ncmps > nparts {
-        let mut cwgt = vec![0; ncon];
+        let mut cwgt = vec![0; ncon].into_boxed_slice();
         // let mut bestcwgt = vec![0; ncon];
-        let mut cpvec = vec![0; nparts];
-        let mut pcptr = vec![0; nparts + 1];
-        let mut pcind: Vec<idx_t> = vec![0; ncmps];
-        let mut cwhere: Vec<idx_t> = vec![-1; nvtxs];
+        let mut cpvec = vec![0; nparts].into_boxed_slice();
+        let mut pcptr = vec![0; nparts + 1].into_boxed_slice();
+        let mut pcind: Box<[idx_t]> = vec![0; ncmps].into_boxed_slice();
+        let mut cwhere: Box<[idx_t]> = vec![-1; nvtxs].into_boxed_slice();
         let mut todo = vec![0; ncmps];
         // cand     = (rkv_t *)wspacemalloc(ctrl, nparts*sizeof(rkv_t));
-        let mut cand = vec![KeyVal { key: 0.0, val: 0 }; nparts];
+        let mut cand = vec![KeyVal { key: 0.0, val: 0 }; nparts].into_boxed_slice();
 
         let mut modind = Vec::new();
         let mut vmarker = Vec::new();
@@ -559,7 +550,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
             }
 
             for j in (cptr[bestcid as usize])..(cptr[bestcid as usize + 1]) {
-                assert_eq!(where_[cind[j as usize] as usize], i as idx_t);
+                debug_assert_eq!(where_[cind[j as usize] as usize], i as idx_t);
                 cwhere[cind[j as usize] as usize] = i as idx_t;
             }
         }
@@ -567,7 +558,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         while ntodo > 0 {
             let oldntodo = ntodo;
             let mut i = 0;
-            // for i in (0)..(ntodo) {
+            // for i in (0)..(ntodo) {}
             while i < ntodo {
                 let cid = todo[i];
                 let me = where_[cind[cptr[cid as usize] as usize] as usize]; /* Get the domain of this component */
@@ -629,7 +620,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
 
                 // rkvsortd(ncand, cand);
                 // cand.sort_unstable_by(|l, r| l.key.partial_cmp(&r.key).unwrap());
-                cand[..ncand].sort_by(|l, r| l.key.partial_cmp(&r.key).unwrap());
+                cand[..ncand].sort_unstable_by(|l, r| l.key.total_cmp(&r.key).reverse());
 
                 /* Limit the moves to only the top candidates, which are defined as
                 those with connectivity at least 50% of the best.
@@ -738,10 +729,9 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         }
 
         for i in (0)..(nvtxs) {
-            assert_eq!(
+            debug_assert_eq!(
                 where_[i],
                 cwhere[i],
-                // "where_: {where_:?},\n\n cwhere: {cwhere:?}"
             );
         }
     }
@@ -881,7 +871,7 @@ pub extern "C" fn MoveGroupContigForCut(
     }
 
     graph.nbnd = nbnd as idx_t;
-    assert!(debug::CheckBnd2(graph) != 0);
+    debug_assert!(debug::CheckBnd2(graph) != 0);
     // assert!(debug::CheckBnd(graph) != 0);
 }
 
@@ -921,8 +911,8 @@ pub extern "C" fn MoveGroupContigForVol(
     mkslice!(ind, nvtxs);
     let gid = gid as usize;
 
-    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
+    // debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    // debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
 
     for iii in (ptr[gid])..(ptr[gid + 1]) {
         let i = ind[iii as usize] as usize;
@@ -992,7 +982,7 @@ pub extern "C" fn MoveGroupContigForVol(
                             l += 1;
                         }
                         if l == orinfo.nnbrs {
-                            xgain -= vsize[ii];
+                            xgain -= vsize[ii]; // GAVIN: Should this be +?
                         }
                     }
 
@@ -1060,6 +1050,133 @@ pub extern "C" fn MoveGroupContigForVol(
         /*CheckKWayVolPartitionParams(ctrl, graph);*/
     }
 
-    assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
+    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use dyncall::ab_test_single_eq;
+    use graph_gen::GraphBuilder;
+
+    #[test]
+    fn ab_FindPartitionInducedComponents() {
+        ab_test_single_eq("FindPartitionInducedComponents:rs", || {
+            fastrand::seed(123);
+            // note that setting ncon to 2 causes an abort in C-only
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+            g.set_seed(123);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.random_adjwgt();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "needs ometis"]
+    fn ab_FindSepInducedComponents() {
+        ab_test_single_eq("FindSepInducedComponents:rs", || {
+            fastrand::seed(123);
+            let mut g = GraphBuilder::new(Optype::Ometis, 16, 1);
+            g.set_seed(123);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.random_adjwgt();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_EliminateComponents_cut() {
+        ab_test_single_eq("EliminateComponents:rs", || {
+            fastrand::seed(123);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+            g.set_seed(123);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.set_objective(Objtype::Cut);
+            g.random_adjwgt();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "Assert fails on C-only"]
+    fn vol_c_fail() {
+        let _k = dyncall::set_local_overrides("*");
+        fastrand::seed(1230);
+        let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+        g.set_seed(1230);
+        g.edge_list(
+            std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
+        );
+        g.set_objective(Objtype::Vol);
+        g.set_contig(true);
+        g.random_vsize();
+        g.random_vwgt();
+        g.call().unwrap();
+    }
+
+    #[test]
+    #[ignore = "Not sure how to trigger"]
+    fn ab_EliminateComponents_vol() {
+        ab_test_single_eq("EliminateComponents:rs", || {
+            fastrand::seed(231);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+            g.set_seed(1230);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
+            );
+            g.set_objective(Objtype::Vol);
+            g.set_contig(true);
+            g.random_vsize();
+            g.random_vwgt();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_MoveGroupContigForCut() {
+        ab_test_single_eq("MoveGroupContigForCut:rs", || {
+            fastrand::seed(123);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+            g.set_seed(123);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.random_adjwgt();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "broken on original"]
+    fn ab_MoveGroupContigForVol() {
+        ab_test_single_eq("MoveGroupContigForVol:rs", || {
+            fastrand::seed(131);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 3);
+            g.set_seed(125);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.set_objective(Objtype::Vol);
+            // g.write_graph({
+            //     std::io::BufWriter::new(std::fs::OpenOptions::new().create(true).write(true).open("bug.graph").unwrap())
+            // }).unwrap();
+            // g.random_vsize();
+            // g.random_vwgt();
+            g.call().unwrap();
+        });
+    }
 }

@@ -840,3 +840,26 @@ pub extern "C" fn IsBalanced(
     (mcutil::ComputeLoadImbalanceDiff(graph, (*ctrl).nparts, (*ctrl).pijbm, (*ctrl).ubfactors)
         <= ffactor) as _
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use dyncall::ab_test_single_eq;
+    use graph_gen::GraphBuilder;
+
+    #[test]
+    #[ignore = "aborts"]
+    fn kwayrefine_contig_abort() {
+        fastrand::seed(123);
+        // note that setting ncon to 2 causes an abort even in C-only
+        let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
+        g.set_seed(123);
+        g.edge_list(
+            std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(2300),
+        );
+        g.set_contig(true);
+        g.random_adjwgt();
+        g.call().unwrap();
+    }
+}

@@ -503,8 +503,9 @@ pub extern "C" fn McGeneral2WayBalance(
     }
 
     let mut nswaps: idx_t = 0;
-    for nswaps_ in 0..(nvtxs) {
-        nswaps = nswaps_ as idx_t;
+    // for nswaps_ in 0..(nvtxs) {}
+        // nswaps = nswaps_ as idx_t;
+    while nswaps < nvtxs as idx_t {
         if minbal <= 0.0 {
             break;
         }
@@ -517,7 +518,7 @@ pub extern "C" fn McGeneral2WayBalance(
         );
         let to = (from + 1) % 2;
 
-        // if (from == -1 || (higain = rpqGetTop(queues[(2 * cnum + from) as usize])) == -1) {
+        // if (from == -1 || (higain = rpqGetTop(queues[(2 * cnum + from) as usize])) == -1) {}
         let higain = queues[(2 * cnum + from) as usize].pop();
         if from == -1 || higain.is_none() {
             break;
@@ -643,6 +644,8 @@ pub extern "C" fn McGeneral2WayBalance(
                 BNDInsert!(nbnd, bndind, bndptr, k);
             }
         }
+
+        nswaps += 1;
     }
 
     /****************************************************************
@@ -727,4 +730,71 @@ pub extern "C" fn McGeneral2WayBalance(
     // }
 
     // WCOREPOP;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use dyncall::ab_test_single_eq;
+    use graph_gen::GraphBuilder;
+
+    #[test]
+    fn ab_Balance2Way() {
+        ab_test_single_eq("Balance2Way:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.set_seed(18231);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "I don't know call conditions"]
+    fn ab_Bnd2WayBalance() {
+        ab_test_single_eq("Bnd2WayBalance:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 5, 1);
+            g.set_seed(18231);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(23),
+            );
+            // g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_McGeneral2WayBalance() {
+        ab_test_single_eq("McGeneral2WayBalance:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 5, 2);
+            g.set_seed(1234);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    #[ignore = "broken on original"]
+    fn ab_McGeneral2WayBalance_contig_regression() {
+        ab_test_single_eq("McGeneral2WayBalance:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
+            g.set_seed(18231);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.set_contig(true);
+            g.random_adjwgt();
+            g.call().unwrap()
+        });
+    }
+
 }

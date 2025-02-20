@@ -206,6 +206,9 @@ pub struct OverrideKey {
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub fn set_local_overrides(overrides: &str) -> OverrideKey {
+    if cfg!(test) {
+        println!("\nsetting overrides: `{overrides}`")
+    }
     LOCAL_OVERRIDES.with(|l| *l.borrow_mut() = Overrides::init_with(overrides));
     let Some(x) = LOCAL_EPOCH.get().checked_add(1) else {
         panic!("Local epoch overflowed")
@@ -400,8 +403,8 @@ where
     drop(key);
     let last_resolve_epoch = ICall::last_resolve_epoch();
     let current_epoch = ICall::epoch();
-    assert_eq!(
-        last_resolve_epoch, current_epoch,
+    assert!(
+        last_resolve_epoch == current_epoch,
         "No dynamic overrides actually occurred in AB test!"
     );
     (no_override, with_overrides)
@@ -412,6 +415,7 @@ where
 ///
 /// Will panic if the provided override isn't used
 #[cfg(test)]
+#[expect(unused)]
 pub(crate) fn ab_test_multi_eq<F, T>(overrides: (&str, &str), f: F)
 where
     F: FnMut() -> T,
@@ -441,22 +445,23 @@ pub(crate) fn ab_test_single<F, T>(overrides: &str, mut f: F) -> (T, T)
 where
     F: FnMut() -> T,
 {
+    let exc_overrides = format!("*,{overrides}");
+    let ret = ab_test_multi(("*", &exc_overrides), &mut f);
+
     {
-        // make sure the override is used
+        // make sure the override is used - comes after to assist in debugging crashes
         fastrand::seed(0);
         let key = crate::dyncall::set_local_overrides(overrides);
         let _ = f();
         drop(key);
         let last_resolve_epoch = ICall::last_resolve_epoch();
         let current_epoch = ICall::epoch();
-        assert_eq!(
-            last_resolve_epoch, current_epoch,
+        assert!(
+            last_resolve_epoch == current_epoch,
             "No dynamic overrides actually occurred in AB test!"
         );
     }
-
-    let overrides = format!("*,{overrides}");
-    ab_test_multi((&"*", &overrides), f)
+    ret
 }
 
 /// runs the provided function three times. the second time with all C functions and the third with all C

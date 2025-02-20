@@ -1,4 +1,4 @@
-use std::{error::Error, io::BufRead, ops::Range};
+use std::{error::Error, io::{self, BufRead}, ops::Range};
 
 use fastrand::Rng;
 
@@ -13,6 +13,8 @@ pub struct GraphBuilder {
     op: Optype,
     nparts: usize,
     ncon: usize,
+    contig: bool,
+    objective: Objtype,
     seed: idx_t,
     xadj: Vec<idx_t>,
     adjncy: Vec<idx_t>,
@@ -50,26 +52,13 @@ impl GraphBuilder {
             tpwgts: None,
             edge_match: Ctype::Shem,
             refine_type: (op == Optype::Pmetis).then_some(Rtype::Fm),
-            initial_part: Iptype::Rb,
+            initial_part: if op == Optype::Kmetis { Iptype::Rb } else { Iptype::Grow },
+            contig: false,
+            objective: Objtype::Cut,
         }
     }
     pub fn new_basic(op: Optype, nparts: usize) -> Self {
-        Self {
-            op,
-            nparts,
-            ncon: 1,
-            seed: 4321,
-            xadj: Vec::new(),
-            adjncy: Vec::new(),
-            adjwgt: None,
-            vsize: None,
-            vwgt: None,
-            ubvec: None,
-            tpwgts: None,
-            edge_match: Ctype::Shem,
-            refine_type: (op == Optype::Pmetis).then_some(Rtype::Fm),
-            initial_part: Iptype::Rb,
-        }
+        Self::new(op, nparts, 1)
     }
 
     /// validates degrees, returning a list of (Something about necessary edges)
@@ -150,13 +139,13 @@ impl GraphBuilder {
     fn insert_edge(&mut self, from_free: idx_t, free: &mut pqueue::rs::IPQueue, vtx_pair: [idx_t; 2]) {
         let [from, to] = vtx_pair;
         debug_assert_ne!(from, to);
-        eprint!("from {from} to {to} ");
+        // eprint!("from {from} to {to} ");
         debug_assert!(from_free > 0);
         let from_off = self.adj(from).len() as idx_t - from_free;
         debug_assert!(from_off >= 0, "{from_off} < 0");
         let from_base = self.xadj[from as usize];
         let to_free = free.get(to);
-        eprintln!("({from_free} free to {to_free} free)");
+        // eprintln!("({from_free} free to {to_free} free)");
         debug_assert!(to_free > 0);
         let to_off = self.adj(to).len() as idx_t - to_free;
         debug_assert!(to_off >= 0, "{to_off} < 0");
@@ -322,6 +311,17 @@ impl GraphBuilder {
         self.adjwgt = Some(adjwgt);
     }
 
+    pub fn set_contig(&mut self, contig: bool) {
+        if contig {
+            assert!(self.op == Optype::Kmetis, "Can only be specify contig for kmetis");
+        }
+        self.contig = contig;
+    }
+
+    pub fn set_objective(&mut self, objective: Objtype) {
+        self.objective = objective;
+    }
+
     pub fn set_refine_type(&mut self, rtype: Rtype) {
         assert_eq!(
             self.op,
@@ -383,6 +383,8 @@ impl GraphBuilder {
         let mut part = vec![0; self.nvtxs()];
         let mut objval = 0;
         let mut options = [-1; METIS_NOPTIONS as usize];
+        options[METIS_OPTION_OBJTYPE as usize] = self.objective as i32;
+        options[METIS_OPTION_CONTIG as usize] = self.contig as i32;
         options[METIS_OPTION_CTYPE as usize] = self.edge_match as i32;
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as i32;
         options[METIS_OPTION_ONDISK as usize] = 1;
@@ -390,18 +392,18 @@ impl GraphBuilder {
         let res = match self.op {
             Optype::Kmetis => unsafe {
                 kmetis::METIS_PartGraphKway(
-                    &mut nvtxs as *mut idx_t,
-                    &mut ncon as *mut idx_t,
+                    &mut nvtxs,
+                    &mut ncon,
                     self.xadj.as_mut_ptr(),
                     self.adjncy.as_mut_ptr(),
                     vec_ptr(&mut self.vwgt),
                     vec_ptr(&mut self.vsize),
                     vec_ptr(&mut self.adjwgt),
-                    &mut nparts as *mut idx_t,
+                    &mut nparts,
                     vec_ptr(&mut self.tpwgts),
                     vec_ptr(&mut self.ubvec),
                     options.as_mut_ptr(),
-                    &mut objval as *mut idx_t,
+                    &mut objval,
                     part.as_mut_ptr(),
                 )
             },
@@ -412,18 +414,18 @@ impl GraphBuilder {
                 }
                 unsafe {
                     pmetis::METIS_PartGraphRecursive(
-                        &mut nvtxs as *mut idx_t,
-                        &mut ncon as *mut idx_t,
+                        &mut nvtxs,
+                        &mut ncon,
                         self.xadj.as_mut_ptr(),
                         self.adjncy.as_mut_ptr(),
                         vec_ptr(&mut self.vwgt),
                         vec_ptr(&mut self.vsize),
                         vec_ptr(&mut self.adjwgt),
-                        &mut nparts as *mut idx_t,
+                        &mut nparts,
                         vec_ptr(&mut self.tpwgts),
                         vec_ptr(&mut self.ubvec),
                         options.as_mut_ptr(),
-                        &mut objval as *mut idx_t,
+                        &mut objval,
                         part.as_mut_ptr(),
                     )
                 }
@@ -436,9 +438,86 @@ impl GraphBuilder {
         }
     }
 
+    pub fn write_graph<W: io::Write>(&self, mut w: W) -> io::Result<()> {
+        // command line invocation
+        {
+            writeln!(w, "% partition with this command:")?;
+            let ptype = match self.op {
+                Optype::Kmetis => "-ptype=kway",
+                Optype::Ometis => todo!(),
+                Optype::Pmetis => "-ptype=rb",
+            };
+            write!(w, "% gpmetis {ptype}")?;
+
+            let ctype = match self.edge_match {
+                Ctype::Rm => "-ctype=rm",
+                Ctype::Shem => "-ctype=shem",
+            };
+            write!(w, " {ctype}")?;
+
+            if self.op == Optype::Pmetis {
+                let iptype = match self.initial_part {
+                    Iptype::Grow => "-iptype=grow",
+                    Iptype::Random => "-iptype=random",
+                    Iptype::Edge |
+                    Iptype::Node |
+                    Iptype::Rb => todo!(),
+                };
+                write!(w, " {iptype}")?;
+            }
+            if self.op == Optype::Kmetis {
+                let objtype = match self.objective {
+                    Objtype::Cut => "-objtype=cut",
+                    Objtype::Vol => "-objtype=vol",
+                    Objtype::Node => todo!(),
+                };
+                write!(w, " {objtype}")?;
+            }
+            if self.contig {
+                write!(w, " -contig")?;
+            }
+            if let Some(ubvec) = self.ubvec.as_deref() {
+                write!(w, r#"-ubvec="{:.4}""#, space_sep(ubvec))?;
+            }
+            write!(w, " -seed={}", self.seed)?;
+            writeln!(w, " GRAPH_FILE {}", self.nparts)?;
+        }
+
+        // header line
+        let has_adjwgt = self.adjwgt.is_some();
+        let has_vwgt = self.vwgt.is_some() || self.ncon > 1;
+        let has_vsize = self.vsize.is_some();
+        let fmt = [has_vsize, has_vwgt, has_adjwgt].map(|b| b as u8 + b'0');
+        writeln!(w, "{nvtxs} {nedges} {fmt} {ncon}", 
+            nvtxs = self.nvtxs(),
+            nedges = self.adjncy.len() / 2,
+            fmt = std::str::from_utf8(&fmt).unwrap(),
+            ncon = self.ncon
+        )?;
+
+        // main graph structure
+        for vtx in self.vtxs() {
+            // FORMAT: size? wgt{ncon} (edge, edgewgt?)* 
+            let params = (self.vsize().map(|vs| vs[vtx]).into_iter())
+            .chain({
+                    self.vwgt.iter().flat_map(|vwgt| &vwgt[(vtx * self.ncon)..((vtx + 1) * self.ncon)]).copied()
+                        .chain(std::iter::repeat(1))
+                        .take(self.ncon)
+                })
+                .chain({
+                    let range = (self.xadj[vtx] as usize)..(self.xadj[vtx + 1] as usize);
+                    let edges = self.adjncy[range.clone()].iter().copied().map(|x| Some(x + 1));
+                    let adjwgts = self.adjwgt().map(|a| &a[range]).into_iter().flatten().copied().map(Some).chain(std::iter::repeat(None));
+                    edges.zip(adjwgts).flat_map(|(e, w)| [e, w]).flatten()
+                })
+            ;
+            writeln!(w, "{}", space_sep(params))?;
+        }
+
+        Ok(())
+    }
+
     /// read a graph from a file in a simplified version of the format specified in the manual
-    ///
-    /// returns (xadj, adjncy)
     pub fn read_graph(
         f: &mut impl BufRead,
         op: Optype,
@@ -488,6 +567,9 @@ impl GraphBuilder {
         })
     }
 
+    pub fn vsize(&self) -> Option<&[idx_t]> {
+        self.vsize.as_deref()
+    }
     pub fn vwgt(&self) -> Option<&[idx_t]> {
         self.vwgt.as_deref()
     }
@@ -536,4 +618,34 @@ impl GraphBuilder {
             "actual: {actual:.1}, expected: {expected:.1}.\n\tThis assert spuriously fails sometimes - rerun tests."
         );
     }
+}
+
+/// utility for writing space-separated lists
+fn space_sep<I>(iter: I) -> impl std::fmt::Display + use<I>
+where 
+    I: IntoIterator + Clone,
+    I::Item: std::fmt::Display
+{
+    use std::fmt::{Display, Write};
+
+    struct D<I>(I);
+    impl<I> Display for D<I>
+    where 
+        I: IntoIterator + Clone,
+        I::Item: std::fmt::Display
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut it = self.0.clone().into_iter();
+            {
+                let Some(first) = it.next() else { return Ok(()) };
+                first.fmt(f)?;
+            }
+            for item in it {
+                f.write_char(' ')?;
+                item.fmt(f)?;
+            }
+            Ok(())
+        }
+    }
+    D(iter)
 }

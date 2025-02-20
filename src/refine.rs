@@ -271,3 +271,39 @@ pub extern "C" fn Project2WayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     graph::FreeGraph(&mut graph.coarser);
     graph.coarser = std::ptr::null_mut();
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use dyncall::ab_test_single_eq;
+    use graph_gen::GraphBuilder;
+
+    #[test]
+    fn ab_Compute2WayPartitionParams() {
+        ab_test_single_eq("Compute2WayPartitionParams:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.set_seed(18231);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+
+    #[test]
+    fn ab_Project2WayPartition() {
+        ab_test_single_eq("Project2WayPartition:rs", || {
+            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+            g.set_seed(18231);
+            g.edge_list(
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+            );
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g.call().unwrap()
+        });
+    }
+}

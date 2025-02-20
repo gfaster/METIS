@@ -841,6 +841,30 @@ pub fn from_csr_iter(a: &[idx_t]) -> impl Iterator<Item = idx_t> + '_ {
     })
 }
 
+#[inline]
+pub fn eprintln_once_inner(args: std::fmt::Arguments, has_printed: &std::sync::atomic::AtomicBool) {
+    use std::sync::atomic::*;
+    #[cold]
+    fn maybe_do_print_once(args: std::fmt::Arguments, has_printed: &AtomicBool) {
+        if !has_printed.swap(true, Ordering::Relaxed) {
+            eprintln!("{args}")
+        }
+    }
+    if !has_printed.load(Ordering::Relaxed) {
+        maybe_do_print_once(args, has_printed);
+    }
+}
+
+/// like eprintln, but only once -- used for non-fatal TODOs
+#[allow(unused_macros)]
+macro_rules! eprintln_once {
+    ($($tt:tt)*) => {{
+        static __HAS_PRINTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        $crate::util::eprintln_once_inner(format_args!($($tt)*), &__HAS_PRINTED);
+    }};
+}
+pub(crate) use eprintln_once;
+
 #[cfg(test)]
 mod test {
     use crate::dyncall::{ab_test, ab_test_eq};

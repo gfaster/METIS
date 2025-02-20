@@ -391,11 +391,12 @@ pub enum Optype {
 
 /// Fun fact: this mean "Objective Type", not "Object Type"
 #[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Objtype {
     Cut = METIS_OBJTYPE_CUT,
     Vol = METIS_OBJTYPE_VOL,
     // basically unused
-    // Node = METIS_OBJTYPE_NODE,
+    Node = METIS_OBJTYPE_NODE,
 }
 
 #[repr(u32)]
