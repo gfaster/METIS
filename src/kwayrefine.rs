@@ -144,13 +144,14 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     }
 
     if (*ctrl).contig != 0 {
-        assert!(
+        debug_assert_eq!(
             contig::FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
                 ptr::null_mut()
-            ) == (*ctrl).nparts,
+            ),
+            (*ctrl).nparts,
         );
     }
 
