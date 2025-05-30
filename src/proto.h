@@ -30,7 +30,7 @@ void BucketSortKeysInc(ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys,
          idx_t *tperm, idx_t *perm);
 
 
-/* checkgraph.c */
+/* checkgraph.c - Ported */
 int CheckGraph(graph_t *graph, int numflag, int verbose);
 int CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy,
         idx_t *vwgt, idx_t *vsize, idx_t *adjwgt);

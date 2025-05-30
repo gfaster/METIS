@@ -13,21 +13,18 @@
 use crate::*;
 use std::ffi::c_int;
 
-/*************************************************************************/
-/* This function checks if a graph is valid. A valid graph must satisfy
-    the following constraints:
-    - It should contain no self-edges.
-    - It should be undirected; i.e., (u,v) and (v,u) should be present.
-    - The adjacency list should not contain multiple edges to the same
-      other vertex.
-
-    \param graph is the graph to be checked, whose numbering starts from 0.
-    \param numflag is 0 if error reporting will be done using 0 as the
-           numbering, or 1 if the reporting should be done using 1.
-    \param verbose is 1 the identified errors will be displayed, or 0, if
-           it should run silently.
-*/
-/*************************************************************************/
+/// This function checks if a graph is valid. A valid graph must satisfy
+/// the following constraints:
+/// - It should contain no self-edges.
+/// - It should be undirected; i.e., (u,v) and (v,u) should be present.
+/// - The adjacency list should not contain multiple edges to the same
+///   other vertex.
+/// 
+/// \param graph is the graph to be checked, whose numbering starts from 0.
+/// \param numflag is 0 if error reporting will be done using 0 as the
+///        numbering, or 1 if the reporting should be done using 1.
+/// \param verbose is 1 the identified errors will be displayed, or 0, if
+///        it should run silently.
 #[metis_func]
 pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int) -> c_int {
     let graph = graph.as_ref().unwrap();
@@ -42,7 +39,7 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
     let mut maxewgt = 0;
     let mut err = 0;
 
-    let numflag: usize = (if numflag == 0 { 0 } else { 1 }); /* make sure that numflag is 0 or 1 */
+    let numflag: usize = if numflag == 0 { 0 } else { 1 }; /* make sure that numflag is 0 or 1 */
 
     let nvtxs = graph.nvtxs as usize;
     get_graph_slices!(graph => xadj adjncy);
@@ -51,7 +48,7 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
     // htable = ismalloc(nvtxs, 0, "htable");
     let mut htable = vec![0; nvtxs];
 
-    if (graph.nedges > 0) {
+    if graph.nedges > 0 {
         minedge = adjncy[0 as usize];
         maxedge = adjncy[0 as usize];
         if let Some(adjwgt) = adjwgt {
@@ -72,20 +69,20 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
             if let Some(adjwgt) = adjwgt {
                 // minewgt = (adjwgt[j as usize] < minewgt) ? adjwgt[j as usize] : minewgt;
                 // maxewgt = (adjwgt[j as usize] > maxewgt) ? adjwgt[j as usize] : maxewgt;
-                minewgt = if (adjwgt[j as usize] < minewgt) {
+                minewgt = if adjwgt[j as usize] < minewgt {
                     adjwgt[j as usize]
                 } else {
                     minewgt
                 };
-                maxewgt = if (adjwgt[j as usize] > maxewgt) {
+                maxewgt = if adjwgt[j as usize] > maxewgt {
                     adjwgt[j as usize]
                 } else {
                     maxewgt
                 };
             }
 
-            if (i == k) {
-                if (verbose) {
+            if i == k {
+                if verbose {
                     print!(
                         "Vertex {:} contains a self-loop \
                   (i.e., diagonal entry in the matrix)!\n",
@@ -94,16 +91,14 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
                 }
                 err += 1;
             } else {
-                let mut l = (xadj[k as usize])..(xadj[(k + 1) as usize]);
-                while let Some(l) = l.next() {
-                    if (adjncy[l as usize] == i as idx_t) {
+                let mut found = false;
+                for l in (xadj[k as usize])..(xadj[(k + 1) as usize]) {
+                    if adjncy[l as usize] == i as idx_t {
                         if let Some(adjwgt) = adjwgt {
-                            if (adjwgt[l as usize] != adjwgt[j as usize]) {
-                                if (verbose) {
+                            if adjwgt[l as usize] != adjwgt[j as usize] {
+                                if verbose {
                                     print!(
-                                        "Edges (u:{:} v:{:} wgt:{:}) and \
-                  (v:{:} u:{:} wgt:{:}) \
-                  do not have the same weight!\n",
+                                        "Edges (u:{:} v:{:} wgt:{:}) and (v:{:} u:{:} wgt:{:}) do not have the same weight!\n",
                                         i + numflag,
                                         k + numflag,
                                         adjwgt[j as usize],
@@ -115,22 +110,23 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
                                 err += 1;
                             }
                         }
+                        found = true;
                         break;
                     }
                 }
                 // if (l == xadj[(k+1) as usize])
-                if l.next().is_none() {
-                    if (verbose) {
+                if !found {
+                    if verbose {
                         print!("Missing edge: ({:} {:})!\n", k + numflag, i + numflag);
                     }
                     err += 1;
                 }
             }
 
-            if (htable[k as usize] == 0) {
+            if htable[k as usize] == 0 {
                 htable[k as usize] += 1;
             } else {
-                if (verbose) {
+                if verbose {
                     print!(
                         "Edge {:} from vertex {:} is repeated {:} times\n",
                         k + numflag,
@@ -148,7 +144,7 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
         }
     }
 
-    if (err > 0 && verbose) {
+    if err > 0 && verbose {
         print!(
             "A total of {:} errors exist in the input file. \
             Correct them, and run again!\n",
@@ -158,12 +154,11 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
 
     // gk_free((void **)&htable, LTERM);
 
-    return (if err == 0 { 1 } else { 0 });
+    return if err == 0 { 1 } else { 0 };
 }
 
-/*************************************************************************/
-/* This function performs a quick check of the weights of the graph */
-/*************************************************************************/
+/// This function performs a quick check of the weights of the graph - it's broken in the original
+/// and unimplemented here
 #[metis_func]
 #[allow(unused_variables)]
 pub extern "C" fn CheckInputGraphWeights(
@@ -225,25 +220,25 @@ struct uvw_t {
     w: idx_t,
 }
 
-/*************************************************************************/
-/* This function creates a graph whose topology is consistent with
-    Metis' requirements that:
-    - There are no self-edges.
-    - It is undirected; i.e., (u,v) and (v,u) should be present and of the
-      same weight.
-    - The adjacency list should not contain multiple edges to the same
-      other vertex.
-
-    Any of the above errors are fixed by performing the following operations:
-    - Self-edges are removed.
-    - The undirected graph is formed by the union of edges.
-    - One of the duplicate edges is selected.
-
-    The routine does not change the provided vertex weights.
-*/
-/*************************************************************************/
+/// This function creates a graph whose topology is consistent with
+/// Metis' requirements that:
+/// - There are no self-edges.
+/// - It is undirected; i.e., (u,v) and (v,u) should be present and of the
+///   same weight.
+/// - The adjacency list should not contain multiple edges to the same
+///   other vertex.
+/// 
+/// Any of the above errors are fixed by performing the following operations:
+/// - Self-edges are removed.
+/// - The undirected graph is formed by the union of edges.
+/// - One of the duplicate edges is selected.
+/// 
+/// The routine does not change the provided vertex weights.
 #[metis_func]
 pub extern "C" fn FixGraph(graph: *mut graph_t) -> *mut graph_t {
+    // FIXME: I'm taking it on faith that this function is correct since it's only used in the
+    // graphchk program. It might be fine since this function is so simple
+
     let graph = graph.as_mut().unwrap();
     // idx_t i, j, k, l, nvtxs, nedges;
     // idx_t *xadj, *adjncy, *adjwgt;
@@ -291,12 +286,12 @@ pub extern "C" fn FixGraph(graph: *mut graph_t) -> *mut graph_t {
     for i in (0)..(nvtxs as idx_t) {
         for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
             /* keep only the upper-trianglular part of the adjacency matrix */
-            if (i < adjncy[j as usize]) {
+            if i < adjncy[j as usize] {
                 edges[nedges as usize].u = i;
                 edges[nedges as usize].v = adjncy[j as usize];
                 edges[nedges as usize].w = adjwgt[j as usize];
                 nedges += 1;
-            } else if (i > adjncy[j as usize]) {
+            } else if i > adjncy[j as usize] {
                 edges[nedges as usize].u = adjncy[j as usize];
                 edges[nedges as usize].v = i;
                 edges[nedges as usize].w = adjwgt[j as usize];
@@ -313,8 +308,8 @@ pub extern "C" fn FixGraph(graph: *mut graph_t) -> *mut graph_t {
     {
         let mut k = 0;
         for i in (1)..(nedges) {
-            if (edges[k as usize].v != edges[i as usize].v
-                || edges[k as usize].u != edges[i as usize].u)
+            if edges[k as usize].v != edges[i as usize].v
+                || edges[k as usize].u != edges[i as usize].u
             {
                 k += 1;
                 edges[k as usize] = edges[i as usize];

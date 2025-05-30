@@ -11,6 +11,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 
@@ -29,7 +30,8 @@
            it should run silently.
 */
 /*************************************************************************/
-int CheckGraph(graph_t *graph, int numflag, int verbose)
+IFUNC(int, CheckGraph, (graph_t *graph, int numflag, int verbose));
+int c__libmetis__CheckGraph(graph_t *graph, int numflag, int verbose)
 {
   idx_t i, j, k, l;
   idx_t nvtxs, err=0;
@@ -122,7 +124,9 @@ int CheckGraph(graph_t *graph, int numflag, int verbose)
 /*************************************************************************/
 /*! This function performs a quick check of the weights of the graph */
 /*************************************************************************/
-int CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy, 
+IFUNC(int, CheckInputGraphWeights, (idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy, 
+        idx_t *vwgt, idx_t *vsize, idx_t *adjwgt));
+int c__libmetis__CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy, 
         idx_t *vwgt, idx_t *vsize, idx_t *adjwgt) 
 {
   idx_t i;
@@ -178,7 +182,8 @@ int CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy,
     The routine does not change the provided vertex weights.
 */
 /*************************************************************************/
-graph_t *FixGraph(graph_t *graph)
+IFUNC(graph_t *, FixGraph, (graph_t *graph));
+graph_t *c__libmetis__FixGraph(graph_t *graph)
 {
   idx_t i, j, k, l, nvtxs, nedges;
   idx_t *xadj, *adjncy, *adjwgt;
