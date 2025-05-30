@@ -17,6 +17,7 @@ pub use bindings::*;
 
 pub mod balance;
 pub mod bucketsort;
+pub mod checkgraph;
 pub mod coarsen;
 pub mod compress;
 pub mod contig;
@@ -39,12 +40,14 @@ mod dyncall;
 pub(crate) mod blas;
 pub(crate) mod dal;
 pub(crate) mod defs;
+pub(crate) mod gk;
 pub(crate) mod graph_gen;
 pub(crate) mod pqueue;
 use defs::*;
 
 #[macro_use]
 pub mod util;
+pub use util::AsBufPtrExt;
 
 #[cfg(test)]
 mod tests;

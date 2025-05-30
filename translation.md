@@ -115,9 +115,10 @@ let nvtxs = graph.nvtxs as usize;
 There's more we'll do later, but we need to fix all the syntax error first.
 
 ## 5. Convert for loops
-replacing `iter` with relevant function decls:
+Convert the basic for loops - you will have to manually fix multiple
+initializing statements.
 ```
-:%s/\vfor \(iter\=(.{-1,}); iter\<(.{-1,}); iter\+\+\)/for iter in (\1)..(\2)
+:%s/\vfor \(([a-zA-Z]+)\=(.{-1,}); \1\<(.{-1,}); \1\+\+\)/for \1 in (\2)..(\3)
 ```
 
 Also need to replace infinite loops:
@@ -128,6 +129,8 @@ Also need to replace infinite loops:
 Now that loop iterators are gone (double check this), we can get rid of unary
 increment and decrement
 ```
+:%s/++;\s*$/ += 1;/
+
 :g/++\w\+/norm f+xxyiw0pwi+=1;
 :g/\w\+++/norm f+xxhyiw$pA+=1;
 
@@ -252,8 +255,7 @@ can pick and choose for the second.
 :%s/^ *\(goto \w*\);/todo!("\1");
 :%s/ASSERTP\=/assert!/I
 :%s/sprintf/write!/g
-:%s/\v([^\w])printf/\1println!/g
-:%s/\\n"/"/g
+:%s/\v([^\w])printf/\1print!/
 :g/\vgk_%(start|stop)cputimer/normal gcc
 :g/WCORE\%\(PUSH\|POP\)/norm gcc
 :%s/\vgk_errexit\(\w+, =/panic!(/
@@ -312,8 +314,8 @@ an iterator.
 This replace is probably fine:
 
 ```
-:%s/\vMAKECSR\(\w{-},(.{-}),(.{-})\);/util::make_csr(\1, &mut \2);/I
-:%s/\vSHIFTCSR\(\w{-},(.{-}),(.{-})\);/util::shift_csr(\1, &mut \2);/I
+:%s/\vMAKECSR\(\w{-},(.{-}),(.{-})\);/util::make_csr(\1, \2);/I
+:%s/\vSHIFTCSR\(\w{-},(.{-}),(.{-})\);/util::shift_csr(\1, \2);/I
 ```
 
 The first argument in `util::make_csr` and `util::shift_csr` is possibly

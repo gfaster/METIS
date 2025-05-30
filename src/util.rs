@@ -16,6 +16,17 @@ use std::io::BufRead;
 use std::ptr;
 use std::{error::Error, ffi::c_void};
 
+pub trait AsBufPtrExt<T> {
+    /// polyfill for the unstable function [`NonNull::as_mut_ptr`]
+    fn as_buf_ptr(self) -> *mut T;
+}
+
+impl<T> AsBufPtrExt<T> for std::ptr::NonNull<[T]> {
+    fn as_buf_ptr(self) -> *mut T {
+        self.cast().as_ptr()
+    }
+}
+
 /// Initialize the random number generator
 #[metis_func]
 pub extern "C" fn InitRandom(seed: idx_t) -> c_void {
@@ -339,6 +350,18 @@ macro_rules! slice_len {
     };
 }
 
+/// get a single mutable slice from a graph as a value (does not bind)
+#[macro_export]
+macro_rules! get_graph_slice_mut {
+    ($ctrl:expr, $graph:expr => $val:ident) => {{
+        assert!(!$graph.$val.is_null());
+        std::slice::from_raw_parts_mut($graph.$val, slice_len!($ctrl, $graph, $val) as usize)
+    }};
+    ($graph:expr => $val:ident) => {
+        $crate::get_graph_slice_mut!((), $graph => $val)
+    };
+}
+
 #[macro_export]
 macro_rules! get_graph_slices_mut {
     ($ctrl:expr, $graph:expr => $($val:ident)*) => {
@@ -348,10 +371,19 @@ macro_rules! get_graph_slices_mut {
         )*
     };
     ($graph:expr => $($val:ident)*) => {
-        $(
-            assert!(!$graph.$val.is_null());
-            let $val = std::slice::from_raw_parts_mut($graph.$val, slice_len!((), $graph, $val) as usize);
-        )*
+        $crate::get_graph_slices_mut!((), $graph => $($val)*);
+    };
+}
+
+/// get a single slice from a graph as a value (does not bind)
+#[macro_export]
+macro_rules! get_graph_slice {
+    ($ctrl:expr, $graph:expr => $val:ident) => {{
+        assert!(!$graph.$val.is_null());
+        std::slice::from_raw_parts($graph.$val, slice_len!($ctrl, $graph, $val) as usize)
+    }};
+    ($graph:expr => $val:ident) => {
+        $crate::get_graph_slice!((), $graph => $val)
     };
 }
 
@@ -364,10 +396,7 @@ macro_rules! get_graph_slices {
         )*
     };
     ($graph:expr => $($val:ident)*) => {
-        $(
-            assert!(!$graph.$val.is_null());
-            let $val = std::slice::from_raw_parts($graph.$val, slice_len!((), $graph, $val) as usize);
-        )*
+        $crate::get_graph_slices!((), $graph => $($val)*);
     };
 }
 
@@ -486,7 +515,7 @@ pub fn make_csr(n: usize, a: &mut [idx_t]) {
 #[inline(always)]
 pub fn shift_csr(n: usize, a: &mut [idx_t]) {
     assert!(n < a.len(), "making a csr indexes up to n");
-    debug_assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
+    assert_eq!(n, a.len() - 1, "I want to see if this ever happens - this assert can be removed. If it never triggers, then we can remove n as an argument");
 
     if n == 0 {
         return;
