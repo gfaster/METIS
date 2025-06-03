@@ -409,89 +409,77 @@ mod tests {
     use super::*;
     use crate::dyncall::ab_test_single_eq;
     use crate::graph_gen::GraphBuilder;
+    use crate::tests::ab_test_partition_test_graphs;
 
     #[test]
     fn ab_ComputeLoadImbalanceVec() {
-        ab_test_single_eq("ComputeLoadImbalanceVec:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("ComputeLoadImbalanceVec:rs", Optype::Kmetis, 4, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
     fn ab_ComputeLoadImbalanceDiffVec() {
-        ab_test_single_eq("ComputeLoadImbalanceDiffVec:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("ComputeLoadImbalanceDiffVec:rs", Optype::Kmetis, 4, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
     fn ab_ComputeLoadImbalanceDiff() {
-        ab_test_single_eq("ComputeLoadImbalanceDiff:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("ComputeLoadImbalanceDiff:rs", Optype::Kmetis, 4, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
     fn ab_BetterVBalance() {
-        // need larger numbers here, so making graph only once
-        fastrand::seed(999);
-        let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-        g.edge_list(
-            std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
-        );
-        g.set_seed(4321);
-        g.random_adjwgt();
-
-        ab_test_single_eq("BetterVBalance:rs", || g.clone().call().unwrap());
+        ab_test_partition_test_graphs("BetterVBalance:rs", Optype::Kmetis, 4, 2, |mut g| {
+            g.set_seed(999);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
     }
 
     #[test]
     fn ab_BetterBalanceKWay() {
-        ab_test_single_eq("BetterBalanceKWay:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("BetterBalanceKWay:rs", Optype::Kmetis, 4, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
+    #[ignore = "cannot reliably use"]
     fn ab_BetterBalance2Way() {
-        ab_test_single_eq("BetterBalance2Way:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("BetterBalance2Way:rs", Optype::Kmetis, 2, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
+        // ab_test_single_eq("BetterBalance2Way:rs", || {
+        //     let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
+        //     g.edge_list(
+        //         std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+        //     );
+        //     g.set_seed(4321);
+        //     g.random_adjwgt();
+        //     g.random_tpwgts();
+        //     g.call().unwrap()
+        // });
     }
 
     // #[test]

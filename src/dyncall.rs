@@ -384,6 +384,49 @@ impl<'a> Glob<'a> {
     }
 }
 
+#[cfg(test)]
+fn floor_char_boundary(s: &str, idx: usize) -> usize {
+    if idx >= s.len() {
+        return s.len()
+    }
+    idx - (idx.saturating_sub(3)..=idx).rev().position(|i| s.is_char_boundary(i)).unwrap()
+}
+
+#[cfg(test)]
+#[track_caller]
+fn ab_assert_eq<T>(l: T, r: T) 
+    where T: Eq + std::fmt::Debug 
+{
+    use std::fmt::Write;
+    if l != r {
+        let mut buf1 = String::with_capacity(1024);
+        write!(buf1, "{l:?}").unwrap();
+        let i1 = floor_char_boundary(&buf1, 1024);
+        let s1 = &buf1[..i1];
+        let dot1 = if buf1.len() > i1 {
+            "..."
+        } else {
+            ""
+        };
+
+
+        let mut buf2 = String::with_capacity(1024);
+        write!(buf2, "{r:?}").unwrap();
+        let i2 = floor_char_boundary(&buf2, 1024);
+        let s2 = &buf2[..i2];
+        let dot2 = if buf2.len() > i2 {
+            "..."
+        } else {
+            ""
+        };
+
+        panic!("A/B test not equal!\n  \
+            left: {s1}{dot1}\n  \
+            right: {s2}{dot2}\n
+            ")
+    }
+}
+
 /// runs the provided function twice. Once with the first overrides and once with the second overrides
 ///
 /// Will panic if the provided override isn't used
@@ -422,7 +465,7 @@ where
     T: Eq + std::fmt::Debug,
 {
     let (no_override, with_overrides) = ab_test_multi(overrides, f);
-    assert_eq!(no_override, with_overrides)
+    ab_assert_eq(no_override, with_overrides)
 }
 
 /// runs the provided function twice. Once with no overrides and once with the overrides specified
@@ -475,7 +518,7 @@ where
     T: Eq + std::fmt::Debug,
 {
     let (no_override, with_overrides) = ab_test_single(overrides, f);
-    assert_eq!(no_override, with_overrides)
+    ab_assert_eq(no_override, with_overrides)
 }
 
 /// runs the provided function twice. Once with no overrides and once with the overrides specified
@@ -483,13 +526,14 @@ where
 ///
 /// Will panic if the provided override isn't used
 #[cfg(test)]
+#[track_caller]
 pub(crate) fn ab_test_eq<F, T>(overrides: &str, f: F)
 where
     F: FnMut() -> T,
     T: Eq + std::fmt::Debug,
 {
     let (no_override, with_overrides) = ab_test(overrides, f);
-    assert_eq!(no_override, with_overrides)
+    ab_assert_eq(no_override, with_overrides)
 }
 
 #[cfg(test)]

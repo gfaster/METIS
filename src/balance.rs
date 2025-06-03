@@ -26,7 +26,7 @@ pub extern "C" fn Balance2Way(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *
         {
             get_graph_slices!(ctrl, graph => tvwgt pwgts);
             if (*ntpwgts * tvwgt[0] as f32 - pwgts[0] as f32).abs()
-                < 3_f32 * tvwgt[0] as f32 / graph.nvtxs as f32
+                < (3 * tvwgt[0] / graph.nvtxs) as f32
             {
                 return;
             }
@@ -735,50 +735,39 @@ pub extern "C" fn McGeneral2WayBalance(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
+    use crate::tests::{ab_test_partition_test_graphs, TestGraph};
+
     use super::*;
     use dyncall::ab_test_single_eq;
     use graph_gen::GraphBuilder;
 
     #[test]
     fn ab_Balance2Way() {
-        ab_test_single_eq("Balance2Way:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
+        ab_test_partition_test_graphs("Balance2Way:rs", Optype::Kmetis, 23, 1, |mut g| {
             g.set_seed(18231);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
-    #[ignore = "I don't know call conditions"]
     fn ab_Bnd2WayBalance() {
-        ab_test_single_eq("Bnd2WayBalance:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 5, 1);
+        ab_test_partition_test_graphs("Bnd2WayBalance:rs", Optype::Kmetis, 23, 1, |mut g| {
             g.set_seed(18231);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(23),
-            );
-            // g.random_adjwgt();
+            g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
     #[test]
     fn ab_McGeneral2WayBalance() {
-        ab_test_single_eq("McGeneral2WayBalance:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 5, 2);
+        ab_test_partition_test_graphs("McGeneral2WayBalance:rs", Optype::Kmetis, 3, 2, |mut g| {
             g.set_seed(1234);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
             g.random_adjwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
     }
 
@@ -786,7 +775,7 @@ mod tests {
     #[ignore = "broken on original"]
     fn ab_McGeneral2WayBalance_contig_regression() {
         ab_test_single_eq("McGeneral2WayBalance:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
+            let mut g = GraphBuilder::test_graph(TestGraph::Webbase2004, Optype::Kmetis, 16, 2);
             g.set_seed(18231);
             g.edge_list(
                 std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),

@@ -1,15 +1,130 @@
 #![cfg(test)]
 #![allow(unused_mut)]
 
+use std::collections::HashMap;
 use std::mem::transmute;
+use std::path::{Path, PathBuf};
 use std::ptr;
+use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 use crate::bindings::{idx_t, real_t, METIS_NOPTIONS, METIS_OK};
 use crate::dyncall::{ab_test, ab_test_multi, ab_test_multi_eq, ab_test_eq};
-use crate::graph_gen::GraphBuilder;
+use crate::graph_gen::{Csr, GraphBuilder};
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;
 use crate::{Optype, METIS_OPTION_CTYPE};
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum TestGraph {
+    Elt4,
+    Youtube,
+    Webbase2004,
+    WebSpam,
+}
+
+impl TestGraph {
+    const fn rev_idx(idx: usize) -> Self {
+        match idx {
+            0 => TestGraph::Elt4,
+            1 => TestGraph::Youtube,
+            2 => TestGraph::Webbase2004,
+            3 => TestGraph::WebSpam,
+            _ => panic!("invalid index")
+        }
+    }
+
+    const fn idx(self) -> usize {
+        match self {
+            TestGraph::Elt4 => 0,
+            TestGraph::Youtube => 1,
+            TestGraph::Webbase2004 => 2,
+            TestGraph::WebSpam => 3,
+        }
+    }
+
+    const fn file(self) -> &'static str {
+        match self {
+            TestGraph::Elt4 => "4elt.graph",
+            TestGraph::Youtube => "soc-youtube.graph",
+            TestGraph::Webbase2004 => "web-webbase-2001.graph",
+            TestGraph::WebSpam => "web-spam.graph",
+        }
+    }
+
+    const COUNT: usize = 4;
+
+    #[allow(dead_code)]
+    const ALL: [Self; Self::COUNT] = [
+        Self::Elt4,
+        Self::Youtube,
+        Self::Webbase2004,
+        Self::WebSpam,
+    ];
+
+    const SMALLISH: &[Self] = &[
+        Self::Elt4,
+        Self::Webbase2004,
+        Self::WebSpam,
+    ];
+}
+
+/// uses caches to reduce re-parsing
+pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usize) -> GraphBuilder {
+    // This is a bit of an awkward synchronization solution, but it's the best I can think of 
+
+    fn load_graph_idx(idx: usize) -> Csr {
+        let filename = TestGraph::rev_idx(idx).file();
+        let path = Path::new("graphs").join(filename);
+        let f = std::fs::read(&path).map_err(|e| {
+            format!("Could not read graph {path}: {e}", path = path.display())
+        }).unwrap();
+        GraphBuilder::read_graph_cfg_index(
+            std::io::Cursor::new(&f),
+            Optype::Kmetis,
+            1,
+            1,
+            true
+        ).unwrap().into_csr()
+    }
+
+    const fn graph_of<const N: usize>() -> fn() -> Csr {
+        || { load_graph_idx(N) }
+    }
+
+    // probably false sharing, but I don't care enough to fix it
+    static GRAPHS: [LazyLock<Csr, fn() -> Csr>; TestGraph::COUNT] = [
+        LazyLock::new(graph_of::<0>()),
+        LazyLock::new(graph_of::<1>()),
+        LazyLock::new(graph_of::<2>()),
+        LazyLock::new(graph_of::<3>()),
+    ];
+
+    GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon)
+
+}
+
+/// Runs `f` on each of the small-ish graphs and performs `ab_test_single_eq` on partitioning each
+#[cfg(test)]
+pub(crate) fn ab_test_partition_test_graphs<F>(overrides: &str,
+    op: Optype, nparts: usize, ncon: usize, mut f: F)
+where
+    F: FnMut(GraphBuilder) -> GraphBuilder,
+{
+    use crate::dyncall::ab_test_single_eq;
+
+    fn inner(overrides: &str, op: Optype, nparts: usize, ncon: usize,
+        f: &mut dyn FnMut(GraphBuilder) -> GraphBuilder) {
+        for (i, &graph) in TestGraph::SMALLISH.iter().enumerate() {
+            fastrand::seed(12513471239123 + i as u64);
+            eprintln!("Testing with {graph:?}");
+            let graph = GraphBuilder::test_graph(graph, op, nparts, ncon);
+            let graph = f(graph);
+            ab_test_single_eq(overrides, || graph.clone().call());
+        }
+    }
+
+    inner(overrides, op, nparts, ncon, &mut f);
+}
 
 /// function signature of METIS_PartGraphKway, METIS_PartGraphRecursive
 // type PartSig = unsafe extern "C" fn(
@@ -74,6 +189,38 @@ fn basic_part_graph_kway() {
     // assert!(graph.call().is_ok());
 }
 
+fn part_testgraph_ab(
+    graph: TestGraph,
+    ncon: idx_t,
+    nparts: idx_t,
+    use_vwgt: bool,
+    use_adjwgt: bool,
+    partfn: Optype,
+) {
+    let exec = || {
+        let mut graph = read_graph(graph, partfn, nparts as usize, ncon as usize);
+        graph.set_seed(123151);
+        graph.set_objective(crate::Objtype::Cut);
+
+        if use_vwgt {
+            graph.random_vwgt();
+        }
+        if use_adjwgt {
+            graph.random_vwgt();
+        }
+
+        let res = graph.call();
+
+        assert!(res.is_ok());
+
+        let (objval, part) = res.unwrap();
+
+        graph.verify_part(objval, &part);
+        (objval, part)
+    };
+    ab_test_eq("*", exec);
+}
+
 fn part_graph_and_verify(
     ncon: idx_t,
     options: &mut [i32; METIS_NOPTIONS as usize],
@@ -83,13 +230,12 @@ fn part_graph_and_verify(
     partfn: Optype,
 ) {
     let exec = ||{
-        let mut graph = GraphBuilder::read_graph(
-            &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+        let mut graph = read_graph(
+            TestGraph::Elt4,
             partfn,
             nparts as usize,
             ncon as usize,
-        )
-            .unwrap();
+        );
 
         graph.set_from_options_arr(options);
 
@@ -343,13 +489,12 @@ part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random
 #[test]
 fn identical_to_c_kmetis() {
     ab_test_eq("*", || {
-        let mut graph = GraphBuilder::read_graph(
-            &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+        let mut graph = read_graph(
+            TestGraph::Elt4,
             Optype::Kmetis,
             20,
             1,
-        )
-        .unwrap();
+        );
         graph.random_vwgt();
         graph.call().unwrap()
     });
@@ -357,15 +502,20 @@ fn identical_to_c_kmetis() {
 
 #[test]
 #[ignore = "fails"]
+fn identical_to_c_kmetis_large() {
+    part_testgraph_ab(TestGraph::Youtube, 1, 20, true, false, Optype::Kmetis);
+}
+
+#[test]
+#[ignore = "fails"]
 fn identical_to_c_kmetis_multiconstraint() {
     ab_test_eq("*", || {
-        let mut graph = GraphBuilder::read_graph(
-            &mut std::io::Cursor::new(include_bytes!("../graphs/4elt_rs.graph")),
+        let mut graph = read_graph(
+            TestGraph::Elt4,
             Optype::Kmetis,
             20,
             2,
-        )
-        .unwrap();
+        );
         graph.random_vwgt();
         graph.call().unwrap()
     });

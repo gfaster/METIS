@@ -1556,73 +1556,41 @@ pub extern "C" fn ReAdjustMemory(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
-    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder};
+    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder, tests::{ab_test_partition_test_graphs, TestGraph}};
 
     use super::*;
 
-    #[test]
-    fn ab_CoarsenGraph() {
-        ab_test_single_eq("CoarsenGraph:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+    fn coarsen_test(overrides: &str) {
+        ab_test_partition_test_graphs(overrides, Optype::Kmetis, 20, 1, |mut g| {
             g.random_vwgt();
             g.random_tpwgts();
-            g.call().unwrap()
+            g
         });
+    }
+
+    #[test]
+    fn ab_CoarsenGraph() {
+        coarsen_test("CoarsenGraph:rs");
     }
 
     #[test]
     #[ignore = "needs ometis"]
     fn ab_CoarsenGraphNlevels() {
-        ab_test_single_eq("ab_CoarsenGraphNlevels:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.random_vwgt();
-            g.random_tpwgts();
-            g.call().unwrap()
-        });
+        coarsen_test("CoarsenGraphNlevels:rs");
     }
 
     #[test]
     fn ab_CreateCoarseGraph() {
-        ab_test_single_eq("CreateCoarseGraph:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.random_vwgt();
-            g.random_tpwgts();
-            g.call().unwrap()
-        });
+        coarsen_test("CreateCoarseGraph:rs");
     }
 
     #[test]
     fn ab_SetupCoarseGraph() {
-        ab_test_single_eq("SetupCoarseGraph:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.random_vwgt();
-            g.random_tpwgts();
-            g.call().unwrap()
-        });
+        coarsen_test("SetupCoarseGraph:rs");
     }
 
     #[test]
     fn ab_ReAdjustMemory() {
-        ab_test_single_eq("ReAdjustMemory:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.random_vwgt();
-            g.random_tpwgts();
-            g.call().unwrap()
-        });
+        coarsen_test("ReAdjustMemory:rs");
     }
 }
