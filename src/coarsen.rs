@@ -91,7 +91,7 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
         eqewgts = false;
         // level += 1;
 
-        debug_assert!(CheckGraph(graph, 0, 1) != 0);
+        debug_assert!(checkgraph::CheckGraph(graph, 0, 1) != 0);
 
         if !((*graph).nvtxs > ctrl.CoarsenTo
             && ((*graph).nvtxs as real_t) < COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
@@ -188,7 +188,7 @@ pub extern "C" fn CoarsenGraphNlevels(
         graph = (*graph).coarser;
         eqewgts = 0;
 
-        assert!(CheckGraph(graph, 0, 1) != 0);
+        assert!(checkgraph::CheckGraph(graph, 0, 1) != 0);
 
         if (*graph).nvtxs < ctrl.CoarsenTo
             || ((*graph).nvtxs as real_t) > COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t

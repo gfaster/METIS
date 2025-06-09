@@ -69,12 +69,6 @@ extern "C" {
         tpwgts: *mut real_t,
     ) -> std::ffi::c_void;
     pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn FM_2WayRefine(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        ntpwgts: *mut real_t,
-        niter: idx_t,
-    ) -> std::ffi::c_void;
     pub fn Compute2WayNodePartitionParams(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,
@@ -107,13 +101,6 @@ extern "C" {
         pmarker: *mut idx_t,
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
-
-    pub fn CheckGraph(
-        graph: *mut graph_t,
-        numflag: std::ffi::c_int,
-        verbose: std::ffi::c_int,
-    ) -> std::ffi::c_int;
-
 }
 
 // replacing c args with rust args (2 commands over visual region)
@@ -384,9 +371,9 @@ pub(crate) const SMALLNIPARTS: idx_t = 5;
 #[repr(u32)]
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Optype {
+    Pmetis = METIS_OP_PMETIS,
     Kmetis = METIS_OP_KMETIS,
     Ometis = METIS_OP_OMETIS,
-    Pmetis = METIS_OP_PMETIS,
 }
 
 /// Fun fact: this mean "Objective Type", not "Object Type"

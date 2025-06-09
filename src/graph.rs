@@ -175,7 +175,7 @@ pub extern "C" fn SetupGraph(
             SetupGraph_label(graph);
         }
 
-        assert!(CheckGraph(graph, ctrl.numflag, 1) != 0);
+        assert!(checkgraph::CheckGraph(graph, ctrl.numflag, 1) != 0);
     }
 
     return graph;

@@ -39,7 +39,7 @@ pub extern "C" fn Refine2Way(
 
         balance::Balance2Way(ctrl, graph, tpwgts);
 
-        FM_2WayRefine(ctrl, graph, tpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, tpwgts, ctrl.niter);
 
         // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl.RefTmr));
 

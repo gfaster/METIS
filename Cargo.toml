@@ -14,22 +14,12 @@ autobins = false
 dual_link = []
 extra_tests = []
 
-# comment this line out to just use rust implementations
-# with dual_link enabled, we can run both implementations and compare the outputs
-# default = ["dual_link"]
-
 [lib]
 name = "metis"
 path = "src/lib.rs"
 
-# crate-type = ["staticlib"]
-
 [[bin]]
 name = "gpmetis"
-
-# [[bin]]
-# name = "playground"
-# panic = "abort"
 
 [dependencies]
 macros = {path = "./macros"}

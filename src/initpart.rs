@@ -158,10 +158,11 @@ pub fn RandomBisection(
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    // not used but declared in C function: xadj adjncy adjwgt
-    get_graph_slices!(graph => vwgt);
 
     refine::Allocate2WayPartitionMemory(ctrl, graph);
+
+    // not used but declared in C function: xadj adjncy adjwgt
+    get_graph_slices!(graph => vwgt);
     get_graph_slices_mut!(graph => where_);
 
     let mut bestwhere = vec![0; nvtxs];
@@ -179,7 +180,7 @@ pub fn RandomBisection(
 
             for ii in 0..nvtxs {
                 let i = perm[ii] as usize;
-                if pwgts[0] as real_t + (vwgt[i] as real_t) < zeromaxpwgt {
+                if pwgts[0] + vwgt[i] < zeromaxpwgt as idx_t {
                     where_[i] = 0;
                     pwgts[0] += vwgt[i];
                     pwgts[1] -= vwgt[i];
@@ -197,7 +198,7 @@ pub fn RandomBisection(
         balance::Balance2Way(ctrl, graph, ntpwgts);
         /* println!("BPART: [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.pwgts[0], graph.pwgts[1], graph.mincut); */
 
-        FM_2WayRefine(ctrl, graph, ntpwgts, 4);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, 4);
         /* println!("RPART: [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.pwgts[0], graph.pwgts[1], graph.mincut); */
 
         if inbfs == 0 || bestcut > graph.mincut {
@@ -347,7 +348,7 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
             graph.pwgts[1], graph.mincut);
         */
 
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
         /*
         println!("RPART: [%5"PRIDX" %5"PRIDX"] %5"PRIDX"", graph.pwgts[0],
             graph.pwgts[1], graph.mincut);
@@ -426,11 +427,11 @@ pub fn McRandomBisection(
 
         refine::Compute2WayPartitionParams(ctrl, graph);
 
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
         balance::Balance2Way(ctrl, graph, ntpwgts);
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
         balance::Balance2Way(ctrl, graph, ntpwgts);
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
 
         if inbfs == 0 || bestcut >= graph.mincut {
             bestcut = graph.mincut;
@@ -485,9 +486,9 @@ pub fn McGrowBisection(
         refine::Compute2WayPartitionParams(ctrl, graph);
 
         balance::Balance2Way(ctrl, graph, ntpwgts);
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
         balance::Balance2Way(ctrl, graph, ntpwgts);
-        FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, ctrl.niter);
 
         if inbfs == 0 || bestcut >= graph.mincut {
             bestcut = graph.mincut;
@@ -627,7 +628,7 @@ pub fn GrowBisectionNode(
          **************************************************************/
         refine::Compute2WayPartitionParams(ctrl, graph);
         balance::Balance2Way(ctrl, graph, ntpwgts);
-        FM_2WayRefine(ctrl, graph, ntpwgts, 4);
+        fm::FM_2WayRefine(ctrl, graph, ntpwgts, 4);
 
         /* Construct and refine the vertex separator */
         for i in 0..graph.nbnd {
@@ -731,3 +732,86 @@ pub fn GrowBisectionNode(
 //
 //   // WCOREPOP;
 // }
+
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::tests::ab_test_partition_test_graphs;
+
+    use super::*;
+
+    #[test]
+    fn ab_Init2WayPartition() {
+        ab_test_partition_test_graphs("Init2WayPartition:rs", Optype::Pmetis, 8, 2, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+    
+    #[test]
+    #[ignore = "ometis"]
+    fn ab_InitSeparator() {
+        ab_test_partition_test_graphs("InitSeparator:rs", Optype::Ometis, 8, 2, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_RandomBisection() {
+        ab_test_partition_test_graphs("RandomBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
+            g.set_initial_part_strategy(Iptype::Random);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_McRandomBisection() {
+        ab_test_partition_test_graphs("McRandomBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
+            g.set_initial_part_strategy(Iptype::Random);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_GrowBisection() {
+        ab_test_partition_test_graphs("GrowBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_McGrowBisection() {
+        ab_test_partition_test_graphs("McGrowBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "ometis"]
+    fn ab_GrowBisectionNode() {
+        ab_test_partition_test_graphs("GrowBisectionNode:rs", Optype::Ometis, 8, 2, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+}
