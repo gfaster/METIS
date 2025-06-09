@@ -6,10 +6,13 @@ let
   ];
 in
   pkgs.mkShell rec {
+    name = "metis";
+
     buildInputs = with pkgs; [
       clang
       llvmPackages_latest.bintools
       rustup
+      guile
     ];
     RUSTC_VERSION = overrides.toolchain.channel;
     # https://github.com/rust-lang/rust-bindgen#environment-variables
