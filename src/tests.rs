@@ -12,7 +12,7 @@ use crate::dyncall::{ab_test, ab_test_multi, ab_test_multi_eq, ab_test_eq};
 use crate::graph_gen::{Csr, GraphBuilder};
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;
-use crate::{Optype, METIS_OPTION_CTYPE};
+use crate::{Objtype, Optype};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum TestGraph {
@@ -20,15 +20,23 @@ pub(crate) enum TestGraph {
     Youtube,
     Webbase2004,
     WebSpam,
+    Luxembourg,
+    Orani,
 }
 
 impl TestGraph {
+    const fn is_smallish(self) -> bool {
+        matches!(self, Self::Elt4 | Self::WebSpam | Self::Webbase2004)
+    }
+
     const fn rev_idx(idx: usize) -> Self {
         match idx {
             0 => TestGraph::Elt4,
             1 => TestGraph::Youtube,
             2 => TestGraph::Webbase2004,
             3 => TestGraph::WebSpam,
+            4 => TestGraph::Luxembourg,
+            5 => TestGraph::Orani,
             _ => panic!("invalid index")
         }
     }
@@ -39,6 +47,8 @@ impl TestGraph {
             TestGraph::Youtube => 1,
             TestGraph::Webbase2004 => 2,
             TestGraph::WebSpam => 3,
+            TestGraph::Luxembourg => 4,
+            TestGraph::Orani => 5,
         }
     }
 
@@ -48,23 +58,28 @@ impl TestGraph {
             TestGraph::Youtube => "soc-youtube.graph",
             TestGraph::Webbase2004 => "web-webbase-2001.graph",
             TestGraph::WebSpam => "web-spam.graph",
+            TestGraph::Luxembourg => "road-luxembourg-osm.graph",
+            TestGraph::Orani => "econ-orani678.graph",
         }
     }
 
-    const COUNT: usize = 4;
+    fn test_suite() -> impl Iterator<Item = Self> {
+        static DO_BIG: LazyLock<bool> = LazyLock::new(|| {
+            std::env::var_os("DO_BIG") == Some("1".into())
+        });
+        let do_big = *DO_BIG;
+        Self::ALL.into_iter().filter(move |g| g.is_smallish() || do_big)
+    }
 
-    #[allow(dead_code)]
+    const COUNT: usize = 6;
+
     const ALL: [Self; Self::COUNT] = [
         Self::Elt4,
         Self::Youtube,
         Self::Webbase2004,
         Self::WebSpam,
-    ];
-
-    const SMALLISH: &[Self] = &[
-        Self::Elt4,
-        Self::Webbase2004,
-        Self::WebSpam,
+        Self::Luxembourg,
+        Self::Orani,
     ];
 }
 
@@ -97,6 +112,8 @@ pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usiz
         LazyLock::new(graph_of::<1>()),
         LazyLock::new(graph_of::<2>()),
         LazyLock::new(graph_of::<3>()),
+        LazyLock::new(graph_of::<4>()),
+        LazyLock::new(graph_of::<5>()),
     ];
 
     GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon)
@@ -114,7 +131,7 @@ where
 
     fn inner(overrides: &str, op: Optype, nparts: usize, ncon: usize,
         f: &mut dyn FnMut(GraphBuilder) -> GraphBuilder) {
-        for (i, &graph) in TestGraph::SMALLISH.iter().enumerate() {
+        for (i, graph) in TestGraph::test_suite().enumerate() {
             fastrand::seed(12513471239123 + i as u64);
             eprintln!("Testing with {graph:?}");
             let graph = GraphBuilder::test_graph(graph, op, nparts, ncon);
@@ -200,7 +217,7 @@ fn part_testgraph_ab(
     let exec = || {
         let mut graph = read_graph(graph, partfn, nparts as usize, ncon as usize);
         graph.set_seed(123151);
-        graph.set_objective(crate::Objtype::Cut);
+        graph.set_objective(Objtype::Cut);
 
         if use_vwgt {
             graph.random_vwgt();
@@ -487,16 +504,31 @@ part_test_hyper_set!(METIS_PartGraphKway as kmetiscut => [{Cut}, {Grow, Rb}, {Rm
 part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random}, {Rm, Shem}]);
 
 #[test]
-fn identical_to_c_kmetis() {
-    ab_test_eq("*", || {
-        let mut graph = read_graph(
-            TestGraph::Elt4,
-            Optype::Kmetis,
-            20,
-            1,
-        );
-        graph.random_vwgt();
-        graph.call().unwrap()
+fn identical_to_c_kmetis_cut() {
+    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 1, |mut g| {
+        g.set_objective(Objtype::Cut);
+        g.random_vwgt();
+        g.random_adjwgt();
+        g
+    });
+}
+
+#[test]
+fn identical_to_c_kmetis_vol() {
+    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 1, |mut g| {
+        g.set_objective(Objtype::Vol);
+        g.random_vwgt();
+        g.random_adjwgt();
+        g
+    });
+}
+
+#[test]
+fn identical_to_p_kmetis() {
+    ab_test_partition_test_graphs("*", Optype::Pmetis, 20, 1, |mut g| {
+        g.random_vwgt();
+        g.random_adjwgt();
+        g
     });
 }
 
@@ -507,16 +539,10 @@ fn identical_to_c_kmetis_large() {
 }
 
 #[test]
-#[ignore = "fails"]
 fn identical_to_c_kmetis_multiconstraint() {
-    ab_test_eq("*", || {
-        let mut graph = read_graph(
-            TestGraph::Elt4,
-            Optype::Kmetis,
-            20,
-            2,
-        );
-        graph.random_vwgt();
-        graph.call().unwrap()
+    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 2, |mut g| {
+        g.random_vwgt();
+        g.call().unwrap();
+        g
     });
 }

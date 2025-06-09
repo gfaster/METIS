@@ -31,9 +31,9 @@ fastrand = "2.0.0"
 [build-dependencies]
 cc = "1.0"
 
-# Set the settings for build scripts and proc-macros.
-[profile.dev.build-override]
-opt-level = 3
+[profile.dev]
+opt-level = 1
+build-override.opt-level = 3 # build scripts and proc-macros.
 
 [profile.release]
 # debug = true

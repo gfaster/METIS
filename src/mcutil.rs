@@ -462,9 +462,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "cannot reliably use"]
     fn ab_BetterBalance2Way() {
-        ab_test_partition_test_graphs("BetterBalance2Way:rs", Optype::Kmetis, 2, 2, |mut g| {
+        ab_test_partition_test_graphs("BetterBalance2Way:rs", Optype::Pmetis, 8, 2, |mut g| {
             g.set_seed(4321);
             g.random_adjwgt();
             g.random_tpwgts();

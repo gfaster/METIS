@@ -255,8 +255,8 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
         // I'm not sure what the actual dimensions are - it's probably the [2; real_t] declared
         // elsewhere, but I'm not quite sure so I'm isolating this for clarity.
         mkslice!(ntpwgts, 2);
-        onemaxpwgt = (*ctrl.ubfactors) * (*graph.tvwgt as f32) * ntpwgts[1];
-        oneminpwgt = (1.0 / (*ctrl.ubfactors)) * (*graph.tvwgt as f32) * ntpwgts[1];
+        onemaxpwgt = ((*ctrl.ubfactors) * (*graph.tvwgt as f32) * ntpwgts[1]) as idx_t;
+        oneminpwgt = ((1.0 / (*ctrl.ubfactors)) * (*graph.tvwgt as f32) * ntpwgts[1]) as idx_t;
     }
 
     for inbfs in 0..niparts {
@@ -304,14 +304,14 @@ pub fn GrowBisection(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts: *mut real_
 
             let i = queue[first] as usize;
             first += 1;
-            if pwgts[0] > 0 && ((pwgts[1] - vwgt[i]) as f32) < oneminpwgt {
+            if pwgts[0] > 0 && pwgts[1] - vwgt[i] < oneminpwgt {
                 drain = true;
                 continue;
             }
 
             where_[i] = 0;
             inc_dec!(pwgts[0], pwgts[1], vwgt[i]);
-            if pwgts[1] as f32 <= onemaxpwgt {
+            if pwgts[1] <= onemaxpwgt {
                 break;
             }
             drain = false;
