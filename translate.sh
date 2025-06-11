@@ -16,7 +16,7 @@ if [ ! -z "$(git diff "$FILE")" ]; then
 	exit 1
 fi
 
-trap 'git restore "$FILE"' SIGINT EXIT
+trap 'git restore "$FILE"' EXIT
 
 function s() {
 	: ${1:?'requires sed expression'}
@@ -58,8 +58,8 @@ v ':%s/\v(^ *else *\n([^{]*)\n(.*;)/\1 {\r\2\r}' || true
 
 # switch -> match
 s 's/switch/match/'
-s 's/case \(\w\+\):/\1 => {/2'
-s 's/default:/_ =>/'
+v ':%s/\vcase (\w+):/\1 =>' || true
+v ':%s/default:/_ =>/' || true
 
 # comment out variable declarations
 v ':g/\v^  (int|(\w*_t)) /norm gcc'
@@ -97,7 +97,21 @@ v ':g/WCORE\%\(PUSH\|POP\)/norm gcc' || true
 # misc
 s 's/-> void//' || true
 s 's/NULL/std::ptr::null_mut()/g' || true
+s 's/ASSERT/assert!/'
 
-# cargo fix --allow-dirty --broken-code
 
 git diff "$FILE"
+
+echo 'does this look good?'
+select yn in Yes No; do
+	case $yn in
+		Yes ) 
+			trap - EXIT
+			exit 0
+			;;
+		No ) 
+			exit 1
+			;;
+	esac
+done
+exit 1

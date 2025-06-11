@@ -1,4 +1,4 @@
-/*!
+/*
 \file 
 \brief Functions that deal with prunning the number of adjacent subdomains in kmetis
 
@@ -8,178 +8,182 @@
 \version $Id: minconn.c 17513 2014-08-05 16:20:50Z dominique $
 */
 
-#include "metislib.h"
+use crate::*;
 
 
 /*************************************************************************/
-/*! This function computes the subdomain graph storing the result in the
-    pre-allocated worspace arrays */
+/* This function computes the subdomain graph storing the result in the
+pre-allocated worspace arrays */
 /*************************************************************************/
-void ComputeSubDomainGraph(ctrl_t *ctrl, graph_t *graph)
+#[metis_func]
+pub extern "C" fn ComputeSubDomainGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) 
 {
-  idx_t i, ii, j, pid, other, nparts, nvtxs, nnbrs;
-  idx_t *xadj, *adjncy, *adjwgt, *where;
-  idx_t *pptr, *pind;
-  idx_t nads=0, *vadids, *vadwgts;
+  // idx_t i, ii, j, pid, other, nparts, nvtxs, nnbrs;
+  // idx_t *xadj, *adjncy, *adjwgt, *where_;
+  // idx_t *pptr, *pind;
+  // idx_t nads=0, *vadids, *vadwgts;
 
-  WCOREPUSH;
+  // WCOREPUSH;
 
-  nvtxs  = graph->nvtxs;
-  xadj   = graph->xadj;
-  adjncy = graph->adjncy;
-  adjwgt = graph->adjwgt;
-  where  = graph->where;
+  let   nvtxs  = graph.nvtxs as usize;
+  xadj   = graph.xadj;
+  adjncy = graph.adjncy;
+  adjwgt = graph.adjwgt;
+  where_  = graph.where_;
 
-  nparts = ctrl->nparts; 
+  nparts = ctrl.nparts; 
 
-  vadids  = ctrl->pvec1;
-  vadwgts = iset(nparts, 0, ctrl->pvec2);
+  vadids  = ctrl.pvec1;
+  vadwgts = iset(nparts, 0, ctrl.pvec2);
 
-  pptr = iwspacemalloc(ctrl, nparts+1);
-  pind = iwspacemalloc(ctrl, nvtxs);
-  iarray2csr(nvtxs, nparts, where, pptr, pind);
+  pptr = vec![0; nparts+1 as usize];
+  pind = vec![0; nvtxs as usize];
+  iarray2csr(nvtxs, nparts, where_, pptr, pind);
 
-  for (pid=0; pid<nparts; pid++) {
-    switch (ctrl->objtype) {
-      case METIS_OBJTYPE_CUT:
-        {
-          ckrinfo_t *rinfo;
-          cnbr_t *nbrs;
+  for pid in (0)..(nparts) {
+    match (ctrl.objtype) {
+      METIS_OBJTYPE_CUT =>
+      {
+        ckrinfo_t *rinfo;
+        cnbr_t *nbrs;
 
-          rinfo = graph->ckrinfo;
-          for (nads=0, ii=pptr[pid]; ii<pptr[pid+1]; ii++) {
-            i = pind[ii];
-            ASSERT(pid == where[i]);
-      
-            if (rinfo[i].ed > 0) {
-              nnbrs = rinfo[i].nnbrs;
-              nbrs  = ctrl->cnbrpool + rinfo[i].inbr;
-      
-              for (j=0; j<nnbrs; j++) {
-                other = nbrs[j].pid;
-                if (vadwgts[other] == 0)
-                  vadids[nads++] = other;
-                vadwgts[other] += nbrs[j].ed;
+        rinfo = graph.ckrinfo;
+        nads=0;
+        for ii in (pptr[pid as usize])..(pptr[(pid+1) as usize]) {
+          i = pind[ii as usize];
+          assert!(pid == where_[i as usize]);
+
+          if (rinfo[i as usize].ed > 0) {
+            nnbrs = rinfo[i as usize].nnbrs;
+            nbrs  = ctrl.cnbrpool + rinfo[i as usize].inbr;
+
+            for j in (0)..(nnbrs) {
+              other = nbrs[j as usize].pid;
+              if (vadwgts[other as usize] == 0) {
+                vadids[(nads) as usize] = other;nads+=1;
               }
+              vadwgts[other as usize] += nbrs[j as usize].ed;
             }
           }
         }
-        break;
+      }
 
-      case METIS_OBJTYPE_VOL:
-        {
-          vkrinfo_t *rinfo;
-          vnbr_t *nbrs;
+      METIS_OBJTYPE_VOL =>
+      {
+        vkrinfo_t *rinfo;
+        vnbr_t *nbrs;
 
-          rinfo = graph->vkrinfo;
-          for (nads=0, ii=pptr[pid]; ii<pptr[pid+1]; ii++) {
-            i = pind[ii];
-            ASSERT(pid == where[i]);
-      
-            if (rinfo[i].ned > 0) {
-              nnbrs = rinfo[i].nnbrs;
-              nbrs  = ctrl->vnbrpool + rinfo[i].inbr;
-      
-              for (j=0; j<nnbrs; j++) {
-                other = nbrs[j].pid;
-                if (vadwgts[other] == 0)
-                  vadids[nads++] = other;
-                vadwgts[other] += nbrs[j].ned;
+        rinfo = graph.vkrinfo;
+        nads=0;
+        for ii in (pptr[pid as usize])..(pptr[(pid+1) as usize]) {
+          i = pind[ii as usize];
+          assert!(pid == where_[i as usize]);
+
+          if (rinfo[i as usize].ned > 0) {
+            nnbrs = rinfo[i as usize].nnbrs;
+            nbrs  = ctrl.vnbrpool + rinfo[i as usize].inbr;
+
+            for j in (0)..(nnbrs) {
+              other = nbrs[j as usize].pid;
+              if (vadwgts[other as usize] == 0) {
+                vadids[(nads) as usize] = other;nads+=1;
               }
+              vadwgts[other as usize] += nbrs[j as usize].ned;
             }
           }
         }
-        break;
+      }
 
-      default:
-        gk_errexit(SIGERR, "Unknown objtype: %d\n", ctrl->objtype);
+      _ => gk_errexit(SIGERR, "Unknown objtype: %d\n", ctrl.objtype)
     }
 
     /* See if you have enough memory to store the adjacent info for that subdomain */
-    if (ctrl->maxnads[pid] < nads) {
-      ctrl->maxnads[pid] = 2*nads;
-      ctrl->adids[pid]   = irealloc(ctrl->adids[pid], ctrl->maxnads[pid], 
-                               "ComputeSubDomainGraph: adids[pid]");
-      ctrl->adwgts[pid]  = irealloc(ctrl->adwgts[pid], ctrl->maxnads[pid], 
-                               "ComputeSubDomainGraph: adids[pid]");
+    if (ctrl.maxnads[pid as usize] < nads) {
+      ctrl.maxnads[pid as usize] = 2*nads;
+      ctrl.adids[pid as usize]   = irealloc(ctrl.adids[pid as usize], ctrl.maxnads[pid as usize], 
+        "ComputeSubDomainGraph: adids[pid as usize]");
+      ctrl.adwgts[pid as usize]  = irealloc(ctrl.adwgts[pid as usize], ctrl.maxnads[pid as usize], 
+        "ComputeSubDomainGraph: adids[pid as usize]");
     }
 
-    ctrl->nads[pid] = nads;
-    for (j=0; j<nads; j++) {
-      ctrl->adids[pid][j]  = vadids[j];
-      ctrl->adwgts[pid][j] = vadwgts[vadids[j]];
+    ctrl.nads[pid as usize] = nads;
+    for j in (0)..(nads) {
+      ctrl.adids[pid as usize][j as usize]  = vadids[j as usize];
+      ctrl.adwgts[pid as usize][j as usize] = vadwgts[vadids[j as usize] as usize];
 
-      vadwgts[vadids[j]] = 0;
+      vadwgts[vadids[j as usize] as usize] = 0;
     }
   }
-      
-  WCOREPOP;
+
+  // WCOREPOP;
 }
 
 
 /*************************************************************************/
-/*! This function updates the weight of an edge in the subdomain graph by
-    adding to it the value of ewgt. The update can either increase or
-    decrease the weight of the subdomain edge based on the value of ewgt.
+/* This function updates the weight of an edge in the subdomain graph by
+adding to it the value of ewgt. The update can either increase or
+decrease the weight of the subdomain edge based on the value of ewgt.
 
-    \param u is the ID of one of the incident subdomains to the edge
-    \param v is the ID of the other incident subdomains to the edge
-    \param ewgt is the weight to be added to the subdomain edge
-    \param nparts is the number of subdomains
-    \param r_maxndoms is the maximum number of adjacent subdomains and is
-           updated as necessary. The update is skipped if a NULL value is
-           supplied.
+\param u is the ID of one of the incident subdomains to the edge
+\param v is the ID of the other incident subdomains to the edge
+\param ewgt is the weight to be added to the subdomain edge
+\param nparts is the number of subdomains
+\param r_maxndoms is the maximum number of adjacent subdomains and is
+updated as necessary. The update is skipped if a std::ptr::null_mut() value is
+supplied.
 */
 /*************************************************************************/
-void UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt, 
-         idx_t *r_maxndoms)
+#[metis_func]
+pub extern "C" fn UpdateEdgeSubDomainGraph(ctrl: *mut ctrl_t, u: idx_t, v: idx_t, ewgt: idx_t, r_maxndoms: *mut idx_t) 
 {
-  idx_t i, j, nads;
+  // idx_t i, j, nads;
 
-  if (ewgt == 0)
+  if (ewgt == 0) {
     return;
+  }
 
-  for (i=0; i<2; i++) {
-    nads = ctrl->nads[u];
+  for i in (0)..(2) {
+    nads = ctrl.nads[u as usize];
     /* Find the edge */
-    for (j=0; j<nads; j++) {
-      if (ctrl->adids[u][j] == v) {
-        ctrl->adwgts[u][j] += ewgt;
+    for j in (0)..(nads) {
+      if (ctrl.adids[u as usize][j as usize] == v) {
+        ctrl.adwgts[u as usize][j as usize] += ewgt;
         break;
       }
     }
 
     if (j == nads) {
       /* Deal with the case in which the edge was not found */
-      ASSERT(ewgt > 0);
-      if (ctrl->maxnads[u] == nads) {
-        ctrl->maxnads[u] = 2*(nads+1);
-        ctrl->adids[u]   = irealloc(ctrl->adids[u], ctrl->maxnads[u], 
-                               "IncreaseEdgeSubDomainGraph: adids[pid]");
-        ctrl->adwgts[u]  = irealloc(ctrl->adwgts[u], ctrl->maxnads[u], 
-                               "IncreaseEdgeSubDomainGraph: adids[pid]");
+      assert!(ewgt > 0);
+      if (ctrl.maxnads[u as usize] == nads) {
+        ctrl.maxnads[u as usize] = 2*(nads+1);
+        ctrl.adids[u as usize]   = irealloc(ctrl.adids[u as usize], ctrl.maxnads[u as usize], 
+          "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
+        ctrl.adwgts[u as usize]  = irealloc(ctrl.adwgts[u as usize], ctrl.maxnads[u as usize], 
+          "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
       }
-      ctrl->adids[u][nads]  = v;
-      ctrl->adwgts[u][nads] = ewgt;
-      nads++;
-      if (r_maxndoms != NULL && nads > *r_maxndoms) {
-        printf("You just increased the maxndoms: %"PRIDX" %"PRIDX"\n", 
-            nads, *r_maxndoms);
+      ctrl.adids[u as usize][nads as usize]  = v;
+      ctrl.adwgts[u as usize][nads as usize] = ewgt;
+      nads += 1;
+      if (r_maxndoms != std::ptr::null_mut() && nads > *r_maxndoms) {
+        print!("You just increased the maxndoms: {:} {:}\n", 
+          nads, *r_maxndoms);
         *r_maxndoms = nads;
       }
     }
     else {
       /* See if the updated edge becomes 0 */
-      ASSERT(ctrl->adwgts[u][j] >= 0);
-      if (ctrl->adwgts[u][j] == 0) {
-        ctrl->adids[u][j]  = ctrl->adids[u][nads-1];
-        ctrl->adwgts[u][j] = ctrl->adwgts[u][nads-1];
-        nads--;
-        if (r_maxndoms != NULL && nads+1 == *r_maxndoms)
-          *r_maxndoms = ctrl->nads[iargmax(ctrl->nparts, ctrl->nads,1)];
+      assert!(ctrl.adwgts[u as usize][j as usize] >= 0);
+      if (ctrl.adwgts[u as usize][j as usize] == 0) {
+        ctrl.adids[u as usize][j as usize]  = ctrl.adids[u as usize][(nads-1) as usize];
+        ctrl.adwgts[u as usize][j as usize] = ctrl.adwgts[u as usize][(nads-1) as usize];
+        nads;nads-=1;
+        if (r_maxndoms != std::ptr::null_mut() && nads+1 == *r_maxndoms) {
+          *r_maxndoms = ctrl.nads[(iargmax(ctrl.nparts, ctrl.nads,1)) as usize];
+        }
       }
     }
-    ctrl->nads[u] = nads;
+    ctrl.nads[u as usize] = nads;
 
     SWAP(u, v, j);
   }
@@ -187,134 +191,140 @@ void UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt,
 
 
 /*************************************************************************/
-/*! This function computes the subdomain graph */
+/* This function computes the subdomain graph */
 /*************************************************************************/
-void EliminateSubDomainEdges(ctrl_t *ctrl, graph_t *graph)
-{
-  idx_t i, ii, j, k, ncon, nparts, scheme, pid_from, pid_to, me, other, nvtxs, 
-        total, max, avg, totalout, nind=0, ncand=0, ncand2, target, target2, 
-        nadd, bestnadd=0;
-  idx_t min, move, *cpwgt;
-  idx_t *xadj, *adjncy, *vwgt, *adjwgt, *pwgts, *where, *maxpwgt, 
-        *mypmat, *otherpmat, *kpmat, *ind;
-  idx_t *nads, **adids, **adwgts;
-  ikv_t *cand, *cand2;
-  ipq_t queue;
-  real_t *tpwgts, badfactor=1.4;
-  idx_t *pptr, *pind;
-  idx_t *vmarker=NULL, *pmarker=NULL, *modind=NULL;  /* volume specific work arrays */
+#[metis_func]
+pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) {
+  // idx_t i, ii, j, k, ncon, nparts, scheme, pid_from, pid_to, me, other, nvtxs, 
+  // total, max, avg, totalout, nind=0, ncand=0, ncand2, target, target2, 
+  // nadd, bestnadd=0;
+  // idx_t min, move, *cpwgt;
+  // idx_t *xadj, *adjncy, *vwgt, *adjwgt, *pwgts, *where_, *maxpwgt, 
+  // *mypmat, *otherpmat, *kpmat, *ind;
+  // idx_t *nads, **adids, **adwgts;
+  // ikv_t *cand, *cand2;
+  // ipq_t queue;
+  // real_t *tpwgts, badfactor=1.4;
+  // idx_t *pptr, *pind;
+  // idx_t *vmarker=std::ptr::null_mut(), *pmarker=std::ptr::null_mut(), *modind=std::ptr::null_mut();  /* volume specific work arrays */
 
-  WCOREPUSH;
+  // WCOREPUSH;
 
-  nvtxs  = graph->nvtxs;
-  ncon   = graph->ncon;
-  xadj   = graph->xadj;
-  adjncy = graph->adjncy;
-  vwgt   = graph->vwgt;
-  adjwgt = (ctrl->objtype == METIS_OBJTYPE_VOL ? NULL : graph->adjwgt);
+  let   nvtxs  = graph.nvtxs as usize;
+  let   ncon   = graph.ncon as usize;
+  xadj   = graph.xadj;
+  adjncy = graph.adjncy;
+  vwgt   = graph.vwgt;
+  adjwgt = ( if (ctrl.objtype == METIS_OBJTYPE_VOL)  { (std::ptr::null_mut()) } else { (graph.adjwgt) });
 
-  where = graph->where;
-  pwgts = graph->pwgts;  /* We assume that this is properly initialized */
+  where_ = graph.where_;
+  pwgts = graph.pwgts;  /* We assume that this is properly initialized */
 
-  nparts = ctrl->nparts;
-  tpwgts = ctrl->tpwgts;
+  nparts = ctrl.nparts;
+  tpwgts = ctrl.tpwgts;
 
-  cpwgt     = iwspacemalloc(ctrl, ncon);
-  maxpwgt   = iwspacemalloc(ctrl, nparts*ncon);
-  ind       = iwspacemalloc(ctrl, nvtxs);
-  otherpmat = iset(nparts, 0, iwspacemalloc(ctrl, nparts));
+  cpwgt     = vec![0; ncon as usize];
+  maxpwgt   = vec![0; nparts*ncon as usize];
+  ind       = vec![0; nvtxs as usize];
+  otherpmat = vec![0; nparts as usize];
 
   cand  = ikvwspacemalloc(ctrl, nparts);
   cand2 = ikvwspacemalloc(ctrl, nparts);
 
-  pptr = iwspacemalloc(ctrl, nparts+1);
-  pind = iwspacemalloc(ctrl, nvtxs);
-  iarray2csr(nvtxs, nparts, where, pptr, pind);
+  pptr = vec![0; nparts+1 as usize];
+  pind = vec![0; nvtxs as usize];
+  iarray2csr(nvtxs, nparts, where_, pptr, pind);
 
-  if (ctrl->objtype == METIS_OBJTYPE_VOL) {
+  if (ctrl.objtype == METIS_OBJTYPE_VOL) {
     /* Vol-refinement specific working arrays */
-    modind  = iwspacemalloc(ctrl, nvtxs);
-    vmarker = iset(nvtxs, 0, iwspacemalloc(ctrl, nvtxs));
-    pmarker = iset(nparts, -1, iwspacemalloc(ctrl, nparts));
+    modind  = vec![0; nvtxs as usize];
+    vmarker = vec![0; nvtxs as usize];
+    pmarker = vec![-1; nparts as usize];
   }
 
 
   /* Compute the pmat matrix and ndoms */
   ComputeSubDomainGraph(ctrl, graph);
 
-  nads   = ctrl->nads;
-  adids  = ctrl->adids;
-  adwgts = ctrl->adwgts;
+  nads   = ctrl.nads;
+  adids  = ctrl.adids;
+  adwgts = ctrl.adwgts;
 
-  mypmat = iset(nparts, 0, ctrl->pvec1);
-  kpmat  = iset(nparts, 0, ctrl->pvec2);
+  mypmat = iset(nparts, 0, ctrl.pvec1);
+  kpmat  = iset(nparts, 0, ctrl.pvec2);
 
   /* Compute the maximum allowed weight for each domain */
-  for (i=0; i<nparts; i++) {
-    for (j=0; j<ncon; j++)
-      maxpwgt[i*ncon+j] = 
-          (ncon == 1 ? 1.25 : 1.025)*tpwgts[i]*graph->tvwgt[j]*ctrl->ubfactors[j];
+  for i in (0)..(nparts) {
+    for j in (0)..(ncon) {
+      maxpwgt[(i*ncon+j) as usize] =
+        (if ncon == 1 { 1.25 } else { 1.025 })
+        * tpwgts[i as usize]
+        * (*graph.tvwgt[j as usize])
+        * (*ctrl.ubfactors[j as usize]);
+    }
   }
 
   ipqInit(&queue, nparts);
 
   /* Get into the loop eliminating subdomain connections */
-  while (1) {
+  loop {
     total = isum(nparts, nads, 1);
     avg   = total/nparts;
-    max   = nads[iargmax(nparts, nads,1)];
+    max   = nads[(iargmax(nparts, nads,1)) as usize];
 
-    IFSET(ctrl->dbglvl, METIS_DBG_CONNINFO, 
-          printf("Adjacent Subdomain Stats: Total: %3"PRIDX", "
-                 "Max: %3"PRIDX"[%zu], Avg: %3"PRIDX"\n", 
-                 total, max, iargmax(nparts, nads,1), avg)); 
+    IFSET(ctrl.dbglvl, METIS_DBG_CONNINFO, 
+      print!("Adjacent Subdomain Stats: Total: {:3}, "
+        "Max: {:3}[%zu], Avg: {:3}\n", 
+        total, max, iargmax(nparts, nads,1), avg)); 
 
-    if (max < badfactor*avg)
+    if (max < badfactor*avg) {
       break;
+    }
 
     /* Add the subdomains that you will try to reduce their connectivity */
     ipqReset(&queue);
-    for (i=0; i<nparts; i++) {
-      if (nads[i] >= avg + (max-avg)/2)
-        ipqInsert(&queue, i, nads[i]);
+    for i in (0)..(nparts) {
+      if (nads[i as usize] >= avg + (max-avg)/2) {
+        ipqInsert(&queue, i, nads[i as usize]);
+      }
     }
 
-    move = 0;
-    while ((me = ipqGetTop(&queue)) != -1) {
-      totalout = isum(nads[me], adwgts[me], 1);
-
-      for (ncand2=0, i=0; i<nads[me]; i++) {
-        mypmat[adids[me][i]] = adwgts[me][i];
+    move_ = 0;
+    while let Some(me) = queue.pop() {
+      totalout = isum(nads[me as usize], adwgts[me as usize], 1);
+      ncand2=0;
+      for i in 0..nads[me as usize] {
+        mypmat[adids[me as usize][i as usize] as usize] = adwgts[me as usize][i as usize];
 
         /* keep track of the weakly connected adjacent subdomains */
-        if (2*nads[me]*adwgts[me][i] < totalout) {
-          cand2[ncand2].val   = adids[me][i];
-          cand2[ncand2++].key = adwgts[me][i];
+        if (2*nads[me as usize]*adwgts[me as usize][i as usize] < totalout) {
+          cand2[ncand2 as usize].val   = adids[me as usize][i as usize];
+          cand2[(ncand2) as usize].key = adwgts[me as usize][i as usize];ncand2+=1;
         }
       }
 
-      IFSET(ctrl->dbglvl, METIS_DBG_CONNINFO, 
-            printf("Me: %"PRIDX", Degree: %4"PRIDX", TotalOut: %"PRIDX",\n", 
-                me, nads[me], totalout));
+      IFSET(ctrl.dbglvl, METIS_DBG_CONNINFO, 
+        print!("Me: {:}, Degree: {:4}, TotalOut: {:},\n", 
+          me, nads[me as usize], totalout));
 
       /* Sort the connections according to their cut */
       ikvsorti(ncand2, cand2);
 
       /* Two schemes are used for eliminating subdomain edges.
-         The first, tries to eliminate subdomain edges by moving remote groups 
-         of vertices to subdomains that 'me' is already connected to.
-         The second, tries to eliminate subdomain edges by moving entire sets of 
-         my vertices that connect to the 'other' subdomain to a subdomain that 
-         I'm already connected to.
-         These two schemes are applied in sequence. */
+      The first, tries to eliminate subdomain edges by moving remote groups 
+      of vertices to subdomains that 'me' is already connected to.
+      The second, tries to eliminate subdomain edges by moving entire sets of 
+      my vertices that connect to the 'other' subdomain to a subdomain that 
+      I'm already connected to.
+      These two schemes are applied in sequence. */
       target = target2 = -1;
-      for (scheme=0; scheme<2; scheme++) {
-        for (min=0; min<ncand2; min++) {
-          other = cand2[min].val;
+      for scheme in (0)..(2) {
+        for min in (0)..(ncand2) {
+          other = cand2[min as usize].val;
 
-          /* pid_from is the subdomain from where the vertices will be removed.
-             pid_to is the adjacent subdomain to pid_from that defines the 
-             (me, other) subdomain edge that needs to be removed */
+          /* pid_from is the subdomain from where_ the vertices will be removed.
+          pid_to is the adjacent subdomain to pid_from that defines the 
+          (me, other) subdomain edge that needs to be removed */
           if (scheme == 0) {
             pid_from = other;
             pid_to   = me;
@@ -323,405 +333,432 @@ void EliminateSubDomainEdges(ctrl_t *ctrl, graph_t *graph)
             pid_from  = me;
             pid_to    = other;
           }
-  
+
           /* Go and find the vertices in 'other' that are connected in 'me' */
-          for (nind=0, ii=pptr[pid_from]; ii<pptr[pid_from+1]; ii++) {
-            i = pind[ii];
-            ASSERT(where[i] == pid_from);
-            for (j=xadj[i]; j<xadj[i+1]; j++) {
-              if (where[adjncy[j]] == pid_to) {
-                ind[nind++] = i;
+          nind=0;
+          for ii in (pptr[pid_from as usize])..(pptr[(pid_from+1) as usize]) {
+            i = pind[ii as usize];
+            assert!(where_[i as usize] == pid_from);
+            for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+              if (where_[adjncy[j as usize] as usize] == pid_to) {
+                ind[(nind) as usize] = i;nind+=1;
                 break;
               }
             }
           }
-  
-          /* Go and construct the otherpmat to see where these nind vertices are 
-             connected to */
+
+          /* Go and construct the otherpmat to see where_ these nind vertices are 
+          connected to */
           iset(ncon, 0, cpwgt);
-          for (ncand=0, ii=0; ii<nind; ii++) {
-            i = ind[ii];
+          ncand=0;
+          for ii in (0)..(nind) {
+            i = ind[ii as usize];
             iaxpy(ncon, 1, vwgt+i*ncon, 1, cpwgt, 1);
-    
-            for (j=xadj[i]; j<xadj[i+1]; j++) {
-              if ((k = where[adjncy[j]]) == pid_from)
+
+            for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+              if ((k = where_[adjncy[j as usize] as usize]) == pid_from) {
                 continue;
-              if (otherpmat[k] == 0)
-                cand[ncand++].val = k;
-              otherpmat[k] += (adjwgt ? adjwgt[j] : 1);
+              }
+              if (otherpmat[k as usize] == 0) {
+                cand[(ncand) as usize].val = k;ncand+=1;
+              }
+              otherpmat[k as usize] += (adjwgt ? adjwgt[j as usize] : 1);
             }
           }
-    
-          for (i=0; i<ncand; i++) {
-            cand[i].key = otherpmat[cand[i].val];
-            ASSERT(cand[i].key > 0);
+
+          for i in (0)..(ncand) {
+            cand[i as usize].key = otherpmat[cand[i as usize].val];
+            assert!(cand[i as usize].key > 0);
           }
 
           ikvsortd(ncand, cand);
-    
-          IFSET(ctrl->dbglvl, METIS_DBG_CONNINFO, 
-                printf("\tMinOut: %4"PRIDX", to: %3"PRIDX", TtlWgt: %5"PRIDX"[#:%"PRIDX"]\n", 
-                    mypmat[other], other, isum(ncon, cpwgt, 1), nind));
+
+          IFSET(ctrl.dbglvl, METIS_DBG_CONNINFO, 
+            print!("\tMinOut: {:4}, to: {:3}, TtlWgt: {:5}[#:{:}]\n", 
+              mypmat[other as usize], other, isum(ncon, cpwgt, 1), nind));
 
           /* Go through and select the first domain that is common with 'me', and does
-             not increase the nads[target] higher than nads[me], subject to the maxpwgt
-             constraint. Traversal is done from the mostly connected to the least. */
-          for (i=0; i<ncand; i++) {
-            k = cand[i].val;
-    
-            if (mypmat[k] > 0) {
+          not increase the nads[target as usize] higher than nads[me as usize], subject to the maxpwgt
+          constraint. Traversal is done from the mostly connected to the least. */
+          for i in (0)..(ncand) {
+            k = cand[i as usize].val;
+
+            if (mypmat[k as usize] > 0) {
               /* Check if balance will go off */
-              if (!ivecaxpylez(ncon, 1, cpwgt, pwgts+k*ncon, maxpwgt+k*ncon))
+              if (!ivecaxpylez(ncon, 1, cpwgt, pwgts+k*ncon, maxpwgt+k*ncon)) {
                 continue;
-    
-              /* get a dense vector out of k's connectivity */
-              for (j=0; j<nads[k]; j++) 
-                kpmat[adids[k][j]] = adwgts[k][j];
-    
-              /* Check if the move to domain k will increase the nads of another
-                 subdomain j that the set of vertices being moved are connected
-                 to but domain k is not connected to. */
-              for (j=0; j<nparts; j++) {
-                if (otherpmat[j] > 0 && kpmat[j] == 0 && nads[j]+1 >= nads[me]) 
-                  break;
               }
-  
-              /* There were no bad second level effects. See if you can find a
-                 subdomain to move to. */
-              if (j == nparts) { 
-                for (nadd=0, j=0; j<nparts; j++) {
-                  if (otherpmat[j] > 0 && kpmat[j] == 0)
-                    nadd++;
+
+              /* get a dense vector out of k's connectivity */
+              for j in (0)..(nads[k as usize])  {
+                kpmat[adids[k as usize][j as usize] as usize] = adwgts[k as usize][j as usize];
+              }
+
+              /* Check if the move to domain k will increase the nads of another
+              subdomain j that the set of vertices being moved are connected
+              to but domain k is not connected to. */
+              for j in (0)..(nparts) {
+                if (otherpmat[j as usize] > 0 && kpmat[j as usize] == 0 && nads[j as usize]+1 >= nads[me as usize])  {
+                  break;
                 }
-    
-                IFSET(ctrl->dbglvl, METIS_DBG_CONNINFO, 
-                      printf("\t\tto=%"PRIDX", nadd=%"PRIDX", %"PRIDX"\n", k, nadd, nads[k]));
-    
-                if (nads[k]+nadd < nads[me]) {
-                  if (target2 == -1 || nads[target2]+bestnadd > nads[k]+nadd ||
-                      (nads[target2]+bestnadd == nads[k]+nadd && bestnadd > nadd)) {
+              }
+
+              /* There were no bad second level effects. See if you can find a
+              subdomain to move to. */
+              if (j == nparts) { 
+                nadd=0;
+                for j in (0)..(nparts) {
+                  if (otherpmat[j as usize] > 0 && kpmat[j as usize] == 0) {
+                    nadd += 1;
+                  }
+                }
+
+                IFSET(ctrl.dbglvl, METIS_DBG_CONNINFO, 
+                  print!("\t\tto={:}, nadd={:}, {:}\n", k, nadd, nads[k as usize]));
+
+                if (nads[k as usize]+nadd < nads[me as usize]) {
+                  if (target2 == -1 || nads[target2 as usize]+bestnadd > nads[k as usize]+nadd ||
+                  (nads[target2 as usize]+bestnadd == nads[k as usize]+nadd && bestnadd > nadd)) {
                     target2  = k;
                     bestnadd = nadd;
                   }
                 }
-  
-                if (nadd == 0) 
+
+                if (nadd == 0)  {
                   target = k;
+                }
               }
 
               /* reset kpmat for the next iteration */
-              for (j=0; j<nads[k]; j++) 
-                kpmat[adids[k][j]] = 0;
+              for j in (0)..(nads[k as usize])  {
+                kpmat[adids[k as usize][j as usize] as usize] = 0;
+              }
             }
 
-            if (target != -1)
+            if (target != -1) {
               break;
+            }
           }
 
           /* reset the otherpmat for the next iteration */
-          for (i=0; i<ncand; i++) 
-            otherpmat[cand[i].val] = 0;
+          for i in (0)..(ncand)  {
+            otherpmat[cand[i as usize].val] = 0;
+          }
 
-          if (target == -1 && target2 != -1)
+          if (target == -1 && target2 != -1) {
             target = target2;
-    
+          }
+
           if (target != -1) {
-            IFSET(ctrl->dbglvl, METIS_DBG_CONNINFO, 
-                printf("\t\tScheme: %"PRIDX". Moving to %"PRIDX"\n", scheme, target));
-            move = 1;
+            IFSET(ctrl.dbglvl, METIS_DBG_CONNINFO, 
+              print!("\t\tScheme: {:}. Moving to {:}\n", scheme, target));
+            move_ = 1;
             break;
           }
         }
 
-        if (target != -1)
-          break;  /* A move was found. No need to try the other scheme */
+        if (target != -1) {
+          break;
+        }  /* A move was found. No need to try the other scheme */
       }
 
       /* reset the mypmat for next iteration */
-      for (i=0; i<nads[me]; i++) 
-        mypmat[adids[me][i]] = 0;
+      for i in (0)..(nads[me as usize])  {
+        mypmat[adids[me as usize][i as usize] as usize] = 0;
+      }
 
       /* Note that once a target is found the above loops exit right away. So the
-         following variables are valid */
+      following variables are valid */
       if (target != -1) {
-        switch (ctrl->objtype) {
-          case METIS_OBJTYPE_CUT:
-            MoveGroupMinConnForCut(ctrl, graph, target, nind, ind);
-            break;
-          case METIS_OBJTYPE_VOL:
-            MoveGroupMinConnForVol(ctrl, graph, target, nind, ind, vmarker, 
-                pmarker, modind);
-            break;
-          default:
-            gk_errexit(SIGERR, "Unknown objtype of %d\n", ctrl->objtype);
+        match (ctrl.objtype) {
+          METIS_OBJTYPE_CUT =>
+          MoveGroupMinConnForCut(ctrl, graph, target, nind, ind)
+          METIS_OBJTYPE_VOL =>
+          MoveGroupMinConnForVol(ctrl, graph, target, nind, ind, vmarker, 
+            pmarker, modind)
+          _ =>
+          gk_errexit(SIGERR, "Unknown objtype of %d\n", ctrl.objtype)
         }
 
         /* Update the csr representation of the partitioning vector */
-        iarray2csr(nvtxs, nparts, where, pptr, pind);
+        iarray2csr(nvtxs, nparts, where_, pptr, pind);
       }
     }
 
-    if (move == 0)
+    if (move_ == 0) {
       break;
+    }
   }
 
   ipqFree(&queue);
 
-  WCOREPOP;
+  // WCOREPOP;
 }
 
 
 /*************************************************************************/
-/*! This function moves a collection of vertices and updates their rinfo */
+/* This function moves a collection of vertices and updates their rinfo */
 /*************************************************************************/
-void MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
-         idx_t *ind)
+#[metis_func]
+pub extern "C" fn MoveGroupMinConnForCut(ctrl: *mut ctrl_t, graph: *mut graph_t, to: idx_t, nind: idx_t, ind: *mut idx_t) 
 {
-  idx_t i, ii, j, jj, k, l, nvtxs, nbnd, from, me;
-  idx_t *xadj, *adjncy, *adjwgt, *where, *bndptr, *bndind;
-  ckrinfo_t *myrinfo;
-  cnbr_t *mynbrs;
+  // idx_t i, ii, j, jj, k, l, nvtxs, nbnd, from, me;
+  // idx_t *xadj, *adjncy, *adjwgt, *where_, *bndptr, *bndind;
+  // ckrinfo_t *myrinfo;
+  // cnbr_t *mynbrs;
 
-  nvtxs  = graph->nvtxs;
-  xadj   = graph->xadj;
-  adjncy = graph->adjncy;
-  adjwgt = graph->adjwgt;
+  let   nvtxs  = graph.nvtxs as usize;
+  xadj   = graph.xadj;
+  adjncy = graph.adjncy;
+  adjwgt = graph.adjwgt;
 
-  where  = graph->where;
-  bndptr = graph->bndptr;
-  bndind = graph->bndind;
+  where_  = graph.where_;
+  bndptr = graph.bndptr;
+  bndind = graph.bndind;
 
-  nbnd = graph->nbnd;
+  nbnd = graph.nbnd;
 
-  while (--nind>=0) {
-    i    = ind[nind];
-    from = where[i];
+  while ({nind -= 1; nind }>=0) {
+    i    = ind[nind as usize];
+    from = where_[i as usize];
 
-    myrinfo = graph->ckrinfo+i;
-    if (myrinfo->inbr == -1) {
-      myrinfo->inbr  = cnbrpoolGetNext(ctrl, xadj[i+1]-xadj[i]);
-      myrinfo->nnbrs = 0;
+    myrinfo = graph.ckrinfo+i;
+    if (myrinfo.inbr == -1) {
+      myrinfo.inbr  = cnbrpoolGetNext(ctrl, xadj[(i+1) as usize]-xadj[i as usize]);
+      myrinfo.nnbrs = 0;
     }
-    mynbrs = ctrl->cnbrpool + myrinfo->inbr;
+    mynbrs = ctrl.cnbrpool + myrinfo.inbr;
 
     /* find the location of 'to' in myrinfo or create it if it is not there */
-    for (k=0; k<myrinfo->nnbrs; k++) {
-      if (mynbrs[k].pid == to)
+    for k in (0)..(myrinfo.nnbrs) {
+      if (mynbrs[k as usize].pid == to) {
         break;
+      }
     }
-    if (k == myrinfo->nnbrs) {
-      ASSERT(k < xadj[i+1]-xadj[i]);
-      mynbrs[k].pid = to;
-      mynbrs[k].ed  = 0;
-      myrinfo->nnbrs++;
+    if (k == myrinfo.nnbrs) {
+      assert!(k < xadj[(i+1) as usize]-xadj[i as usize]);
+      mynbrs[k as usize].pid = to;
+      mynbrs[k as usize].ed  = 0;
+      myrinfo.nnbrs += 1;
     }
 
     /* Update pwgts */
-    iaxpy(graph->ncon,  1, graph->vwgt+i*graph->ncon, 1, graph->pwgts+to*graph->ncon,   1);
-    iaxpy(graph->ncon, -1, graph->vwgt+i*graph->ncon, 1, graph->pwgts+from*graph->ncon, 1);
+    iaxpy(graph.ncon,  1, graph.vwgt+i*graph.ncon, 1, graph.pwgts+to*graph.ncon,   1);
+    iaxpy(graph.ncon, -1, graph.vwgt+i*graph.ncon, 1, graph.pwgts+from*graph.ncon, 1);
 
     /* Update mincut */
-    graph->mincut -= mynbrs[k].ed-myrinfo->id;
+    graph.mincut -= mynbrs[k as usize].ed-myrinfo.id;
 
     /* Update subdomain connectivity graph to reflect the move of 'i' */
-    UpdateEdgeSubDomainGraph(ctrl, from, to, myrinfo->id-mynbrs[k].ed, NULL);
+    UpdateEdgeSubDomainGraph(ctrl, from, to, myrinfo.id-mynbrs[k as usize].ed, std::ptr::null_mut());
 
     /* Update ID/ED and BND related information for the moved vertex */
-    UpdateMovedVertexInfoAndBND(i, from, k, to, myrinfo, mynbrs, where, nbnd, 
-        bndptr, bndind, BNDTYPE_REFINE);
+    UpdateMovedVertexInfoAndBND(i, from, k, to, myrinfo, mynbrs, where_, nbnd, 
+      bndptr, bndind, BNDTYPE_REFINE);
 
     /* Update the degrees of adjacent vertices */
-    for (j=xadj[i]; j<xadj[i+1]; j++) {
-      ii = adjncy[j];
-      me = where[ii];
-      myrinfo = graph->ckrinfo+ii;
+    for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+      ii = adjncy[j as usize];
+      me = where_[ii as usize];
+      myrinfo = graph.ckrinfo+ii;
 
-      UpdateAdjacentVertexInfoAndBND(ctrl, ii, xadj[ii+1]-xadj[ii], me,
-          from, to, myrinfo, adjwgt[j], nbnd, bndptr, bndind, BNDTYPE_REFINE);
+      UpdateAdjacentVertexInfoAndBND(ctrl, ii, xadj[(ii+1) as usize]-xadj[ii as usize], me,
+        from, to, myrinfo, adjwgt[j as usize], nbnd, bndptr, bndind, BNDTYPE_REFINE);
 
       /* Update subdomain graph to reflect the move of 'i' for domains other 
-         than 'from' and 'to' */
+      than 'from' and 'to' */
       if (me != from && me != to) {
-        UpdateEdgeSubDomainGraph(ctrl, from, me, -adjwgt[j], NULL);
-        UpdateEdgeSubDomainGraph(ctrl, to, me, adjwgt[j], NULL);
+        UpdateEdgeSubDomainGraph(ctrl, from, me, -adjwgt[j as usize], std::ptr::null_mut());
+        UpdateEdgeSubDomainGraph(ctrl, to, me, adjwgt[j as usize], std::ptr::null_mut());
       }
     }
   }
 
-  ASSERT(ComputeCut(graph, where) == graph->mincut);
+  assert!(ComputeCut(graph, where_) == graph.mincut);
 
-  graph->nbnd = nbnd;
+  graph.nbnd = nbnd;
 
 }
 
 
 /*************************************************************************/
-/*! This function moves a collection of vertices and updates their rinfo */
+/* This function moves a collection of vertices and updates their rinfo */
 /*************************************************************************/
-void MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
-         idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind)
+#[metis_func]
+pub extern "C" fn MoveGroupMinConnForVol(ctrl: *mut ctrl_t, graph: *mut graph_t, to: idx_t, nind: idx_t, ind: *mut idx_t, vmarker: *mut idx_t, pmarker: *mut idx_t, modind: *mut idx_t) 
 {
-  idx_t i, ii, j, jj, k, l, nvtxs, from, me, other, xgain, ewgt;
-  idx_t *xadj, *vsize, *adjncy, *where;
-  vkrinfo_t *myrinfo, *orinfo;
-  vnbr_t *mynbrs, *onbrs;
+  // idx_t i, ii, j, jj, k, l, nvtxs, from, me, other, xgain, ewgt;
+  // idx_t *xadj, *vsize, *adjncy, *where_;
+  // vkrinfo_t *myrinfo, *orinfo;
+  // vnbr_t *mynbrs, *onbrs;
 
-  nvtxs  = graph->nvtxs;
-  xadj   = graph->xadj;
-  vsize  = graph->vsize;
-  adjncy = graph->adjncy;
-  where  = graph->where;
+  let   nvtxs  = graph.nvtxs as usize;
+  xadj   = graph.xadj;
+  vsize  = graph.vsize;
+  adjncy = graph.adjncy;
+  where_  = graph.where_;
 
-  while (--nind>=0) {
-    i    = ind[nind];
-    from = where[i];
+  while ({nind -= 1; nind}>=0) {
+    i    = ind[nind as usize];
+    from = where_[i as usize];
 
-    myrinfo = graph->vkrinfo+i;
-    if (myrinfo->inbr == -1) {
-      myrinfo->inbr  = vnbrpoolGetNext(ctrl, xadj[i+1]-xadj[i]);
-      myrinfo->nnbrs = 0;
+    myrinfo = graph.vkrinfo+i;
+    if (myrinfo.inbr == -1) {
+      myrinfo.inbr  = vnbrpoolGetNext(ctrl, xadj[(i+1) as usize]-xadj[i as usize]);
+      myrinfo.nnbrs = 0;
     }
-    mynbrs = ctrl->vnbrpool + myrinfo->inbr;
+    mynbrs = ctrl.vnbrpool + myrinfo.inbr;
 
-    xgain = (myrinfo->nid == 0 && myrinfo->ned > 0 ? vsize[i] : 0);
+    xgain = (myrinfo.nid == 0 && myrinfo.ned > 0 ? vsize[i as usize] : 0);
 
-    //printf("Moving %"PRIDX" from %"PRIDX" to %"PRIDX" [vsize: %"PRIDX"] [xgain: %"PRIDX"]\n", 
-    //    i, from, to, vsize[i], xgain);
-    
+    //print!("Moving {:} from {:} to {:} [(vsize: {:}) as usize] [(xgain: {:}) as usize]\n", 
+    //    i, from, to, vsize[i as usize], xgain);
+
     /* find the location of 'to' in myrinfo or create it if it is not there */
-    for (k=0; k<myrinfo->nnbrs; k++) {
-      if (mynbrs[k].pid == to)
+    for k in (0)..(myrinfo.nnbrs) {
+      if (mynbrs[k as usize].pid == to) {
         break;
+      }
     }
 
-    if (k == myrinfo->nnbrs) {
-      //printf("Missing neighbor\n");
+    if (k == myrinfo.nnbrs) {
+      //print!("Missing neighbor\n");
 
-      if (myrinfo->nid > 0)
-        xgain -= vsize[i];
+      if (myrinfo.nid > 0) {
+        xgain -= vsize[i as usize];
+      }
 
       /* determine the volume gain resulting from that move */
-      for (j=xadj[i]; j<xadj[i+1]; j++) {
-        ii     = adjncy[j];
-        other  = where[ii];
-        orinfo = graph->vkrinfo+ii;
-        onbrs  = ctrl->vnbrpool + orinfo->inbr;
-        ASSERT(other != to)
+      for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+        ii     = adjncy[j as usize];
+        other  = where_[ii as usize];
+        orinfo = graph.vkrinfo+ii;
+        onbrs  = ctrl.vnbrpool + orinfo.inbr;
+        assert!(other != to);
 
-        //printf("  %8d %8d %3d\n", (int)ii, (int)vsize[ii], (int)other);
+        //print!("  %8d %8d %3d\n", (int)ii, (int)vsize[ii as usize], (int)other);
 
         if (from == other) {
           /* Same subdomain vertex: Decrease the gain if 'to' is a new neighbor. */
-          for (l=0; l<orinfo->nnbrs; l++) {
-            if (onbrs[l].pid == to)
+          for l in (0)..(orinfo.nnbrs) {
+            if (onbrs[l as usize].pid == to) {
               break;
+            }
           }
-          if (l == orinfo->nnbrs) 
-            xgain -= vsize[ii];
+          if (l == orinfo.nnbrs)  {
+            xgain -= vsize[ii as usize];
+          }
         }
         else {
           /* Remote vertex: increase if 'to' is a new subdomain */
-          for (l=0; l<orinfo->nnbrs; l++) {
-            if (onbrs[l].pid == to)
+          for l in (0)..(orinfo.nnbrs) {
+            if (onbrs[l as usize].pid == to) {
               break;
+            }
           }
-          if (l == orinfo->nnbrs) 
-            xgain -= vsize[ii];
+          if (l == orinfo.nnbrs)  {
+            xgain -= vsize[ii as usize];
+          }
 
           /* Remote vertex: decrease if i is the only connection to 'from' */
-          for (l=0; l<orinfo->nnbrs; l++) {
-            if (onbrs[l].pid == from && onbrs[l].ned == 1) {
-              xgain += vsize[ii];
+          for l in (0)..(orinfo.nnbrs) {
+            if (onbrs[l as usize].pid == from && onbrs[l as usize].ned == 1) {
+              xgain += vsize[ii as usize];
               break;
             }
           }
         }
       }
-      graph->minvol -= xgain;
-      graph->mincut -= -myrinfo->nid;
-      ewgt = myrinfo->nid;
+      graph.minvol -= xgain;
+      graph.mincut -= -myrinfo.nid;
+      ewgt = myrinfo.nid;
     }
     else {
-      graph->minvol -= (xgain + mynbrs[k].gv);
-      graph->mincut -= mynbrs[k].ned-myrinfo->nid;
-      ewgt = myrinfo->nid-mynbrs[k].ned;
+      graph.minvol -= (xgain + mynbrs[k as usize].gv);
+      graph.mincut -= mynbrs[k as usize].ned-myrinfo.nid;
+      ewgt = myrinfo.nid-mynbrs[k as usize].ned;
     }
 
-    /* Update where and pwgts */
-    where[i] = to;
-    iaxpy(graph->ncon,  1, graph->vwgt+i*graph->ncon, 1, graph->pwgts+to*graph->ncon,   1);
-    iaxpy(graph->ncon, -1, graph->vwgt+i*graph->ncon, 1, graph->pwgts+from*graph->ncon, 1);
+    /* Update where_ and pwgts */
+    where_[i as usize] = to;
+    iaxpy(graph.ncon,  1, graph.vwgt+i*graph.ncon, 1, graph.pwgts+to*graph.ncon,   1);
+    iaxpy(graph.ncon, -1, graph.vwgt+i*graph.ncon, 1, graph.pwgts+from*graph.ncon, 1);
 
     /* Update subdomain connectivity graph to reflect the move of 'i' */
-    UpdateEdgeSubDomainGraph(ctrl, from, to, ewgt, NULL);
+    UpdateEdgeSubDomainGraph(ctrl, from, to, ewgt, std::ptr::null_mut());
 
     /* Update the subdomain connectivity of the adjacent vertices */
-    for (j=xadj[i]; j<xadj[i+1]; j++) {
-      me = where[adjncy[j]];
+    for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+      me = where_[adjncy[j as usize] as usize];
       if (me != from && me != to) {
-        UpdateEdgeSubDomainGraph(ctrl, from, me, -1, NULL);
-        UpdateEdgeSubDomainGraph(ctrl, to, me, 1, NULL);
+        UpdateEdgeSubDomainGraph(ctrl, from, me, -1, std::ptr::null_mut());
+        UpdateEdgeSubDomainGraph(ctrl, to, me, 1, std::ptr::null_mut());
       }
     }
 
     /* Update the id/ed/gains/bnd of potentially affected nodes */
-    KWayVolUpdate(ctrl, graph, i, from, to, NULL, NULL, NULL, NULL,
-        NULL, BNDTYPE_REFINE, vmarker, pmarker, modind);
+    KWayVolUpdate(ctrl, graph, i, from, to, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(),
+      std::ptr::null_mut(), BNDTYPE_REFINE, vmarker, pmarker, modind);
 
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }
-  ASSERT(ComputeCut(graph, where) == graph->mincut);
-  ASSERTP(ComputeVolume(graph, where) == graph->minvol, 
-      ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
+  assert!(ComputeCut(graph, where_) == graph.mincut);
+  assert!(ComputeVolume(graph, where_) == graph.minvol, "{:} {:}\n", ComputeVolume(graph, where_), graph.minvol);
 
 }
 
 
 /*************************************************************************/
-/*! This function computes the subdomain graph. For deubugging purposes. */
+/* This function computes the subdomain graph. For deubugging purposes. */
 /*************************************************************************/
-void PrintSubDomainGraph(graph_t *graph, idx_t nparts, idx_t *where)
+#[metis_func]
+pub extern "C" fn PrintSubDomainGraph(graph: *mut graph_t, nparts: idx_t, where_: *mut idx_t) 
 {
-  idx_t i, j, k, me, nvtxs, total, max;
-  idx_t *xadj, *adjncy, *adjwgt, *pmat;
+  // idx_t i, j, k, me, nvtxs, total, max;
+  // idx_t *xadj, *adjncy, *adjwgt, *pmat;
 
-  nvtxs  = graph->nvtxs;
-  xadj   = graph->xadj;
-  adjncy = graph->adjncy;
-  adjwgt = graph->adjwgt;
+  let   nvtxs  = graph.nvtxs as usize;
+  xadj   = graph.xadj;
+  adjncy = graph.adjncy;
+  adjwgt = graph.adjwgt;
 
   pmat = ismalloc(nparts*nparts, 0, "ComputeSubDomainGraph: pmat");
 
-  for (i=0; i<nvtxs; i++) {
-    me = where[i];
-    for (j=xadj[i]; j<xadj[i+1]; j++) {
-      k = adjncy[j];
-      if (where[k] != me) 
-        pmat[me*nparts+where[k]] += adjwgt[j];
+  for i in (0)..(nvtxs) {
+    me = where_[i as usize];
+    for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+      k = adjncy[j as usize] as usize;
+      if (where_[k as usize] != me)  {
+        pmat[(me*nparts+where_[k]) as usize] += adjwgt[j as usize];
+      }
     }
   }
 
-  /* printf("Subdomain Info\n"); */
+  /* print!("Subdomain Info\n"); */
   total = max = 0;
-  for (i=0; i<nparts; i++) {
-    for (k=0, j=0; j<nparts; j++) {
-      if (pmat[i*nparts+j] > 0)
-        k++;
+  for i in (0)..(nparts) {
+    k=0;
+    for j in (0)..(nparts) {
+      if (pmat[(i*nparts+j) as usize] > 0) {
+        k += 1;
+      }
     }
     total += k;
 
-    if (k > max)
+    if (k > max) {
       max = k;
-/*
-    printf("%2"PRIDX" -> %2"PRIDX"  ", i, k);
-    for (j=0; j<nparts; j++) {
-      if (pmat[i*nparts+j] > 0)
-        printf("[%2"PRIDX" %4"PRIDX"] ", j, pmat[i*nparts+j]);
     }
-    printf("\n");
-*/
+    /*
+    print!("{:2} . {:2}  ", i, k);
+    for j in (0)..(nparts) {
+    if (pmat[(i*nparts+j) as usize] > 0) {
+    print!("[({:2} {:4}) as usize] ", j, pmat[(i*nparts+j) as usize]);
+    }
+    }
+    print!("\n");
+    */
   }
-  printf("Total adjacent subdomains: %"PRIDX", Max: %"PRIDX"\n", total, max);
+  print!("Total adjacent subdomains: {:}, Max: {:}\n", total, max);
 
   gk_free((void **)&pmat, LTERM);
 }
