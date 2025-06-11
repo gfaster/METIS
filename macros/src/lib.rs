@@ -22,6 +22,7 @@ pub fn metis_func(input: TokenStream, annotated_item: TokenStream) -> TokenStrea
 
 fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let fn_name = &impl_fn.sig.ident;
+    let attrs = impl_fn.attrs.clone();
 
     let mut foreign: syn::ForeignItemFn = syn::ForeignItemFn {
         attrs: impl_fn.attrs.clone(),
@@ -100,6 +101,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let dispatch = quote::quote! {
         #[export_name = #cannonical_link_func]
         #[allow(non_snake_case)]
+        #(#attrs)*
         #dispatch_vis #dispatch_sig {
             let actual: #dispatch_fn_ptr = #resolve_name();
             unsafe { actual(#(#dispatch_args_decl),*) }
