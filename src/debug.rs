@@ -12,10 +12,7 @@
 
 use crate::*;
 
-/*************************************************************************/
-/* This function computes the total edgecut
- */
-/*************************************************************************/
+/// Computes the total edgecut
 #[metis_func]
 pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx_t {
     let graph = graph.as_ref().unwrap();
@@ -48,10 +45,7 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
     return cut / 2;
 }
 
-/*************************************************************************/
-/* This function computes the total volume
- */
-/*************************************************************************/
+/// Computes the total volume
 #[metis_func]
 pub extern "C" fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
@@ -87,10 +81,7 @@ pub extern "C" fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_
     return totalv;
 }
 
-/*************************************************************************/
-/* This function computes the cut given the graph and a where_ vector
- */
-/*************************************************************************/
+/// (*unused*) This function computes the cut given the graph and a where_ vector
 #[metis_func]
 pub extern "C" fn ComputeMaxCut(graph: *mut graph_t, nparts: idx_t, where_: *mut idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
@@ -128,10 +119,7 @@ pub extern "C" fn ComputeMaxCut(graph: *mut graph_t, nparts: idx_t, where_: *mut
     return maxcut;
 }
 
-/*************************************************************************/
-/* This function checks whether or not the boundary information is correct
- */
-/*************************************************************************/
+/// This function checks whether or not the boundary information is correct
 #[metis_func]
 pub extern "C" fn CheckNodeBnd(graph: *mut graph_t, onbnd: idx_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
@@ -162,10 +150,7 @@ pub extern "C" fn CheckNodeBnd(graph: *mut graph_t, onbnd: idx_t) -> idx_t {
     // return 1;
 }
 
-/*************************************************************************/
-/* This function checks whether or not the rinfo of a vertex is consistent
- */
-/*************************************************************************/
+/// Checks whether or not the rinfo of a vertex is consistent
 #[metis_func]
 pub extern "C" fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t {
     let ctrl = ctrl.as_ref().unwrap();
@@ -196,10 +181,7 @@ pub extern "C" fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t 
     return 1;
 }
 
-/*************************************************************************/
-/* This function checks the correctness of the NodeFM data structures
- */
-/*************************************************************************/
+/// Checks the correctness of the NodeFM data structures
 #[metis_func]
 pub extern "C" fn CheckNodePartitionParams(graph: *mut graph_t) -> idx_t {
     let graph = graph.as_ref().unwrap();
@@ -272,10 +254,7 @@ pub extern "C" fn CheckNodePartitionParams(graph: *mut graph_t) -> idx_t {
     todo!("this is currently untested");
 }
 
-/*************************************************************************/
-/* This function checks if the separator is indeed a separator
- */
-/*************************************************************************/
+/// Checks if the separator is indeed a separator
 #[metis_func]
 pub extern "C" fn IsSeparable(graph: *mut graph_t) -> idx_t {
     let graph = graph.as_mut().unwrap();
@@ -308,10 +287,7 @@ pub extern "C" fn IsSeparable(graph: *mut graph_t) -> idx_t {
     todo!("this is currently untested");
 }
 
-/*************************************************************************/
-/* This function recomputes the vrinfo fields and checks them against
-those in the graph.vrinfo structure */
-/*************************************************************************/
+/// (*unused*) Recomputes the `vrinfo` fields and checks them against those in the `graph.vrinfo` structure
 #[metis_func]
 pub extern "C" fn CheckKWayVolPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
@@ -590,4 +566,56 @@ pub unsafe fn check_adj(graph: &graph_t) -> bool {
     }
 
     true
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::tests::ab_test_partition_test_graphs;
+
+    use super::*;
+
+    #[test]
+    fn ab_ComputeCut() {
+        ab_test_partition_test_graphs("ComputeCut:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.set_objective(Objtype::Cut);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeCut_MC() {
+        ab_test_partition_test_graphs("ComputeCut:rs", Optype::Kmetis, 20, 3, |mut g| {
+            g.set_objective(Objtype::Cut);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeVolume() {
+        ab_test_partition_test_graphs("ComputeVolume:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.set_objective(Objtype::Vol);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeVolume_MC() {
+        ab_test_partition_test_graphs("ComputeVolume:rs", Optype::Kmetis, 20, 3, |mut g| {
+            g.set_objective(Objtype::Vol);
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
 }
