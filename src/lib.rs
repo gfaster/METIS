@@ -49,7 +49,7 @@ use defs::*;
 
 #[macro_use]
 pub mod util;
-pub use util::AsBufPtrExt;
+pub use util::{AsBufPtrExt, AsNullablePtr, AsNullablePtrMut};
 
 #[cfg(test)]
 mod tests;

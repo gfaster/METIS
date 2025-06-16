@@ -27,6 +27,38 @@ impl<T> AsBufPtrExt<T> for std::ptr::NonNull<[T]> {
     }
 }
 
+/// extension trait for converting `Option<&[T]>` to a potentially null pointer to the elements
+pub trait AsNullablePtr<T> {
+    fn as_nullable_ptr(&self) -> *const T;
+}
+
+/// extension trait for converting `Option<&mut [T]>` to a potentially null pointer to the elements
+pub trait AsNullablePtrMut<T> {
+    fn as_nullable_ptr_mut(&mut self) -> *mut T;
+}
+
+impl<T> AsNullablePtr<T> for Option<&[T]> {
+    fn as_nullable_ptr(&self) -> *const T {
+        self.map_or(std::ptr::null(), |s| s.as_ptr())
+    }
+}
+impl<T> AsNullablePtr<T> for Option<Vec<T>> {
+    fn as_nullable_ptr(&self) -> *const T {
+        self.as_deref().as_nullable_ptr()
+    }
+}
+
+impl<T> AsNullablePtrMut<T> for Option<&mut [T]> {
+    fn as_nullable_ptr_mut(&mut self) -> *mut T {
+        self.as_mut().map_or(std::ptr::null_mut(), |s| s.as_mut_ptr())
+    }
+}
+impl<T> AsNullablePtrMut<T> for Option<Vec<T>> {
+    fn as_nullable_ptr_mut(&mut self) -> *mut T {
+        self.as_deref_mut().as_nullable_ptr_mut()
+    }
+}
+
 /// Initialize the random number generator
 #[metis_func]
 pub extern "C" fn InitRandom(seed: idx_t) -> c_void {
@@ -576,13 +608,13 @@ macro_rules! UpdateMovedVertexInfoAndBND {
     ($i:expr, $from:expr, $k:expr, $to:expr, $myrinfo:expr, $mynbrs:expr, $where:expr, $nbnd:expr,
     $bndptr:expr, $bndind:expr, $bndtype:expr) => {
         $where[$i] = $to;
-        $myrinfo.ed += $myrinfo.id - $mynbrs[$k].ed;
-        std::mem::swap(&mut $myrinfo.id, &mut $mynbrs[$k].ed);
-        if ($mynbrs[$k].ed == 0) {
+        $myrinfo.ed += $myrinfo.id - $mynbrs[$k as usize].ed;
+        std::mem::swap(&mut $myrinfo.id, &mut $mynbrs[$k as usize].ed);
+        if ($mynbrs[$k as usize].ed == 0) {
             $myrinfo.nnbrs -= 1;
             $mynbrs[$k as usize] = $mynbrs[$myrinfo.nnbrs as usize];
         } else {
-            $mynbrs[$k].pid = $from;
+            $mynbrs[$k as usize].pid = $from;
         }
 
         /* Update the boundary information. Both deletion and addition is
@@ -715,7 +747,7 @@ macro_rules! mkslice {
     ($var:ident, $len:expr) => {
         let $var: &[_] = std::slice::from_raw_parts($var, $len as usize);
     };
-    ($newvar:ident: $var:ident, $len:expr) => {
+    ($newvar:ident: $var:expr, $len:expr) => {
         let $newvar: &[_] = std::slice::from_raw_parts($var, $len as usize);
     };
 }
