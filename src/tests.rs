@@ -8,7 +8,7 @@ use std::ptr;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 use crate::bindings::{idx_t, real_t, METIS_NOPTIONS, METIS_OK};
-use crate::dyncall::{ab_test, ab_test_multi, ab_test_multi_eq, ab_test_eq};
+use crate::dyncall::{ab_test, ab_test_multi, ab_test_eq};
 use crate::graph_gen::{Csr, GraphBuilder};
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;

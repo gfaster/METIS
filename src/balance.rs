@@ -93,7 +93,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
 
-    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
     assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the boundary nodes of the proper partition whose size is OK in the priority queue */
@@ -271,7 +271,7 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
 
-    assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
     assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the nodes of the proper partition whose size is OK in the priority queue */
@@ -368,7 +368,7 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     graph.mincut = mincut;
     graph.nbnd = nbnd;
 
-    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
     debug_assert!(debug::CheckBnd(graph) != 0);
 
     // rpqDestroy(queue);
@@ -489,7 +489,7 @@ pub extern "C" fn McGeneral2WayBalance(
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
 
-    debug_assert!(ComputeCut(graph, where_.as_ptr()) == graph.mincut);
+    debug_assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
     debug_assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert all nodes in the priority queues */
@@ -722,7 +722,7 @@ pub extern "C" fn McGeneral2WayBalance(
     graph.mincut = mincut;
     graph.nbnd = nbnd;
 
-    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
     debug_assert!(debug::CheckBnd(graph) != 0);
 
     // for i in (0)..(2 * ncon) {

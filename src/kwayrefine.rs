@@ -35,7 +35,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
     /* Try to minimize the sub-domain connectivity */
     if (*ctrl).minconn != 0 {
-        EliminateSubDomainEdges(ctrl, graph);
+        minconn::EliminateSubDomainEdges(ctrl, graph);
     }
 
     /* Deal with contiguity constraints at the beginning */
@@ -61,7 +61,7 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     /* Refine each successively finer graph */
     for i in 0.. {
         if (*ctrl).minconn != 0 && i == nlevels / 2 {
-            EliminateSubDomainEdges(ctrl, graph);
+            minconn::EliminateSubDomainEdges(ctrl, graph);
         }
 
         // IFSET((*ctrl).dbglvl, METIS_DBG_TIME, gk_startcputimer((*ctrl).RefTmr));
@@ -400,7 +400,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             graph.mincut = mincut / 2;
 
             ComputeKWayVolGains(ctrl, graph);
-            debug_assert_eq!(graph.minvol, ComputeVolume(graph, graph.where_));
+            debug_assert_eq!(graph.minvol, debug::ComputeVolume(graph, graph.where_));
         }
         _ => panic!("Unknown objtype of {}", ctrl.objtype),
     }
@@ -426,7 +426,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     if ctrl.objtype == METIS_OBJTYPE_CUT {
         assert!(debug::CheckBnd2(cgraph) != 0);
     } else {
-        assert!((*cgraph).minvol == ComputeVolume(cgraph, (*cgraph).where_));
+        assert!((*cgraph).minvol == debug::ComputeVolume(cgraph, (*cgraph).where_));
     }
 
     /* free the coarse graph's structure (reduce maxmem) */
@@ -620,14 +620,14 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
             ComputeKWayVolGains(ctrl, graph);
 
-            assert!(graph.minvol == ComputeVolume(graph, graph.where_));
+            assert!(graph.minvol == debug::ComputeVolume(graph, graph.where_));
         }
 
         _ => panic!("Unknown objtype of {}", ctrl.objtype),
     }
 
     graph.mincut = if dropedges != 0 {
-        ComputeCut(graph, where_.as_mut_ptr())
+        debug::ComputeCut(graph, where_.as_mut_ptr())
     } else {
         (*cgraph).mincut
     };

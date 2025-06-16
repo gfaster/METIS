@@ -19,9 +19,6 @@ extern "C" {
     pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
-    pub fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx_t;
-    pub fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t;
-    pub fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
     pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
     pub fn ismalloc(

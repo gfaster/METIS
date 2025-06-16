@@ -32,7 +32,7 @@ fastrand = "2.0.0"
 cc = "1.0"
 
 [profile.dev]
-opt-level = 1
+opt-level = 1 # to be a little faster and silence FORTIFY_SOURCE warnings
 build-override.opt-level = 3 # build scripts and proc-macros.
 
 [profile.release]

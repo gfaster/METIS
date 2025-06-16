@@ -338,7 +338,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
         part[i] = (i % nparts as usize) as idx_t;
     }
     irandArrayPermute(nvtxs as idx_t, part.as_mut_ptr(), 4 * nvtxs as idx_t, 0);
-    println!("Random cut: {}", ComputeCut(graph, part.as_mut_ptr()));
+    println!("Random cut: {}", debug::ComputeCut(graph, part.as_mut_ptr()));
 
     /* create the initial multi-section */
     let mynparts = GrowMultisection(ctrl, graph, mynparts, part.as_mut_ptr());
@@ -393,7 +393,7 @@ pub fn BlockKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut 
     }
     // WCOREPOP;
 
-    ComputeCut(graph, part.as_mut_ptr())
+    debug::ComputeCut(graph, part.as_mut_ptr())
 }
 
 /*************************************************************************/
@@ -547,7 +547,7 @@ pub fn BalanceAndRefineLP(
             maxpwgt,
             *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
             // 1.0 * imax(nparts, pwgts, 1) * nparts / tvwgt,
-            ComputeCut(graph, where_.as_mut_ptr())
+            debug::ComputeCut(graph, where_.as_mut_ptr())
         );
     }
     for _ in 0..ctrl.niter {
@@ -607,7 +607,7 @@ pub fn BalanceAndRefineLP(
                 "     nmoves: {:8}, bal: {:7.4}, cut: {:9}",
                 nmoves,
                 *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
-                ComputeCut(graph, where_.as_mut_ptr())
+                debug::ComputeCut(graph, where_.as_mut_ptr())
             );
         }
         if nmoves == 0 {
@@ -623,7 +623,7 @@ pub fn BalanceAndRefineLP(
             minpwgt,
             maxpwgt,
             *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
-            ComputeCut(graph, where_.as_mut_ptr())
+            debug::ComputeCut(graph, where_.as_mut_ptr())
         );
     }
     for _ in 0..ctrl.niter {
@@ -677,7 +677,7 @@ pub fn BalanceAndRefineLP(
                 "     nmoves: {:8}, bal: {:7.4}, cut: {:9}",
                 nmoves,
                 *pwgts.iter().max().unwrap_or(&0) as f32 * nparts as f32 / tvwgt as f32,
-                ComputeCut(graph, where_.as_mut_ptr())
+                debug::ComputeCut(graph, where_.as_mut_ptr())
             );
         }
         if nmoves == 0 {

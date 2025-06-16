@@ -9,13 +9,15 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function computes the subdomain graph storing the result in the
     pre-allocated worspace arrays */
 /*************************************************************************/
-void ComputeSubDomainGraph(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void , ComputeSubDomainGraph, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__ComputeSubDomainGraph(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, pid, other, nparts, nvtxs, nnbrs;
   idx_t *xadj, *adjncy, *adjwgt, *where;
@@ -131,8 +133,8 @@ void ComputeSubDomainGraph(ctrl_t *ctrl, graph_t *graph)
            supplied.
 */
 /*************************************************************************/
-void UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt, 
-         idx_t *r_maxndoms)
+IFUNC(void, UpdateEdgeSubDomainGraph, (ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt, idx_t *r_maxndoms));
+void c__libmetis__UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt, idx_t *r_maxndoms)
 {
   idx_t i, j, nads;
 
@@ -189,7 +191,8 @@ void UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt,
 /*************************************************************************/
 /*! This function computes the subdomain graph */
 /*************************************************************************/
-void EliminateSubDomainEdges(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, EliminateSubDomainEdges, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__EliminateSubDomainEdges(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, k, ncon, nparts, scheme, pid_from, pid_to, me, other, nvtxs, 
         total, max, avg, totalout, nind=0, ncand=0, ncand2, target, target2, 
@@ -474,8 +477,8 @@ void EliminateSubDomainEdges(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function moves a collection of vertices and updates their rinfo */
 /*************************************************************************/
-void MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
-         idx_t *ind)
+IFUNC(void, MoveGroupMinConnForCut, (ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, idx_t *ind));
+void c__libmetis__MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, idx_t *ind)
 {
   idx_t i, ii, j, jj, k, l, nvtxs, nbnd, from, me;
   idx_t *xadj, *adjncy, *adjwgt, *where, *bndptr, *bndind;
@@ -558,7 +561,9 @@ void MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind,
 /*************************************************************************/
 /*! This function moves a collection of vertices and updates their rinfo */
 /*************************************************************************/
-void MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
+IFUNC(void, MoveGroupMinConnForVol, (ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
+         idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind));
+void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind, 
          idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind)
 {
   idx_t i, ii, j, jj, k, l, nvtxs, from, me, other, xgain, ewgt;
@@ -680,7 +685,8 @@ void MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind,
 /*************************************************************************/
 /*! This function computes the subdomain graph. For deubugging purposes. */
 /*************************************************************************/
-void PrintSubDomainGraph(graph_t *graph, idx_t nparts, idx_t *where)
+IFUNC(void, PrintSubDomainGraph, (graph_t *graph, idx_t nparts, idx_t *where));
+void c__libmetis__PrintSubDomainGraph(graph_t *graph, idx_t nparts, idx_t *where)
 {
   idx_t i, j, k, me, nvtxs, total, max;
   idx_t *xadj, *adjncy, *adjwgt, *pmat;

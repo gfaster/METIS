@@ -185,6 +185,32 @@ thread_local! {
     // start at 1 so we can allow a dangling pointer and use wrapping-panic for the safety
     static LOCAL_EPOCH: Cell<u64> = const { Cell::new(1) };
     static LOCAL_EPOCH_LAST_RESOLVE: Cell<u64> = const { Cell::new(0) };
+
+    #[cfg(test)]
+    static MONITORED_SYMS: RefCell<Vec<Glob<'static>>> = const { RefCell::new(Vec::new()) };
+    #[cfg(test)]
+    static MONITORED_HITS: Cell<u64> = const { Cell::new(0) };
+}
+
+
+fn check_monitored(name: impl AsRef<[u8]>) {
+    #[cfg(test)]
+    fn inner(name: &[u8]) {
+        let name = name.strip_suffix(&[0u8]).unwrap_or(name);
+        let name = name.strip_prefix(b"c__").unwrap_or(name);
+        let name = name.strip_prefix(b"rs__").unwrap_or(name);
+        let name = name.strip_prefix(b"libmetis__").unwrap_or(name);
+        let hits = MONITORED_SYMS.with_borrow(|globs| {
+            globs.iter().filter(|g| g.matches(name)).count() as u64
+        });
+        MONITORED_HITS.set(MONITORED_HITS.get() + hits)
+    }
+
+    #[cfg_attr(not(test), expect(unused))]
+    let name = name.as_ref();
+
+    #[cfg(test)]
+    inner(name)
 }
 
 fn clear_dlerror() {
@@ -220,6 +246,29 @@ pub fn set_local_overrides(overrides: &str) -> OverrideKey {
 impl Drop for OverrideKey {
     fn drop(&mut self) {
         LOCAL_OVERRIDES.with(|l| *l.borrow_mut() = Overrides::default());
+    }
+}
+
+#[cfg(test)]
+pub struct MonitorKey {
+    _no_construct: (),
+}
+
+#[cfg(test)]
+pub fn set_local_monitor(monitor_glob: &str) -> MonitorKey {
+    if cfg!(test) {
+        println!("\nMonitoring for call: `{monitor_glob}`")
+    }
+    assert!(!monitor_glob.contains(':'), "should be just a glob of the basic name");
+    MONITORED_SYMS.with_borrow_mut(|l| *l = vec![Glob::new_owned(monitor_glob)]);
+    MONITORED_HITS.set(0);
+    MonitorKey { _no_construct: () }
+}
+
+#[cfg(test)]
+impl Drop for MonitorKey {
+    fn drop(&mut self) {
+        MONITORED_SYMS.with_borrow_mut(|l| l.clear());
     }
 }
 
@@ -266,6 +315,7 @@ impl ICall {
 
     #[cfg_attr(not(test), expect(dead_code))]
     pub fn get_dynamic(&'static self) -> NonNull<c_void> {
+        check_monitored(self.sym_name.to_bytes());
         let ver = LOCAL_OVERRIDES.with(|ov| ov.borrow().get(self.sym_name.to_bytes()));
         let ret = self.get_ver(ver);
         // eprintln!("resolved {ver:?} of {:?}", self.sym_name);
@@ -431,7 +481,7 @@ fn ab_assert_eq<T>(l: T, r: T)
 ///
 /// Will panic if the provided override isn't used
 #[cfg(test)]
-pub(crate) fn ab_test_multi<F, T>(overrides: (&str, &str), mut f: F) -> (T, T)
+pub(crate) fn ab_test_multi<F, T>(overrides: (&str, &str), monitor_glob: Option<&str>, mut f: F) -> (T, T)
 where
     F: FnMut() -> T,
 {
@@ -441,31 +491,24 @@ where
     let no_override = f();
     drop(key);
     let key = crate::dyncall::set_local_overrides(overrides.1);
+    let monitor = monitor_glob.map(|g| set_local_monitor(g));
     fastrand::seed(seed);
     let with_overrides = f();
     drop(key);
+    drop(monitor);
     let last_resolve_epoch = ICall::last_resolve_epoch();
     let current_epoch = ICall::epoch();
     assert!(
         last_resolve_epoch == current_epoch,
-        "No dynamic overrides actually occurred in AB test!"
+        "No dynamic overrides actually occurred in A/B test!"
     );
+    if let Some(mg) = monitor_glob {
+        assert!(
+            MONITORED_HITS.get() != 0,
+            "No monitored function(s) were called in A/B test!\n\tglob: `{mg}`"
+        );
+    }
     (no_override, with_overrides)
-}
-
-/// runs the provided function twice. Once with no overrides and once with the overrides specified
-/// by the overrides argument
-///
-/// Will panic if the provided override isn't used
-#[cfg(test)]
-#[expect(unused)]
-pub(crate) fn ab_test_multi_eq<F, T>(overrides: (&str, &str), f: F)
-where
-    F: FnMut() -> T,
-    T: Eq + std::fmt::Debug,
-{
-    let (no_override, with_overrides) = ab_test_multi(overrides, f);
-    ab_assert_eq(no_override, with_overrides)
 }
 
 /// runs the provided function twice. Once with no overrides and once with the overrides specified
@@ -477,34 +520,22 @@ pub(crate) fn ab_test<F, T>(overrides: &str, f: F) -> (T, T)
 where
     F: FnMut() -> T,
 {
-    ab_test_multi(("", overrides), f)
+    ab_test_multi(("", overrides), None, f)
 }
 
-/// runs the provided function three times. the second time with all C functions and the third with all C
-/// functions, with overrides added, returning the second and third runs. The first run is to
-/// ensure the override is used
+/// runs the provided function twice. The first time with all C functions, and the second with all
+/// C functions except the override. Panics if the override isn't used
 #[cfg(test)]
 pub(crate) fn ab_test_single<F, T>(overrides: &str, mut f: F) -> (T, T)
 where
     F: FnMut() -> T,
 {
+    let mg = overrides.split_terminator(',').next().expect("overrides empty");
+    let mg = mg.trim_start_matches("rs__");
+    let mg = mg.trim_start_matches("c__");
+    let mg = mg.split_once(':').map_or(mg, |(s, _)| s);
     let exc_overrides = format!("*,{overrides}");
-    let ret = ab_test_multi(("*", &exc_overrides), &mut f);
-
-    {
-        // make sure the override is used - comes after to assist in debugging crashes
-        fastrand::seed(0);
-        let key = crate::dyncall::set_local_overrides(overrides);
-        let _ = f();
-        drop(key);
-        let last_resolve_epoch = ICall::last_resolve_epoch();
-        let current_epoch = ICall::epoch();
-        assert!(
-            last_resolve_epoch == current_epoch,
-            "No dynamic overrides actually occurred in AB test!"
-        );
-    }
-    ret
+    ab_test_multi(("*", &exc_overrides), Some(mg), &mut f)
 }
 
 /// runs the provided function three times. the second time with all C functions and the third with all C

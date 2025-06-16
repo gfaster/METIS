@@ -22,6 +22,8 @@ pub struct GraphBuilder {
     ncon: usize,
     contig: bool,
     objective: Objtype,
+    /// whether to try to minimize connectivity
+    minconn: bool,
     seed: idx_t,
     xadj: Vec<idx_t>,
     adjncy: Vec<idx_t>,
@@ -62,6 +64,7 @@ impl GraphBuilder {
             initial_part: if op == Optype::Kmetis { Iptype::Rb } else { Iptype::Grow },
             contig: false,
             objective: Objtype::Cut,
+            minconn: false,
         }
     }
 
@@ -351,6 +354,13 @@ impl GraphBuilder {
         }
         self.contig = contig;
     }
+    
+    pub fn set_minconn(&mut self, minconn: bool) {
+        if minconn {
+            assert!(self.op == Optype::Kmetis, "Can only be specify minconn for kmetis");
+        }
+        self.minconn = minconn;
+    }
 
     pub fn set_objective(&mut self, objective: Objtype) {
         self.objective = objective;
@@ -417,10 +427,11 @@ impl GraphBuilder {
         let mut part = vec![0; self.nvtxs()];
         let mut objval = 0;
         let mut options = [-1; METIS_NOPTIONS as usize];
-        options[METIS_OPTION_OBJTYPE as usize] = self.objective as i32;
-        options[METIS_OPTION_CONTIG as usize] = self.contig as i32;
-        options[METIS_OPTION_CTYPE as usize] = self.edge_match as i32;
-        options[METIS_OPTION_IPTYPE as usize] = self.initial_part as i32;
+        options[METIS_OPTION_OBJTYPE as usize] = self.objective as idx_t;
+        options[METIS_OPTION_CONTIG as usize] = self.contig as idx_t;
+        options[METIS_OPTION_CTYPE as usize] = self.edge_match as idx_t;
+        options[METIS_OPTION_IPTYPE as usize] = self.initial_part as idx_t;
+        options[METIS_OPTION_MINCONN as usize] = self.minconn as idx_t;
         options[METIS_OPTION_ONDISK as usize] = 1;
         options[METIS_OPTION_SEED as usize] = self.seed;
         let res = match self.op {

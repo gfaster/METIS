@@ -79,7 +79,7 @@ void MoveGroupContigForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid,
          idx_t *modind);
 
 
-/* debug.c */
+/* debug.c - ported */
 idx_t ComputeCut(graph_t *graph, idx_t *where);
 idx_t ComputeVolume(graph_t *, idx_t *);
 idx_t ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where);
@@ -92,7 +92,7 @@ idx_t IsSeparable(graph_t *);
 void CheckKWayVolPartitionParams(ctrl_t *ctrl, graph_t *graph);
 
 
-/* fm.c */
+/* fm.c - ported */
 void FM_2WayRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter);
 void FM_2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter);
 void FM_Mc2WayCutRefine(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niter);
@@ -102,7 +102,7 @@ void Print2WayRefineStats(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts,
          real_t deltabal, idx_t mincutorder);
 
 
-/* fortran.c */
+/* fortran.c - won't port */
 void Change2CNumbering(idx_t, idx_t *, idx_t *);
 void Change2FNumbering(idx_t, idx_t *, idx_t *, idx_t *);
 void Change2FNumbering2(idx_t, idx_t *, idx_t *);
@@ -114,7 +114,7 @@ void ChangeMesh2FNumbering2(idx_t ne, idx_t nn, idx_t *ptr, idx_t *ind,
          idx_t *epart, idx_t *npart);
 
 
-/* graph.c */
+/* graph.c - ported */
 graph_t *SetupGraph(ctrl_t *ctrl, idx_t nvtxs, idx_t ncon, idx_t *xadj, 
              idx_t *adjncy, idx_t *vwgt, idx_t *vsize, idx_t *adjwgt);
 void SetupGraph_tvwgt(graph_t *graph);
@@ -179,7 +179,7 @@ void ComputeKWayVolGains(ctrl_t *ctrl, graph_t *graph);
 int IsBalanced(ctrl_t *ctrl, graph_t *graph, real_t ffactor);
 
 
-/* mcutil.c */
+/* mcutil.c - Ported */
 int rvecle(idx_t n, real_t *x, real_t *y);
 int rvecge(idx_t n, real_t *x, real_t *y);
 int rvecsumle(idx_t n, real_t *x1, real_t *x2, real_t *y);
@@ -221,7 +221,7 @@ void InduceRowPartFromColumnPart(idx_t nrows, idx_t *rowptr, idx_t *rowind,
          idx_t *rpart, idx_t *cpart, idx_t nparts, real_t *tpwgts);
 
 
-/* minconn.c */
+/* minconn.c - ported */
 void ComputeSubDomainGraph(ctrl_t *ctrl, graph_t *graph);
 void UpdateEdgeSubDomainGraph(ctrl_t *ctrl, idx_t u, idx_t v, idx_t ewgt, 
          idx_t *r_maxndoms);
@@ -233,7 +233,7 @@ void MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind,
          idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind);
 
 
-/* mincover.o */
+/* mincover.c */
 void MinCover(idx_t *, idx_t *, idx_t, idx_t, idx_t *, idx_t *);
 idx_t MinCover_Augment(idx_t *, idx_t *, idx_t, idx_t *, idx_t *, idx_t *, idx_t);
 void MinCover_Decompose(idx_t *, idx_t *, idx_t, idx_t, idx_t *, idx_t *, idx_t *);
@@ -335,7 +335,7 @@ int metis_rcode(int sigrval);
 
 
 
-/* wspace.c */
+/* wspace.c - won't port */
 void AllocateWorkSpace(ctrl_t *ctrl, graph_t *graph);
 void AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrpoolsize);
 void FreeWorkSpace(ctrl_t *ctrl);

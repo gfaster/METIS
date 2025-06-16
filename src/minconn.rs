@@ -23,7 +23,7 @@ struct ikv_t {
 ///
 /// I think I may be able to make this an associated function with DAL
 fn iarray2csr(n: usize, range: usize, array: &[idx_t], ptr: &mut [idx_t], ind: &mut [idx_t]) {
-  assert_eq!(range, ptr.len() + 1, "assumption about preconditions");
+  assert_eq!(range + 1, ptr.len(), "assumption about preconditions");
   assert_eq!(n, array.len(), "assumption about preconditions");
   ptr.fill(0);
 
@@ -215,56 +215,46 @@ pub extern "C" fn UpdateEdgeSubDomainGraph(ctrl: *mut ctrl_t, u: idx_t, v: idx_t
     let mut adwgts_u = adwgts_u;
 
     /* Find the edge */
-    let mut found = false;
-    let mut j = 0;
-    for jj in (0)..(nads) {
-      j = jj;
-      if adids_u[j] == v as idx_t {
-        adwgts_u[j] += ewgt;
-        found = true;
-        break;
-      }
-    }
+    let j = adids_u.iter().position(|&adid| adid == v as idx_t);
 
-    // if (j == nads)
-    if !found {
-      /* Deal with the case in which the edge was not found */
-      assert!(ewgt > 0);
-      if maxnads[u] == nads as idx_t {
-        maxnads[u] = 2*(nads+1) as idx_t;
-        // adids[u]   = irealloc(ctrl.adids[u], ctrl.maxnads[u], "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
-        // adwgts[u]  = irealloc(ctrl.adwgts[u], ctrl.maxnads[u], "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
-
-        let old_adids = NonNull::slice_from_raw_parts(NonNull::new(adids[u]).unwrap(), nads);
-        let mut new_adids = gk::irealloc(old_adids, maxnads[u] as usize, c"IncreaseEdgeSubDomainGraph: adids[pid]");
-        adids[u] = new_adids.as_buf_ptr();
-        adids_u = new_adids.as_mut();
-
-
-
-        let old_adwgts = NonNull::slice_from_raw_parts(NonNull::new(adwgts[u]).unwrap(), nads);
-        let mut new_adwgts = gk::irealloc(old_adwgts, maxnads[u] as usize, c"IncreaseEdgeSubDomainGraph: adwgts[pid]");
-        adwgts[u] = new_adwgts.as_buf_ptr();
-        adwgts_u = new_adwgts.as_mut();
-      }
-      adids_u[nads]  = v as idx_t;
-      adwgts_u[nads] = ewgt;
-      nads += 1;
-      if r_maxndoms != std::ptr::null_mut() && nads as idx_t > *r_maxndoms {
-        print!("You just increased the maxndoms: {:} {:}\n", nads, *r_maxndoms);
-        *r_maxndoms = nads as idx_t;
-      }
-    }
-    else {
+    if let Some(j) = j {
       /* See if the updated edge becomes 0 */
+      adwgts_u[j] += ewgt;
       debug_assert!(adwgts_u[j] >= 0);
       if adwgts_u[j] == 0 {
+        // this "pops", but adids_u and adwgts_u are not read again before being recreated
         adids_u[j]  = adids_u[nads-1];
         adwgts_u[j] = adwgts_u[nads-1];
         nads-=1;
         if r_maxndoms != std::ptr::null_mut() && (nads+1) as idx_t == *r_maxndoms {
           *r_maxndoms = cnads[(util::iargmax(cnads, 1)) as usize];
         }
+      }
+    } else {
+      /* Deal with the case in which the edge was not found */
+      debug_assert!(ewgt > 0);
+      if maxnads[u] == nads as idx_t {
+        maxnads[u] = 2*(nads+1) as idx_t;
+        // adids[u]   = irealloc(ctrl.adids[u], ctrl.maxnads[u], "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
+        // adwgts[u]  = irealloc(ctrl.adwgts[u], ctrl.maxnads[u], "IncreaseEdgeSubDomainGraph: adids[pid as usize]");
+
+        let old_adids = NonNull::slice_from_raw_parts(NonNull::new(adids[u]).unwrap(), nads);
+        let new_adids = gk::irealloc(old_adids, maxnads[u] as usize, c"IncreaseEdgeSubDomainGraph: adids[pid]");
+        adids[u] = new_adids.as_buf_ptr();
+
+
+        let old_adwgts = NonNull::slice_from_raw_parts(NonNull::new(adwgts[u]).unwrap(), nads);
+        let new_adwgts = gk::irealloc(old_adwgts, maxnads[u] as usize, c"IncreaseEdgeSubDomainGraph: adwgts[pid]");
+        adwgts[u] = new_adwgts.as_buf_ptr();
+      }
+      adids_u = std::slice::from_raw_parts_mut(adids[u], nads + 1);
+      adids_u[nads]  = v as idx_t;
+      adwgts_u = std::slice::from_raw_parts_mut(adwgts[u], nads + 1);
+      adwgts_u[nads] = ewgt;
+      nads += 1;
+      if r_maxndoms != std::ptr::null_mut() && nads as idx_t > *r_maxndoms {
+        print!("You just increased the maxndoms: {:} {:}\n", nads, *r_maxndoms);
+        *r_maxndoms = nads as idx_t;
       }
     }
     cnads[u] = nads as idx_t;
@@ -376,14 +366,14 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
   loop {
     let total: idx_t = nads.iter().sum();
     let avg   = total/(nparts as idx_t);
-    let max   = nads[util::iargmax(nads, nads.len())];
+    let max   = nads[util::iargmax(nads, 1)];
 
     ifset!(ctrl.dbglvl, METIS_DBG_CONNINFO, 
       print!("Adjacent Subdomain Stats: Total: {:3}, \
         Max: {:3}[{}], Avg: {:3}\n", 
-        total, max, util::iargmax(nads,1), avg)); 
+        total, max, util::iargmax(nads, 1), avg)); 
 
-    if max < (badfactor*(avg as real_t)) as idx_t {
+    if max < (badfactor * (avg as real_t)) as idx_t {
       break;
     }
 
@@ -477,6 +467,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
           connected to */
           // iset(ncon, 0, cpwgt);
           cpwgt.fill(0);
+          cand.clear();
           // ncand=0;
           for ii in (0)..(nind) {
             let i = ind[ii as usize] as usize;
@@ -488,7 +479,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
               if k == pid_from {
                 continue;
               }
-              if otherpmat[k as usize] == 0 {
+              if otherpmat[k] == 0 {
                 cand.push(ikv_t {
                   val: k as idx_t,
                   key: 0,
@@ -501,9 +492,9 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
             }
           }
 
-          for i in (0)..(cand.len()) {
-            cand[i as usize].key = otherpmat[cand[i as usize].val as usize];
-            debug_assert!(cand[i as usize].key > 0);
+          for cand in &mut cand {
+            cand.key = otherpmat[cand.val as usize];
+            debug_assert!(cand.key > 0);
           }
 
           // ikvsortd(ncand, cand);
@@ -569,7 +560,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
 
               /* reset kpmat for the next iteration */
               for j in (0)..(nads[k as usize])  {
-                mkslice!(adids_k: adids[k], nparts);
+                mkslice!(adids_k: adids[k], nads[k]);
                 kpmat[adids_k[j as usize] as usize] = 0;
               }
             }
@@ -580,8 +571,8 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
           }
 
           /* reset the otherpmat for the next iteration */
-          for i in (0)..(cand.len())  {
-            otherpmat[cand[i as usize].val as usize] = 0;
+          for cand in &cand {
+            otherpmat[cand.val as usize] = 0;
           }
 
           if target == usize::MAX && target2 != usize::MAX {
@@ -726,7 +717,7 @@ pub extern "C" fn MoveGroupMinConnForCut(ctrl: *mut ctrl_t, graph: *mut graph_t,
     }
   }
 
-  debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
+  debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
 
   graph.nbnd = nbnd;
 
@@ -878,8 +869,8 @@ pub extern "C" fn MoveGroupMinConnForVol(ctrl: *mut ctrl_t, graph: *mut graph_t,
 
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }
-  debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-  debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol);
+  debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
+  debug_assert_eq!(debug::ComputeVolume(graph, where_.as_ptr()), graph.minvol);
 
 }
 
@@ -946,3 +937,79 @@ pub extern "C" fn PrintSubDomainGraph(graph: *mut graph_t, nparts: idx_t, where_
 }
 
 
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::tests::{ab_test_partition_test_graphs, TestGraph};
+
+    #[test]
+    #[ignore = "Bug in original"]
+    fn ab_ComputeSubDomainGraph() {
+        ab_test_partition_test_graphs("ComputeSubDomainGraph:rs", Optype::Kmetis, 200, 1, |mut g| {
+            g.set_minconn(true);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "Bug in original"]
+    fn ab_UpdateEdgeSubDomainGraph() {
+        ab_test_partition_test_graphs("UpdateEdgeSubDomainGraph:rs", Optype::Kmetis, 200, 1, |mut g| {
+            g.set_minconn(true);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "Bug in original"]
+    fn ab_EliminateSubDomainEdges_cut() {
+        ab_test_partition_test_graphs("EliminateSubDomainEdges:rs", Optype::Kmetis, 200, 1, |mut g| {
+            g.set_minconn(true);
+            g.set_objective(Objtype::Cut);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "Bug in original"]
+    fn ab_EliminateSubDomainEdges_vol() {
+        ab_test_partition_test_graphs("EliminateSubDomainEdges:rs", Optype::Kmetis, 200, 1, |mut g| {
+            g.set_minconn(true);
+            g.set_objective(Objtype::Vol);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "Likely bug in original (but also probably broken Rust impl)"]
+    fn ab_MoveGroupMinConnForCut() {
+        ab_test_partition_test_graphs("MoveGroupMinConnForCut:rs", Optype::Kmetis, 200, 1, |mut g| {
+            g.set_minconn(true);
+            g.set_objective(Objtype::Cut);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "Bug in original"]
+    fn ab_MoveGroupMinConnForVol() {
+        ab_test_partition_test_graphs("MoveGroupMinConnForVol:rs", Optype::Kmetis, 23, 1, |mut g| {
+            g.set_minconn(true);
+            g.set_objective(Objtype::Vol);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+}

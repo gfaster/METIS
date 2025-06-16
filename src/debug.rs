@@ -47,8 +47,8 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
 
 /// Computes the total volume
 #[metis_func]
-pub extern "C" fn ComputeVolume(graph: *mut graph_t, where_: *mut idx_t) -> idx_t {
-    let graph = graph.as_mut().unwrap();
+pub extern "C" fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t {
+    let graph = graph.as_ref().unwrap();
     // idx_t i, j, k, me, nvtxs, nparts, totalv;
     // idx_t *xadj, *adjncy, *vsize, *marker;
 

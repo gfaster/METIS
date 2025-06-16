@@ -257,7 +257,7 @@ pub extern "C" fn Project2WayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         }
     }
     graph.mincut = if dropedges != 0 {
-        ComputeCut(graph, where_.as_ptr())
+        debug::ComputeCut(graph, where_.as_ptr())
     } else {
         cgraph.mincut
     };

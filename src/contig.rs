@@ -1050,8 +1050,8 @@ pub extern "C" fn MoveGroupContigForVol(
         /*CheckKWayVolPartitionParams(ctrl, graph);*/
     }
 
-    debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
+    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(debug::ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
 }
 
 #[cfg(test)]
