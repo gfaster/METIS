@@ -775,13 +775,14 @@ mod tests {
     #[ignore = "broken on original"]
     fn ab_McGeneral2WayBalance_contig_regression() {
         ab_test_single_eq("McGeneral2WayBalance:rs", || {
-            let mut g = GraphBuilder::test_graph(TestGraph::Webbase2004, Optype::Kmetis, 16, 2);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
             g.set_seed(18231);
             g.edge_list(
                 std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
             );
             g.set_contig(true);
             g.random_adjwgt();
+            // g.write_graph(std::io::BufWriter::new(std::fs::OpenOptions::new().write(true).create(true).truncate(true).open("graphs/contig_bug.graph").unwrap())).unwrap();
             g.call().unwrap()
         });
     }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["macros", "objtograph"]
+members = ["macros", "metis_proptest", "objtograph"]
 
 [package]
 name = "metis"
@@ -34,8 +34,3 @@ cc = "1.0"
 [profile.dev]
 opt-level = 1 # to be a little faster and silence FORTIFY_SOURCE warnings
 build-override.opt-level = 3 # build scripts and proc-macros.
-
-[profile.release]
-# debug = true
-
-[profile.test]
