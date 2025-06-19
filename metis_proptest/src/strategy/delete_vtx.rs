@@ -4,8 +4,7 @@ use fastrand::Rng;
 
 use crate::{costs::{CaseCost, CostFactors}, graph::Graph, utils::{make_csr, RetainIndexed}};
 
-use super::{Case, Strategy};
-
+use super::{Case, Strategy, StrategyKind};
 
 pub struct DeleteVtxs {
     /// inverse probability a vertex will be deleted (i.e. `prob = 3` implies about a third of
@@ -15,15 +14,22 @@ pub struct DeleteVtxs {
     pub rng: Rng, 
     /// whether nparts should be reduced proportionally to the number of vertices deleted
     pub adjust_nparts: bool,
-    pub allow_backtrack: bool,
+
+    pub kind: StrategyKind,
 }
 
 impl Strategy for DeleteVtxs {
     fn cost(&self, case: &Case) -> CaseCost {
-        let nvtxs = case.graph.nvtxs();
-        let nedges = case.graph.nedges();
+        let mut f = CostFactors::from_case(case);
+        let nvtxs = f.nvtxs as usize;
+        let nedges = f.nedges as usize;
         let num_del = nvtxs / self.prob;
         let avg_deg = nedges / nvtxs;
+
+        let scale_factor = 1.0 - (1.0 / self.prob as f64);
+        f.adjwgt = f.adjwgt.map(|a| a.scale_count(scale_factor));
+        f.vwgt = f.vwgt.map(|a| a.scale_count(scale_factor));
+        f.vsize = f.vsize.map(|a| a.scale_count(scale_factor));
 
         let new_nvtxs = nvtxs - num_del;
         let new_nedges = nedges - (avg_deg * num_del);
@@ -36,8 +42,8 @@ impl Strategy for DeleteVtxs {
         }.into()
     }
 
-    fn dont_backtrack(&self) -> bool {
-        !self.allow_backtrack
+    fn kind(&self) -> StrategyKind {
+        self.kind
     }
 
     fn is_valid(&self, case: &Case) -> bool {

@@ -3,7 +3,8 @@
 use std::{ffi::OsString, path::PathBuf, process::ExitCode, sync::Arc, time::Duration};
 use clap::{ValueEnum, Parser};
 use fastrand::Rng;
-use strategy::{Case, Settings};
+use minimize::MinimizationSet;
+use strategy::{Case, Settings, StrategyKind};
 
 mod graph;
 mod utils;
@@ -114,6 +115,41 @@ enum Ctype {
     Shem
 }
 
+fn build_strats(m: &mut MinimizationSet) {
+    use strategy::strategies as s;
+
+    m.push(s::UnsetMinConn);
+    m.push(s::UnsetContig);
+    m.push(s::RemoveVsize);
+    m.push(s::ShrinkNcon);
+
+    m.push(s::DeleteVtxs {
+        prob: 2,
+        adjust_nparts: true,
+        kind: StrategyKind::Checkpoint,
+        rng: Rng::new(),
+    });
+    m.push(s::DeleteVtxs {
+        prob: 2,
+        adjust_nparts: true,
+        kind: StrategyKind::Checkpoint,
+        rng: Rng::new(),
+    });
+    m.push(s::DeleteVtxs {
+        prob: 4,
+        adjust_nparts: true,
+        kind: StrategyKind::Repeat,
+        rng: Rng::new(),
+    });
+
+    m.push(s::ReduceVwgt {
+        amt_percent: 50,
+    });
+    m.push(s::ReduceAdjwgt {
+        amt_percent: 75,
+    });
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let Cli { graph_file, nparts, comm, always_graphchk: _, ptype, iptype, objtype, minconn, contig, ncuts, niter, seed, ctype, ufactor, nocapture } = cli;
@@ -148,34 +184,35 @@ fn main() -> ExitCode {
     }
 
     let mut strats = minimize::MinimizationSet::new();
-    strats.push(strategy::simple::UnsetMinConn);
-    strats.push(strategy::simple::UnsetContig);
-    strats.push(strategy::simple::RemoveVsize);
-    strats.push(strategy::simple::RemoveAllVWgt);
-    for i in 0..10_usize {
-        strats.push(strategy::delete_vtx::DeleteVtxs {
-            prob: 2 + i,
-            rng: Rng::new(),
-            adjust_nparts: true,
-            allow_backtrack: i > 5,
-        });
-    }
+    build_strats(&mut strats);
 
     let mut worker = strats.work(initial_case);
-    let mut dur = Duration::from_secs(1);
-    for _ in 0..10 {
+    let mut dur = Duration::from_secs_f64(0.125);
+    let mut iterations_without_improvement = 0;
+    for _ in 0..50 {
         eprintln!("working for {:.3} sec...", dur.as_secs_f64());
-        if worker.run_for(dur) {
+        let Some(improved) = worker.run_for(dur) else { break };
+        if improved {
+            iterations_without_improvement = 0;
             eprintln!("Found better graph:");
-            eprintln!("{}", worker.best().stats())
+            eprintln!("{}", worker.best_rt().stats())
         } else {
             dur *= 2;
             dur = dur.min(Duration::from_secs(30));
+            iterations_without_improvement += 1;
+            if iterations_without_improvement >= 5 {
+                break
+            }
         };
     }
 
-    eprintln!("best graph found:");
-    worker.best().graph.write(std::io::stdout()).unwrap();
+    eprintln!("best graph found (run time):");
+    worker.best_rt().graph.write(std::io::stderr()).unwrap();
+    eprintln!("{}", worker.best_rt().stats());
+
+    eprintln!("best graph found (human):");
+    worker.best_hu().graph.write(std::io::stdout()).unwrap();
+    eprintln!("{}", worker.best_hu().stats());
 
 
     ExitCode::SUCCESS

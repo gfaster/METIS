@@ -6,6 +6,16 @@ pub mod simple;
 pub mod combinator;
 pub use combinator::*;
 pub mod delete_vtx;
+pub mod shrink_ncon;
+
+pub mod strategies {
+    #![allow(unused_imports)]
+
+    pub use super::simple::*;
+    pub use super::combinator::*;
+    pub use super::delete_vtx::*;
+    pub use super::shrink_ncon::*;
+}
 
 /// program-wide settings
 pub struct Settings {
@@ -31,14 +41,73 @@ pub struct Case {
     pub settings: Arc<Settings>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum StrategyKind {
+    /// Provides a major difference in kind that is meaningless to attempt multiple times or to go
+    /// back once an accepted case is found. When a checkpoint is hit for the first time, the
+    /// first accepted case produced by the strategy iterator (or the original case if none are)
+    /// is passed on. Regardless of whether the strategy produces an accepted case, the queue is
+    /// cleared and this strategy will not be run again.
+    Checkpoint,
+
+    /// Like [`StrategyKind::Checkpoint`], but we abort the whole run if nothing is accepted.
+    /// Intended for the initial case.
+    MustAccept,
+
+    /// passes each accepted case forward
+    Ordered,
+
+    /// like [`StrategyKind::Ordered`], but it only passes the first accepted
+    First,
+
+    /// repeatadly applies until [`Strategy::is_valid`] returns `false`. If the iterator returns
+    /// multiple elements, this may result in an exponential explosion of cases.
+    Repeat,
+
+}
+
+impl StrategyKind {
+    /// Returns `true` if the strategy kind is [`Checkpoint`].
+    ///
+    /// [`Checkpoint`]: StrategyKind::Checkpoint
+    #[must_use]
+    pub fn is_checkpoint(&self) -> bool {
+        matches!(self, Self::Checkpoint)
+    }
+
+    /// Returns `true` if the strategy kind is [`MustAccept`].
+    ///
+    /// [`MustAccept`]: StrategyKind::MustAccept
+    #[must_use]
+    pub fn is_must_accept(&self) -> bool {
+        matches!(self, Self::MustAccept)
+    }
+
+    /// Returns `true` if the strategy kind is [`Repeat`].
+    ///
+    /// [`Repeat`]: StrategyKind::Repeat
+    #[must_use]
+    pub fn is_repeat(&self) -> bool {
+        matches!(self, Self::Repeat)
+    }
+
+    /// Returns `true` if the strategy kind is [`Ordered`].
+    ///
+    /// [`Ordered`]: StrategyKind::Ordered
+    #[must_use]
+    pub fn is_ordered(&self) -> bool {
+        matches!(self, Self::Ordered)
+    }
+}
+
 pub trait Strategy {
-    /// if [`Strategy::is_valid`] is true for a case, don't go back before this one
-    fn dont_backtrack(&self) -> bool { false }
+    /// what kind of strategy is this? See the documentation for [`StrategyKind`] for more details.
+    fn kind(&self) -> StrategyKind { StrategyKind::Ordered }
 
     fn cost(&self, case: &Case) -> CaseCost;
 
     fn is_valid(&self, case: &Case) -> bool {
-        let _= case;
+        let _ = case;
         true
     }
 
@@ -163,6 +232,7 @@ impl Case {
 
     /// runs the program `trials` times, incrementing the seed each time, returning the number of
     /// crashes
+    #[allow(dead_code)]
     pub fn measure_robustness(&self, trials: usize) -> usize {
         let mut cnt = 0;
         for trial in 0..trials {
@@ -192,9 +262,13 @@ impl Case {
         let Case { graph, minconn, contig, niter, ncuts, nparts, ufactor, ptype, iptype, objtype, ctype, seed, settings: _ } = self;
         let nvtxs = graph.nvtxs();
         let nedges = graph.nedges();
+        let Graph { xadj: _, adjncy: _, ncon, adjwgt, vwgt: _, vsize } = &graph;
         writeln!(buf, "Graph ({})", self.cost().human).unwrap();
         writeln!(buf, "\tnvtxs: {nvtxs}").unwrap();
         writeln!(buf, "\tnedges: {nedges}").unwrap();
+        writeln!(buf, "\tncon: {ncon}").unwrap();
+        writeln!(buf, "\tadjwgt: {}", adjwgt.is_some()).unwrap();
+        writeln!(buf, "\tvsize: {}", vsize.is_some()).unwrap();
         writeln!(buf, "\tniter: {niter}").unwrap();
         writeln!(buf, "\tncuts: {ncuts}").unwrap();
         writeln!(buf, "\tnparts: {nparts}").unwrap();

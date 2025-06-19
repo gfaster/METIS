@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ptr::NonNull};
 
 use crate::costs::CaseCost;
 
-use super::{Case, Strategy, StrategyIter};
+use super::{Case, Strategy, StrategyIter, StrategyKind};
 
 pub struct DynStrategyIter<'a> {
     clone: unsafe fn (&DynStrategyIter<'a>) -> DynStrategyIter<'a>,
@@ -57,7 +57,7 @@ impl<'a> Clone for DynStrategyIter<'a> {
 type OpaqueDynStrategyIter = [u8; size_of::<DynStrategyIter>()];
 
 struct DynStrategyVTable {
-    dont_backtrack: unsafe fn (NonNull<u8>) -> bool,
+    dont_backtrack: unsafe fn (NonNull<u8>) -> StrategyKind,
     reduction_power: unsafe fn (NonNull<u8>, case: &Case) -> CaseCost,
     is_valid: unsafe fn (NonNull<u8>, case: &Case) -> bool,
     apply: unsafe fn (NonNull<u8>, case: Case) -> Option<OpaqueDynStrategyIter>,
@@ -77,8 +77,8 @@ impl<'a> DynStrategy<'a> {
             unsafe { p.cast::<S>().as_ref() }
         }
 
-        unsafe fn dont_backtrack<S: Strategy + Sized>(p: NonNull<u8>) -> bool {
-            unsafe { cast_data::<S>(p).dont_backtrack() }
+        unsafe fn dont_backtrack<S: Strategy + Sized>(p: NonNull<u8>) -> StrategyKind {
+            unsafe { cast_data::<S>(p).kind() }
         }
 
         unsafe fn reduction_power<S: Strategy + Sized>(p: NonNull<u8>, case: &Case) -> CaseCost {
@@ -148,7 +148,7 @@ impl<'a> Strategy for DynStrategy<'a> {
         unsafe { (self.vtable.reduction_power)(self.data, case) }
     }
 
-    fn dont_backtrack(&self) -> bool {
+    fn kind(&self) -> StrategyKind {
         unsafe { (self.vtable.dont_backtrack)(self.data) }
     }
 
@@ -171,30 +171,6 @@ impl<'a, S: Strategy> From<&'a S> for DynStrategy<'a> {
 impl<'a, S: Strategy + 'a> From<Box<S>> for DynStrategy<'a> {
     fn from(value: Box<S>) -> Self {
         DynStrategy::new_from_box(value)
-    }
-}
-
-
-pub struct FanOut<'a, S1, S2>(&'a S1, &'a S2);
-pub fn fan_out<'a, S1: Strategy, S2: Strategy>(s1: &'a S1, s2: &'a S2) -> FanOut<'a, S1, S2> {
-    FanOut(s1, s2)
-}
-impl<S1: Strategy, S2: Strategy> Strategy for FanOut<'_, S1, S2> {
-    fn cost(&self, case: &super::Case) -> CaseCost {
-        self.0.cost(case)
-    }
-
-    fn is_valid(&self, case: &Case) -> bool {
-        self.0.is_valid(case)
-    }
-
-    fn dont_backtrack(&self) -> bool {
-        self.0.dont_backtrack()
-    }
-
-    fn apply(&self, case: super::Case) -> Option<impl StrategyIter> {
-        let it0 = self.0.apply(case.clone())?;
-        Some(it0.filter(|c| self.1.is_valid(c)).flat_map(|c| self.1.apply(c).into_iter().flatten()))
     }
 }
 
