@@ -182,7 +182,7 @@ impl MinimizationSet {
         self.strats.push(DynStrategy::new_owned(i))
     }
 
-    pub fn work(&self, case: Case) -> MinimizationSetWorker {
+    pub fn work(&self, case: Case) -> MinimizationSetWorker<'_> {
         let acase = Arc::new(case.clone());
         let CaseCost {
             runtime: best_rt_cost,

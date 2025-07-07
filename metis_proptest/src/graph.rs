@@ -20,6 +20,7 @@ pub struct Graph {
     pub vsize: Option<Arc<Vec<usize>>>,
 }
 
+#[allow(dead_code)]
 pub struct VertexFields<'a> {
     pub vtx: usize,
     pub edges: &'a [usize],
@@ -57,7 +58,7 @@ impl Graph {
         self.xadj.windows(2).map(|w| &self.adjncy[w[0]..w[1]])
     }
 
-    pub fn vtx_field_iter(&self) -> impl Iterator<Item = VertexFields> {
+    pub fn vtx_field_iter(&self) -> impl Iterator<Item = VertexFields<'_>> {
         self.xadj.windows(2).enumerate().map(move |(vtx, w)| {
             VertexFields { 
                 vtx,

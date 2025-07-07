@@ -10,7 +10,9 @@ use crate::{strategy::Case, PartScheme};
 pub struct RuntimeCost(usize);
 
 impl RuntimeCost {
+    #[allow(dead_code)]
     pub const ZERO: Self = RuntimeCost(0);
+    #[allow(dead_code)]
     pub const MAX: Self = RuntimeCost(usize::MAX);
 
     pub fn to_raw(self) -> usize {
@@ -30,6 +32,7 @@ pub struct HumanCost(usize);
 
 impl HumanCost {
     /// returns true if `self` is worse than `improved` by at least `factor`
+    #[expect(dead_code)]
     pub fn is_worse_than(self, improved: Self, factor: usize) -> bool {
         self.0.saturating_add(50 + 10 * factor) < improved.0
     }
@@ -84,7 +87,6 @@ impl DistCost {
         let mut cnt = 1;
         let mut min = arr[0] as u32;
         let mut max = arr[0] as u32;
-        let mut sorted = 0;
 
         // https://en.wikipedia.org/wiki/Exponential_smoothing 
         const ALPHA: f64 = 0.2;

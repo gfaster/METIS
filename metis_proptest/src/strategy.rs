@@ -58,6 +58,7 @@ pub enum StrategyKind {
     Ordered,
 
     /// like [`StrategyKind::Ordered`], but it only passes the first accepted
+    #[expect(dead_code)]
     First,
 
     /// repeatadly applies until [`Strategy::is_valid`] returns `false`. If the iterator returns
@@ -66,6 +67,7 @@ pub enum StrategyKind {
 
 }
 
+#[allow(dead_code)]
 impl StrategyKind {
     /// Returns `true` if the strategy kind is [`Checkpoint`].
     ///

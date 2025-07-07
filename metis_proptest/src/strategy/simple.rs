@@ -21,6 +21,7 @@ impl Strategy for RemoveVsize {
     }
 }
 
+#[expect(dead_code)]
 pub struct RemoveAllVWgt;
 impl Strategy for RemoveAllVWgt {
     fn kind(&self) -> StrategyKind { StrategyKind::Checkpoint }
@@ -80,6 +81,7 @@ impl Strategy for UnsetContig {
     }
 }
 
+#[expect(dead_code)]
 pub struct UnsetAdjwgt;
 impl Strategy for UnsetAdjwgt {
     fn kind(&self) -> StrategyKind { StrategyKind::Checkpoint }
