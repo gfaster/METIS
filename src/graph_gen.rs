@@ -17,24 +17,97 @@ pub struct Csr {
 
 #[derive(Clone)]
 pub struct GraphBuilder {
-    op: Optype,
-    nparts: usize,
-    ncon: usize,
-    contig: bool,
-    objective: Objtype,
-    /// whether to try to minimize connectivity
-    minconn: bool,
+    op: GraphOpSettings,
     seed: idx_t,
     xadj: Vec<idx_t>,
     adjncy: Vec<idx_t>,
-    adjwgt: Option<Vec<idx_t>>,
-    vsize: Option<Vec<idx_t>>,
     vwgt: Option<Vec<idx_t>>,
+    edge_match: Ctype,
+    initial_part: Iptype,
+}
+
+#[derive(Clone)]
+enum KwayObjective {
+    Vol {
+        vsize: Option<Vec<idx_t>>,
+    },
+    Cut {
+        adjwgt: Option<Vec<idx_t>>,
+    },
+}
+
+impl KwayObjective {
+    fn objtype(&self) -> Objtype {
+        match self {
+            KwayObjective::Vol { .. } => Objtype::Vol,
+            KwayObjective::Cut { .. } => Objtype::Cut,
+        }
+    }
+}
+
+/// settings common between partition routines (pmetis and kmetis)
+#[derive(Clone)]
+struct GraphPartSettings {
+    ncuts: idx_t,
+    nparts: usize,
+    ncon: usize,
     ubvec: Option<Vec<real_t>>,
     tpwgts: Option<Vec<real_t>>,
-    edge_match: Ctype,
-    refine_type: Option<Rtype>,
-    initial_part: Iptype,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Refinement algorithm for ometis
+pub enum OmetisRtype {
+    Sep1Sided,
+    Sep2Sided,
+}
+
+/// refer to options.c for what's actually used
+#[derive(Clone)]
+enum GraphOpSettings {
+    Pmetis {
+        common: GraphPartSettings,
+        adjwgt: Option<Vec<idx_t>>,
+    },
+    Kmetis {
+        common: GraphPartSettings,
+        objtype: KwayObjective,
+        minconn: bool,
+        contig: bool,
+        niparts: idx_t,
+    },
+    Ometis {
+        nseps: idx_t,
+        pfactor: idx_t,
+        ccorder: bool,
+        rtype: OmetisRtype,
+    },
+}
+
+impl GraphOpSettings {
+    fn op(&self) -> Optype {
+        match self {
+            GraphOpSettings::Pmetis { .. } => Optype::Pmetis,
+            GraphOpSettings::Kmetis { .. } => Optype::Kmetis,
+            GraphOpSettings::Ometis { .. } => Optype::Ometis,
+        }
+    }
+
+    fn common(&mut self) -> Option<&mut GraphPartSettings> {
+        match self {
+            GraphOpSettings::Pmetis { common, .. } => Some(common),
+            GraphOpSettings::Kmetis { common, .. } => Some(common),
+            GraphOpSettings::Ometis { .. } => None,
+        }
+    }
+
+    fn common_ref(&self) -> Option<&GraphPartSettings> {
+        match self {
+            GraphOpSettings::Pmetis { common, .. } => Some(common),
+            GraphOpSettings::Kmetis { common, .. } => Some(common),
+            GraphOpSettings::Ometis { .. } => None,
+        }
+    }
 }
 
 fn vec_ptr<T>(v: &mut Option<Vec<T>>) -> *mut T {
@@ -47,24 +120,56 @@ fn vec_ptr<T>(v: &mut Option<Vec<T>>) -> *mut T {
 #[allow(unused)]
 impl GraphBuilder {
     pub fn new(op: Optype, nparts: usize, ncon: usize) -> Self {
+        if op.is_ometis() {
+            assert_eq!(ncon, 1, "ometis requires ncon=1");
+        }
+        if op.is_ometis() {
+            assert_eq!(nparts, 3, "ometis requires nparts=3");
+        }
         Self {
-            op,
-            nparts,
-            ncon,
+            op: match op {
+                Optype::Pmetis => GraphOpSettings::Pmetis { 
+                    common: GraphPartSettings { 
+                        ncuts: 1,
+                        nparts,
+                        ncon,
+                        ubvec: None,
+                        tpwgts: None,
+                    },
+                    adjwgt: None,
+                },
+                Optype::Kmetis => GraphOpSettings::Kmetis {
+                    common: GraphPartSettings { 
+                        ncuts: 1,
+                        nparts,
+                        ncon,
+                        ubvec: None,
+                        tpwgts: None,
+                    },
+                    objtype: KwayObjective::Cut { 
+                        adjwgt: None
+                    },
+                    minconn: false,
+                    contig: false,
+                    niparts: -1,
+                },
+                Optype::Ometis => GraphOpSettings::Ometis { 
+                    nseps: 1,
+                    pfactor: 0,
+                    ccorder: false,
+                    rtype: OmetisRtype::Sep1Sided
+                },
+            },
             seed: 4321,
             xadj: Vec::new(),
             adjncy: Vec::new(),
-            adjwgt: None,
-            vsize: None,
             vwgt: None,
-            ubvec: None,
-            tpwgts: None,
             edge_match: Ctype::Shem,
-            refine_type: (op == Optype::Pmetis).then_some(Rtype::Fm),
-            initial_part: if op == Optype::Kmetis { Iptype::Rb } else { Iptype::Grow },
-            contig: false,
-            objective: Objtype::Cut,
-            minconn: false,
+            initial_part: match op {
+                Optype::Pmetis => Iptype::Grow,
+                Optype::Kmetis => Iptype::Rb,
+                Optype::Ometis => Iptype::Edge,
+            },
         }
     }
 
@@ -156,6 +261,10 @@ impl GraphBuilder {
 
     pub fn nvtxs(&self) -> usize {
         self.xadj.len() - 1
+    }
+
+    pub fn ncon(&self) -> usize {
+        self.op.common_ref().map_or(1, |c| c.ncon)
     }
 
     fn adj(&self, vtx: idx_t) -> &[idx_t] {
@@ -270,34 +379,36 @@ impl GraphBuilder {
     }
 
     pub fn random_tpwgts(&mut self) {
+        let comm = self.op.common().unwrap();
         let mut rng = Rng::new();
         let mut one_con = || {
-            let base = Vec::from_iter((0..self.nparts).map(|_| rng.f32()));
+            let base = Vec::from_iter((0..comm.nparts).map(|_| rng.f32()));
             let total: f32 = base.iter().sum();
             base.into_iter().map(move |b| b / total)
         };
-        let mut tpwgts = self
+        let mut tpwgts = comm
             .tpwgts
             .take()
-            .unwrap_or(Vec::with_capacity(self.ncon * self.nparts));
-        tpwgts.resize(self.ncon * self.nparts, 0.0);
-        for con in 0..self.ncon {
+            .unwrap_or(Vec::with_capacity(comm.ncon * comm.nparts));
+        tpwgts.resize(comm.ncon * comm.nparts, 0.0);
+        for con in 0..comm.ncon {
             tpwgts
                 .iter_mut()
                 .skip(con)
-                .step_by(self.ncon)
+                .step_by(comm.ncon)
                 .zip(one_con())
                 .for_each(|(tpwgt, wgt)| *tpwgt = wgt);
         }
-        self.tpwgts = Some(tpwgts);
+        comm.tpwgts = Some(tpwgts);
     }
 
     pub fn random_ubvec(&mut self) {
         let mut rng = Rng::new();
-        let mut ubvec = self.ubvec.take().unwrap_or(Vec::with_capacity(self.ncon));
+        let comm = self.op.common().unwrap();
+        let mut ubvec = comm.ubvec.take().unwrap_or(Vec::with_capacity(comm.ncon));
         ubvec.clear();
-        ubvec.extend((0..self.ncon).map(|_| rng.f32() / 15.0 + 1.001));
-        self.ubvec = Some(ubvec);
+        ubvec.extend((0..comm.ncon).map(|_| rng.f32() / 15.0 + 1.001));
+        comm.ubvec = Some(ubvec);
     }
 
     pub fn random_vwgt(&mut self) {
@@ -305,21 +416,27 @@ impl GraphBuilder {
         let mut vwgt = self
             .vwgt
             .take()
-            .unwrap_or(Vec::with_capacity(self.ncon * self.nvtxs()));
+            .unwrap_or(Vec::with_capacity(self.ncon() * self.nvtxs()));
         vwgt.clear();
-        vwgt.extend((0..(self.ncon * self.nvtxs())).map(|_| rng.u32(1..20) as idx_t));
+        vwgt.extend((0..(self.ncon() * self.nvtxs())).map(|_| rng.u32(1..20) as idx_t));
         self.vwgt = Some(vwgt);
     }
 
     pub fn random_vsize(&mut self) {
         let mut rng = Rng::new();
-        let mut vsize = self
-            .vsize
-            .take()
-            .unwrap_or(Vec::with_capacity(self.nvtxs()));
-        vsize.clear();
-        vsize.extend((0..self.nvtxs()).map(|_| rng.u32(1..20) as idx_t));
-        self.vsize = Some(vsize);
+        let nvtxs = self.nvtxs();
+        match &mut self.op {
+            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt: Some(_) }, .. } => panic!("cannot set vsize -- already set adjwgt"),
+            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => panic!("cannot set vsize unless kway"),
+            _ => ()
+        }
+        let mut vsize = Vec::with_capacity(nvtxs);
+        vsize.extend((0..nvtxs).map(|_| rng.u32(1..20) as idx_t));
+        match &mut self.op {
+            GraphOpSettings::Kmetis { objtype, .. } => *objtype = KwayObjective::Vol { vsize: Some(vsize) },
+            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => panic!("cannot set vsize unless kway"),
+            _ => ()
+        }
     }
 
     fn vtxs(&self) -> impl Iterator<Item = usize> {
@@ -328,10 +445,15 @@ impl GraphBuilder {
 
     pub fn random_adjwgt(&mut self) {
         let mut rng = Rng::new();
-        let mut adjwgt = self
-            .adjwgt
-            .take()
-            .unwrap_or(Vec::with_capacity(self.adjncy.len()));
+        let nedges = self.adjncy.len();
+        let orig = match &mut self.op {
+            GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt,
+            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt }, .. } => adjwgt,
+            GraphOpSettings::Kmetis { objtype: KwayObjective::Vol { vsize: Some(_) }, .. } => panic!("already set vsize - can't also set adjwgt"),
+            GraphOpSettings::Kmetis { .. } => &mut None,
+            GraphOpSettings::Ometis { .. } => panic!("can't set adjwgt in ometis"),
+        };
+        let mut adjwgt = orig.as_mut().take().map_or_else(|| Vec::with_capacity(nedges), |a| std::mem::take(a));
         adjwgt.clear();
         adjwgt.extend((0..self.adjncy.len()).map(|_| rng.u32(1..50) as idx_t));
         for vtx in self.vtxs() {
@@ -345,35 +467,49 @@ impl GraphBuilder {
                     });
             }
         }
-        self.adjwgt = Some(adjwgt);
+        match &mut self.op {
+            GraphOpSettings::Pmetis { adjwgt: dst, .. } => *dst = Some(adjwgt),
+            GraphOpSettings::Kmetis { objtype, .. } => *objtype = KwayObjective::Cut { adjwgt: Some(adjwgt) },
+            _ => unreachable!()
+        }
     }
 
     pub fn set_contig(&mut self, contig: bool) {
-        if contig {
-            assert!(self.op == Optype::Kmetis, "Can only be specify contig for kmetis");
+        match &mut self.op {
+            GraphOpSettings::Kmetis { contig: x, .. } => *x = contig,
+            _ => panic!("Can only specify contig for kmetis")
         }
-        self.contig = contig;
     }
     
     pub fn set_minconn(&mut self, minconn: bool) {
-        if minconn {
-            assert!(self.op == Optype::Kmetis, "Can only be specify minconn for kmetis");
+        match &mut self.op {
+            GraphOpSettings::Kmetis { minconn: x, .. } => *x = minconn,
+            _ => panic!("Can only specify minconn for kmetis")
         }
-        self.minconn = minconn;
     }
 
-    pub fn set_objective(&mut self, objective: Objtype) {
-        self.objective = objective;
+    pub fn set_objective(&mut self, objtype: Objtype) {
+        match (&mut self.op, objtype) {
+            (GraphOpSettings::Kmetis {  .. }, Objtype::Node) => panic!("cannot set node objtype"),
+            (GraphOpSettings::Kmetis { objtype: KwayObjective::Vol { .. }, .. }, Objtype::Vol) => (),
+            (GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { .. }, .. }, Objtype::Cut) => (),
+            (GraphOpSettings::Kmetis { objtype: objtype @ KwayObjective::Vol { vsize: None }, .. }, Objtype::Cut) => *objtype = KwayObjective::Cut { adjwgt: None },
+            (GraphOpSettings::Kmetis { objtype: objtype @ KwayObjective::Cut { adjwgt: None }, .. }, Objtype::Vol) => *objtype = KwayObjective::Vol { vsize: None },
+            (GraphOpSettings::Kmetis {  .. }, _) => panic!("trying to set objtype to {objtype:?}, but we already populated in another objtype"),
+            (GraphOpSettings::Pmetis { .. } 
+                | GraphOpSettings::Ometis { .. }, _) => panic!("setting objective does nothing on pmetis or ometis"),
+        }
     }
 
-    pub fn set_refine_type(&mut self, rtype: Rtype) {
-        assert_eq!(
-            self.op,
-            Optype::Pmetis,
-            "setting the refine type is only availiable on pmetis"
-        );
-        self.refine_type = Some(rtype);
-    }
+    // pub fn set_refine_type(&mut self, rtype: Rtype) {
+    //     assert_eq!(
+    //         self.op,
+    //         Optype::Ometis,
+    //         "setting the refine type is only availiable on ometis (despite what the manual says)"
+    //     );
+    //
+    //     self.refine_type = Some(rtype);
+    // }
 
     pub fn set_edge_match(&mut self, ctype: Ctype) {
         self.edge_match = ctype;
@@ -414,67 +550,106 @@ impl GraphBuilder {
         if let Some(ctype) = match_setting!(options[METIS_OPTION_CTYPE] == Ctype::{Shem, Rm}) {
             self.edge_match = ctype;
         }
-        if let Some(rtype) = match_setting!(options[METIS_OPTION_RTYPE] == Rtype::{Fm, Greedy}) {
-            self.refine_type = Some(rtype);
+        if let Some(rtype) = match_setting!(options[METIS_OPTION_RTYPE] == Rtype::{Fm, Greedy, Sep1Sided, Sep2Sided}) {
+            match &mut self.op {
+                GraphOpSettings::Ometis { rtype: dst, .. } => *dst = match rtype {
+                    Rtype::Greedy |
+                    Rtype::Fm => panic!("can't set rtype of ometis to {rtype:?}"),
+                    Rtype::Sep1Sided => OmetisRtype::Sep1Sided,
+                    Rtype::Sep2Sided => OmetisRtype::Sep2Sided,
+                },
+                _ => panic!("can't set rtype outside of ometis")
+            }
         }
     }
 
     pub fn call(&mut self) -> Result<(idx_t, Vec<i32>), ()> {
         assert_eq!(self.adjncy.len(), *self.xadj.last().unwrap_or(&0) as usize);
         let mut nvtxs = self.nvtxs() as idx_t;
-        let mut ncon = self.ncon as idx_t;
-        let mut nparts = self.nparts as idx_t;
+        let mut ncon = self.ncon() as idx_t;
         let mut part = vec![0; self.nvtxs()];
         let mut objval = 0;
         let mut options = [-1; METIS_NOPTIONS as usize];
-        options[METIS_OPTION_OBJTYPE as usize] = self.objective as idx_t;
-        options[METIS_OPTION_CONTIG as usize] = self.contig as idx_t;
         options[METIS_OPTION_CTYPE as usize] = self.edge_match as idx_t;
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as idx_t;
-        options[METIS_OPTION_MINCONN as usize] = self.minconn as idx_t;
         options[METIS_OPTION_ONDISK as usize] = 1;
         options[METIS_OPTION_SEED as usize] = self.seed;
-        let res = match self.op {
-            Optype::Kmetis => unsafe {
+
+        let res = match &mut self.op {
+            GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, adjwgt } => unsafe {
+                let mut nparts = *nparts as idx_t;
+                let mut ncon = *ncon as idx_t;
+                pmetis::METIS_PartGraphRecursive(
+                    &mut nvtxs,
+                    &mut ncon,
+                    self.xadj.as_mut_ptr(),
+                    self.adjncy.as_mut_ptr(),
+                    vec_ptr(&mut self.vwgt),
+                    std::ptr::null_mut(),
+                    vec_ptr(adjwgt),
+                    &mut nparts,
+                    vec_ptr(tpwgts),
+                    vec_ptr(ubvec),
+                    options.as_mut_ptr(),
+                    &mut objval,
+                    part.as_mut_ptr(),
+                )
+            },
+            GraphOpSettings::Kmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, objtype, minconn, contig, niparts } => unsafe {
+                let mut nparts = *nparts as idx_t;
+                let mut ncon = *ncon as idx_t;
+                let vsize;
+                let adjwgt;
+                match objtype {
+                    KwayObjective::Vol { vsize: mv } => {
+                        options[METIS_OPTION_OBJTYPE as usize] = Objtype::Vol as idx_t;
+                        vsize = vec_ptr(mv);
+                        adjwgt = std::ptr::null_mut();
+                    },
+                    KwayObjective::Cut { adjwgt: aw } => {
+                        options[METIS_OPTION_OBJTYPE as usize] = Objtype::Cut as idx_t;
+                        vsize = std::ptr::null_mut();
+                        adjwgt = vec_ptr(aw);
+                    },
+                };
+                options[METIS_OPTION_CONTIG as usize] = *contig as idx_t;
+                options[METIS_OPTION_MINCONN as usize] = *minconn as idx_t;
                 kmetis::METIS_PartGraphKway(
                     &mut nvtxs,
                     &mut ncon,
                     self.xadj.as_mut_ptr(),
                     self.adjncy.as_mut_ptr(),
                     vec_ptr(&mut self.vwgt),
-                    vec_ptr(&mut self.vsize),
-                    vec_ptr(&mut self.adjwgt),
+                    vsize,
+                    adjwgt,
                     &mut nparts,
-                    vec_ptr(&mut self.tpwgts),
-                    vec_ptr(&mut self.ubvec),
+                    vec_ptr(tpwgts),
+                    vec_ptr(ubvec),
                     options.as_mut_ptr(),
                     &mut objval,
                     part.as_mut_ptr(),
                 )
             },
-            Optype::Ometis => todo!(),
-            Optype::Pmetis => {
-                if let Some(rtype) = self.refine_type {
-                    options[METIS_OPTION_RTYPE as usize] = rtype as idx_t;
-                }
-                unsafe {
-                    pmetis::METIS_PartGraphRecursive(
-                        &mut nvtxs,
-                        &mut ncon,
-                        self.xadj.as_mut_ptr(),
-                        self.adjncy.as_mut_ptr(),
-                        vec_ptr(&mut self.vwgt),
-                        vec_ptr(&mut self.vsize),
-                        vec_ptr(&mut self.adjwgt),
-                        &mut nparts,
-                        vec_ptr(&mut self.tpwgts),
-                        vec_ptr(&mut self.ubvec),
-                        options.as_mut_ptr(),
-                        &mut objval,
-                        part.as_mut_ptr(),
-                    )
-                }
-            }
+            GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype } => unsafe {
+                options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
+                options[METIS_OPTION_PFACTOR as usize] = *pfactor as idx_t;
+                options[METIS_OPTION_RTYPE as usize] = match rtype {
+                    OmetisRtype::Sep1Sided => Rtype::Sep1Sided,
+                    OmetisRtype::Sep2Sided => Rtype::Sep2Sided,
+                } as idx_t;
+                options[METIS_OPTION_NSEPS as usize] = *nseps as idx_t;
+                let mut perm = vec![0; nvtxs as usize];
+                let mut iperm = vec![0; nvtxs as usize];
+                ometis::METIS_NodeND(
+                    &mut nvtxs,
+                    self.xadj.as_mut_ptr(),
+                    self.adjncy.as_mut_ptr(),
+                    vec_ptr(&mut self.vwgt),
+                    options.as_mut_ptr(),
+                    perm.as_mut_ptr(),
+                    iperm.as_mut_ptr()
+                )
+            },
         };
         if res == METIS_ERROR {
             Err(())
@@ -487,12 +662,12 @@ impl GraphBuilder {
         // command line invocation
         {
             writeln!(w, "% partition with this command:")?;
-            let ptype = match self.op {
-                Optype::Kmetis => "-ptype=kway",
-                Optype::Ometis => todo!(),
-                Optype::Pmetis => "-ptype=rb",
+            let command = match self.op.op() {
+                Optype::Kmetis => "gpmetis -ptype=kway",
+                Optype::Ometis => "ndmetis",
+                Optype::Pmetis => "gpmetis -ptype=rb",
             };
-            write!(w, "% gpmetis {ptype}")?;
+            write!(w, "% {command}")?;
 
             let ctype = match self.edge_match {
                 Ctype::Rm => "-ctype=rm",
@@ -500,44 +675,58 @@ impl GraphBuilder {
             };
             write!(w, " {ctype}")?;
 
-            if self.op == Optype::Pmetis {
+            match &self.op {
+                GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ..}, .. } => todo!(),
+                GraphOpSettings::Kmetis { common, objtype, minconn, contig, niparts } => todo!(),
+                GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype } => todo!(),
+            }
+
+            {
                 let iptype = match self.initial_part {
                     Iptype::Grow => "-iptype=grow",
                     Iptype::Random => "-iptype=random",
-                    Iptype::Edge |
-                    Iptype::Node |
-                    Iptype::Rb => todo!(),
+                    Iptype::Edge => "-iptype=edge",
+                    Iptype::Node => "-iptype=node",
+                    Iptype::Rb => unreachable!(),
                 };
                 write!(w, " {iptype}")?;
             }
-            if self.op == Optype::Kmetis {
-                let objtype = match self.objective {
+            if let GraphOpSettings::Kmetis { objtype, contig, .. } = &self.op {
+                let objtype = match objtype.objtype() {
                     Objtype::Cut => "-objtype=cut",
                     Objtype::Vol => "-objtype=vol",
-                    Objtype::Node => todo!(),
+                    Objtype::Node => unreachable!(),
                 };
                 write!(w, " {objtype}")?;
+
+                if *contig {
+                    write!(w, " -contig")?;
+                }
             }
-            if self.contig {
-                write!(w, " -contig")?;
-            }
-            if let Some(ubvec) = self.ubvec.as_deref() {
-                write!(w, r#"-ubvec="{:.4}""#, space_sep(ubvec))?;
-            }
+
             write!(w, " -seed={}", self.seed)?;
-            writeln!(w, " GRAPH_FILE {}", self.nparts)?;
+
+            if let Some(comm) = self.op.common_ref() {
+                if let Some(ubvec) = comm.ubvec.as_deref() {
+                    write!(w, r#" -ubvec="{:.4}""#, space_sep(ubvec))?;
+                }
+                writeln!(w, " <GRAPH_FILE> {}", comm.nparts)?;
+            } else {
+                debug_assert!(self.op.op().is_ometis());
+                writeln!(w, " <GRAPH_FILE>")?;
+            }
         }
 
         // header line
-        let has_adjwgt = self.adjwgt.is_some();
-        let has_vwgt = self.vwgt.is_some() || self.ncon > 1;
-        let has_vsize = self.vsize.is_some();
+        let has_vsize = self.vsize().is_some();
+        let has_vwgt = self.vwgt.is_some() || self.ncon() > 1;
+        let has_adjwgt = self.adjwgt().is_some();
         let fmt = [has_vsize, has_vwgt, has_adjwgt].map(|b| b as u8 + b'0');
         writeln!(w, "{nvtxs} {nedges} {fmt} {ncon}", 
             nvtxs = self.nvtxs(),
             nedges = self.adjncy.len() / 2,
             fmt = std::str::from_utf8(&fmt).unwrap(),
-            ncon = self.ncon
+            ncon = self.ncon()
         )?;
 
         // main graph structure
@@ -545,9 +734,9 @@ impl GraphBuilder {
             // FORMAT: size? wgt{ncon} (edge, edgewgt?)* 
             let params = (self.vsize().map(|vs| vs[vtx]).into_iter())
             .chain({
-                    self.vwgt.iter().flat_map(|vwgt| &vwgt[(vtx * self.ncon)..((vtx + 1) * self.ncon)]).copied()
+                    self.vwgt.iter().flat_map(|vwgt| &vwgt[(vtx * self.ncon())..((vtx + 1) * self.ncon())]).copied()
                         .chain(std::iter::repeat(1))
-                        .take(self.ncon)
+                        .take(self.ncon())
                 })
                 .chain({
                     let range = (self.xadj[vtx] as usize)..(self.xadj[vtx + 1] as usize);
@@ -632,13 +821,21 @@ impl GraphBuilder {
     }
 
     pub fn vsize(&self) -> Option<&[idx_t]> {
-        self.vsize.as_deref()
+        if let GraphOpSettings::Kmetis { common, objtype: KwayObjective::Vol { vsize }, minconn, contig, niparts } = &self.op {
+            vsize.as_deref()
+        } else {
+            None
+        }
     }
     pub fn vwgt(&self) -> Option<&[idx_t]> {
         self.vwgt.as_deref()
     }
     pub fn adjwgt(&self) -> Option<&[idx_t]> {
-        self.adjwgt.as_deref()
+        match &self.op {
+            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt }, ..} |
+            GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt.as_deref(),
+            _ => None
+        }
     }
 
     /// adapted from mtest.c: VerifyPart
@@ -649,11 +846,16 @@ impl GraphBuilder {
             "part is the partition that each vertex goes to"
         );
 
-        let mut pwgts = vec![0; self.nparts];
+        let Some(comm) = self.op.common_ref() else {
+            // TODO: verify sepnd
+            return
+        };
+
+        let mut pwgts = vec![0; comm.nparts];
 
         assert_eq!(
             *part.iter().max().unwrap_or(&0),
-            self.nparts as idx_t - 1,
+            comm.nparts as idx_t - 1,
             "total number of partitions eq to nparts"
         );
 
@@ -662,18 +864,18 @@ impl GraphBuilder {
             pwgts[part[i] as usize] += self.vwgt.as_ref().map(|v| v[i]).unwrap_or(1);
             for j in self.xadj[i]..self.xadj[i + 1] {
                 if part[i] != part[self.adjncy[j as usize] as usize] {
-                    _cut += self.adjwgt.as_ref().map(|v| v[j as usize]).unwrap_or(1);
+                    _cut += self.adjwgt().map(|v| v[j as usize]).unwrap_or(1);
                 }
             }
         }
 
-        eprintln!("todo: make this work always. This assumes edgecut but we call this for vol too");
+        // eprintln!("todo: make this work always. This assumes edgecut but we call this for vol too");
         // assert_eq!(
         //     cut,
         //     2 * objval,
         //     "objval should be edgecut, and the calculated cut should be double it"
         // );
-        let actual = (self.nparts as idx_t * pwgts.iter().max().unwrap()) as f64;
+        let actual = (comm.nparts as idx_t * pwgts.iter().max().unwrap()) as f64;
         // should be 1.10, but it's annoying
         let expected = 1.13 * pwgts.iter().sum::<idx_t>() as f64;
         assert!(

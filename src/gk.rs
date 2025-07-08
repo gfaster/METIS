@@ -5,6 +5,7 @@ use crate::*;
 
 use std::alloc::Layout;
 use std::ffi::{c_char, c_void, CStr};
+use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 type XMallocFn = unsafe fn(usize, *const c_char) -> *mut c_void;
@@ -80,4 +81,27 @@ pub unsafe fn rmalloc(nmemb: usize, msg: &'static CStr) -> NonNull<[real_t]> {
 
 pub unsafe fn rsmalloc(nmemb: usize, val: real_t, msg: &'static CStr) -> NonNull<[real_t]> {
     wrap_xsmalloc(nmemb, val, msg)
+}
+
+
+pub struct FreeGuard<'a>(PhantomData<&'a mut ()>);
+
+
+/// free a pointer using gk_free that we've made a mutable reference from. This obviously still isn't safe, but
+/// it should be safe enough to help me spot any potential use-after-frees that show up because we
+/// no longer zero the pointer.
+pub unsafe fn free_guard<T: 'static + Sized>(p: &'static mut T) -> FreeGuard<'static> {
+    let mut praw: *mut T = p;
+    gk_free_one((&raw mut praw).cast());
+    debug_assert!(praw.is_null());
+    FreeGuard(PhantomData)
+}
+
+
+/// like [`free_guard`], but for a slice
+pub unsafe fn free_slice_guard<T: 'static + Sized>(p: &'static mut [T]) -> FreeGuard<'static> {
+    let mut praw: *mut T = p.as_mut_ptr();
+    gk_free_one((&raw mut praw).cast());
+    debug_assert!(praw.is_null());
+    FreeGuard(PhantomData)
 }

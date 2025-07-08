@@ -14,6 +14,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -40,8 +41,10 @@
            the original and permuted matrices, then A[i] = A'[iperm[i]].
 */
 /*************************************************************************/
-int METIS_NodeND(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
-          idx_t *options, idx_t *perm, idx_t *iperm) 
+IFUNC(int, METIS_NodeND, (idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
+          idx_t *options, idx_t *perm, idx_t *iperm));
+int c__METIS_NodeND(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
+          idx_t *options, idx_t *perm, idx_t *iperm)
 {
   int sigrval=0, renumber=0;
   idx_t i, ii, j, l, nnvtxs=0;
@@ -180,7 +183,9 @@ SIGTHROW:
     nodes.
  */
 /*************************************************************************/
-void MlevelNestedDissection(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+IFUNC(void, MlevelNestedDissection, (ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+         idx_t lastvtx));
+void c__libmetis__MlevelNestedDissection(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
          idx_t lastvtx)
 {
   idx_t i, j, nvtxs, nbnd;
@@ -233,7 +238,9 @@ void MlevelNestedDissection(ctrl_t *ctrl, graph_t *graph, idx_t *order,
     the right subgraphs).
 */
 /*************************************************************************/
-void MlevelNestedDissectionCC(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+IFUNC(void, MlevelNestedDissectionCC, (ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+         idx_t lastvtx));
+void c__libmetis__MlevelNestedDissectionCC(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
          idx_t lastvtx)
 {
   idx_t i, j, nvtxs, nbnd, ncmps, rnvtxs, snvtxs;
@@ -297,7 +304,8 @@ void MlevelNestedDissectionCC(ctrl_t *ctrl, graph_t *graph, idx_t *order,
 /*! This function performs multilevel node bisection (i.e., tri-section).
     It performs multiple bisections and selects the best. */
 /*************************************************************************/
-void MlevelNodeBisectionMultiple(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, MlevelNodeBisectionMultiple, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__MlevelNodeBisectionMultiple(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, mincut;
   idx_t *bestwhere;
@@ -342,7 +350,8 @@ void MlevelNodeBisectionMultiple(ctrl_t *ctrl, graph_t *graph)
 /*! This function performs multilevel node bisection (i.e., tri-section).
     It performs multiple bisections and selects the best. */
 /*************************************************************************/
-void MlevelNodeBisectionL2(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
+IFUNC(void, MlevelNodeBisectionL2, (ctrl_t *ctrl, graph_t *graph, idx_t niparts));
+void c__libmetis__MlevelNodeBisectionL2(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
 {
   idx_t i, mincut, nruns=5;
   graph_t *cgraph; 
@@ -392,7 +401,8 @@ void MlevelNodeBisectionL2(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
 /*************************************************************************/
 /*! The top-level routine of the actual multilevel node bisection */
 /*************************************************************************/
-void MlevelNodeBisectionL1(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
+IFUNC(void, MlevelNodeBisectionL1, (ctrl_t *ctrl, graph_t *graph, idx_t niparts));
+void c__libmetis__MlevelNodeBisectionL1(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
 {
   graph_t *cgraph;
 
@@ -419,7 +429,9 @@ void MlevelNodeBisectionL1(ctrl_t *ctrl, graph_t *graph, idx_t niparts)
     This function relies on the fact that adjwgt is all equal to 1.
 */
 /*************************************************************************/
-void SplitGraphOrder(ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, 
+IFUNC(void, SplitGraphOrder, (ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, 
+         graph_t **r_rgraph));
+void c__libmetis__SplitGraphOrder(ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph, 
          graph_t **r_rgraph)
 {
   idx_t i, ii, j, k, l, istart, iend, mypart, nvtxs, snvtxs[3], snedges[3];
@@ -549,7 +561,9 @@ void SplitGraphOrder(ctrl_t *ctrl, graph_t *graph, graph_t **r_lgraph,
     \returns an array of subgraphs corresponding to the extracted subgraphs.
 */
 /*************************************************************************/
-graph_t **SplitGraphOrderCC(ctrl_t *ctrl, graph_t *graph, idx_t ncmps, 
+IFUNC(graph_t **, SplitGraphOrderCC, (ctrl_t *ctrl, graph_t *graph, idx_t ncmps, 
+              idx_t *cptr, idx_t *cind));
+graph_t **c__libmetis__SplitGraphOrderCC(ctrl_t *ctrl, graph_t *graph, idx_t ncmps, 
               idx_t *cptr, idx_t *cind)
 {
   idx_t i, ii, iii, j, k, l, istart, iend, mypart, nvtxs, snvtxs, snedges;
@@ -652,7 +666,8 @@ graph_t **SplitGraphOrderCC(ctrl_t *ctrl, graph_t *graph, idx_t ncmps,
 /*! This function uses MMD to order the graph. The vertices are numbered
     from lastvtx downwards. */
 /*************************************************************************/
-void MMDOrder(ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t lastvtx)
+IFUNC(void, MMDOrder, (ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t lastvtx));
+void c__libmetis__MMDOrder(ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t lastvtx)
 {
   idx_t i, j, k, nvtxs, nofsub, firstvtx;
   idx_t *xadj, *adjncy, *label;

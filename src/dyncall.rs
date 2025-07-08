@@ -61,7 +61,9 @@ unsafe impl Send for Library {}
 unsafe impl Sync for Library {}
 
 /// exported symbols that are never prefixed
-const EXPORTS: &[&str] = &[];
+const EXPORTS: &[&str] = &[
+    "METIS_NodeND"
+];
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 enum Version {

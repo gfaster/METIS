@@ -249,7 +249,7 @@ void mmdnum(idx_t, idx_t *, idx_t *, idx_t *);
 void mmdupd(idx_t, idx_t, idx_t *, idx_t *, idx_t, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t, idx_t *tag);
 
 
-/* ometis.c */
+/* ometis.c - ported */
 void MlevelNestedDissection(ctrl_t *ctrl, graph_t *graph, idx_t *order,
          idx_t lastvtx);
 void MlevelNestedDissectionCC(ctrl_t *ctrl, graph_t *graph, idx_t *order,

@@ -576,6 +576,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(debug_assertions), ignore = "requires debug assertions")]
     fn ab_ComputeCut() {
         ab_test_partition_test_graphs("ComputeCut:rs", Optype::Kmetis, 20, 1, |mut g| {
             g.set_objective(Objtype::Cut);
@@ -587,6 +588,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(debug_assertions), ignore = "requires debug assertions")]
     fn ab_ComputeCut_MC() {
         ab_test_partition_test_graphs("ComputeCut:rs", Optype::Kmetis, 20, 3, |mut g| {
             g.set_objective(Objtype::Cut);
@@ -598,22 +600,24 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(debug_assertions), ignore = "requires debug assertions")]
     fn ab_ComputeVolume() {
         ab_test_partition_test_graphs("ComputeVolume:rs", Optype::Kmetis, 20, 1, |mut g| {
             g.set_objective(Objtype::Vol);
             g.set_seed(1234);
-            g.random_adjwgt();
+            g.random_vsize();
             g.random_tpwgts();
             g
         });
     }
 
     #[test]
+    #[cfg_attr(not(debug_assertions), ignore = "requires debug assertions")]
     fn ab_ComputeVolume_MC() {
         ab_test_partition_test_graphs("ComputeVolume:rs", Optype::Kmetis, 20, 3, |mut g| {
             g.set_objective(Objtype::Vol);
             g.set_seed(1234);
-            g.random_adjwgt();
+            g.random_vsize();
             g.random_tpwgts();
             g
         });

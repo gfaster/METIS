@@ -98,7 +98,15 @@ extern "C" {
         pmarker: *mut idx_t,
         modind: *mut idx_t,
     ) -> std::ffi::c_void;
+
+    pub fn genmmd(neqns: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, invp: *mut idx_t, perm: *mut idx_t,
+         delta: idx_t, head: *mut idx_t, qsize: *mut idx_t, list: *mut idx_t, marker: *mut idx_t,
+         maxint: idx_t, ncsub: &mut idx_t) -> std::ffi::c_void;
+
+
+    pub fn Refine2WayNode(ctrl: *mut ctrl_t, orginal_graph: *mut graph_t, graph: *mut graph_t);
 }
+
 
 // replacing c args with rust args (2 commands over visual region)
 // 1:
@@ -371,6 +379,32 @@ pub enum Optype {
     Pmetis = METIS_OP_PMETIS,
     Kmetis = METIS_OP_KMETIS,
     Ometis = METIS_OP_OMETIS,
+}
+
+impl Optype {
+    /// Returns `true` if the optype is [`Pmetis`].
+    ///
+    /// [`Pmetis`]: Optype::Pmetis
+    #[must_use]
+    pub fn is_pmetis(&self) -> bool {
+        matches!(self, Self::Pmetis)
+    }
+
+    /// Returns `true` if the optype is [`Kmetis`].
+    ///
+    /// [`Kmetis`]: Optype::Kmetis
+    #[must_use]
+    pub fn is_kmetis(&self) -> bool {
+        matches!(self, Self::Kmetis)
+    }
+
+    /// Returns `true` if the optype is [`Ometis`].
+    ///
+    /// [`Ometis`]: Optype::Ometis
+    #[must_use]
+    pub fn is_ometis(&self) -> bool {
+        matches!(self, Self::Ometis)
+    }
 }
 
 /// Fun fact: this mean "Objective Type", not "Object Type"

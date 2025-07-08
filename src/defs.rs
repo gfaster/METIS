@@ -29,7 +29,7 @@ pub const COARSEN_FRACTION: real_t = 0.85; /* Node reduction between successive 
 pub const HTLENGTH: idx_t = (1 << 13) - 1;
 // pub const COMPRESSION_FRACTION: real_t = 		0.85;
 
-// #define MMDSWITCH		        120
+pub const MMDSWITCH: idx_t = 120;
 
 /* Default ufactors for the various operational modes */
 // #define PMETIS_DEFAULT_UFACTOR          1
