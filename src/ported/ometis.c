@@ -57,10 +57,10 @@ int c__METIS_NodeND(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
   if (!gk_malloc_init()) 
     return METIS_ERROR_MEMORY;
 
-  gk_sigtrap();
-
-  if ((sigrval = gk_sigcatch()) != 0) 
-    goto SIGTHROW;
+  // gk_sigtrap();
+  //
+  // if ((sigrval = gk_sigcatch()) != 0) 
+  //   goto SIGTHROW;
 
 
   /* set up the run time parameters */
@@ -168,10 +168,10 @@ SIGTHROW:
   if (renumber)
     Change2FNumberingOrder(*nvtxs, xadj, adjncy, perm, iperm);
 
-  gk_siguntrap();
+  // gk_siguntrap();
   gk_malloc_cleanup(0);
 
-  return metis_rcode(sigrval);
+  return metis_rcode(0);
 }
 
 

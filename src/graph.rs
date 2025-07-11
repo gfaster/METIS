@@ -203,6 +203,7 @@ pub extern "C" fn SetupGraph_tvwgt(graph: *mut graph_t) {
     for i in (0)..(ncon) {
         // tvwgt[i] = isum(graph.nvtxs, graph.vwgt + i, graph.ncon);
         // invtvwgt[i] = 1.0 / (if graph.tvwgt[i] > 0 { graph.tvwgt[i] } else { 1 });
+        // TODO: I don't think this gets specialized well
         tvwgt[i] = vwgt.iter().skip(i).step_by(ncon).sum();
         invtvwgt[i] = 1.0
             / (if tvwgt[i] > 0 {

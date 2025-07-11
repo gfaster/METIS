@@ -396,7 +396,7 @@ pub fn McRandomBisection(
     // WCOREPUSH;
 
     let nvtxs = graph.nvtxs as usize;
-    let ncon = graph.ncon;
+    let ncon = graph.ncon as usize;
     get_graph_slices!(graph => vwgt);
 
     refine::Allocate2WayPartitionMemory(ctrl, graph);
@@ -415,9 +415,8 @@ pub fn McRandomBisection(
 
         /* partition by splitting the queues randomly */
         for ii in 0..nvtxs {
-            let i = perm[ii];
-            // TODO: be careful substitude doesn't mess this up
-            let idx = (i * ncon) as usize;
+            let i = perm[ii] as usize;
+            let idx = i * ncon;
 
             // qnum = iargmax(ncon, vwgt+i*ncon,1);
             let qnum = util::iargmax(&vwgt[idx..(idx + ncon as usize)], 1) as usize;
@@ -744,7 +743,6 @@ mod tests {
     #[test]
     fn ab_Init2WayPartition() {
         ab_test_partition_test_graphs("Init2WayPartition:rs", Optype::Pmetis, 8, 2, |mut g| {
-            g.set_seed(1234);
             g.random_adjwgt();
             g.random_tpwgts();
             g
@@ -752,12 +750,9 @@ mod tests {
     }
     
     #[test]
-    #[ignore = "ometis"]
     fn ab_InitSeparator() {
-        ab_test_partition_test_graphs("InitSeparator:rs", Optype::Ometis, 8, 2, |mut g| {
-            g.set_seed(1234);
-            g.random_adjwgt();
-            g.random_tpwgts();
+        ab_test_partition_test_graphs("InitSeparator:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
             g
         });
     }
@@ -766,7 +761,6 @@ mod tests {
     fn ab_RandomBisection() {
         ab_test_partition_test_graphs("RandomBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
             g.set_initial_part_strategy(Iptype::Random);
-            g.set_seed(1234);
             g.random_adjwgt();
             g.random_tpwgts();
             g
@@ -777,7 +771,6 @@ mod tests {
     fn ab_McRandomBisection() {
         ab_test_partition_test_graphs("McRandomBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
             g.set_initial_part_strategy(Iptype::Random);
-            g.set_seed(1234);
             g.random_adjwgt();
             g.random_tpwgts();
             g
@@ -787,7 +780,6 @@ mod tests {
     #[test]
     fn ab_GrowBisection() {
         ab_test_partition_test_graphs("GrowBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
-            g.set_seed(1234);
             g.random_adjwgt();
             g.random_tpwgts();
             g
@@ -797,7 +789,6 @@ mod tests {
     #[test]
     fn ab_McGrowBisection() {
         ab_test_partition_test_graphs("McGrowBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
-            g.set_seed(1234);
             g.random_adjwgt();
             g.random_tpwgts();
             g
@@ -805,12 +796,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ometis"]
     fn ab_GrowBisectionNode() {
-        ab_test_partition_test_graphs("GrowBisectionNode:rs", Optype::Ometis, 8, 2, |mut g| {
-            g.set_seed(1234);
-            g.random_adjwgt();
-            g.random_tpwgts();
+        ab_test_partition_test_graphs("GrowBisectionNode:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.set_initial_part_strategy(Iptype::Node);
             g
         });
     }

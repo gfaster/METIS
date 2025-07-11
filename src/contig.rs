@@ -811,14 +811,13 @@ pub extern "C" fn MoveGroupContigForCut(
         {
             get_graph_slices!(graph => vwgt);
             get_graph_slices_mut!(ctrl, graph => pwgts);
-            let ncon = graph.ncon;
-            let i = i as idx_t;
+            let ncon = graph.ncon as usize;
             blas::iaxpy(
                 ncon as usize,
                 1,
                 &vwgt[cntrng!(i * ncon, ncon)],
                 1,
-                &mut pwgts[cntrng!(to * ncon, ncon)],
+                &mut pwgts[cntrng!(to as usize * ncon, ncon)],
                 1,
             );
             blas::iaxpy(
@@ -826,7 +825,7 @@ pub extern "C" fn MoveGroupContigForCut(
                 -1,
                 &vwgt[cntrng!(i * ncon, ncon)],
                 1,
-                &mut pwgts[cntrng!(from * ncon, ncon)],
+                &mut pwgts[cntrng!(from as usize * ncon, ncon)],
                 1,
             );
         }
@@ -1009,14 +1008,13 @@ pub extern "C" fn MoveGroupContigForVol(
         {
             get_graph_slices!(graph => vwgt);
             get_graph_slices_mut!(ctrl, graph => pwgts);
-            let ncon = graph.ncon;
-            let i = i as idx_t;
+            let ncon = graph.ncon as usize;
             blas::iaxpy(
                 ncon as usize,
                 1,
                 &vwgt[cntrng!(i * ncon, ncon)],
                 1,
-                &mut pwgts[cntrng!(to * ncon, ncon)],
+                &mut pwgts[cntrng!(to as usize * ncon, ncon)],
                 1,
             );
             blas::iaxpy(
@@ -1024,7 +1022,7 @@ pub extern "C" fn MoveGroupContigForVol(
                 -1,
                 &vwgt[cntrng!(i * ncon, ncon)],
                 1,
-                &mut pwgts[cntrng!(from * ncon, ncon)],
+                &mut pwgts[cntrng!(from as usize * ncon, ncon)],
                 1,
             );
         }
@@ -1057,6 +1055,8 @@ pub extern "C" fn MoveGroupContigForVol(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
+    use crate::tests::ab_test_partition_test_graphs;
+
     use super::*;
     use dyncall::ab_test_single_eq;
     use graph_gen::GraphBuilder;
@@ -1078,18 +1078,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs ometis"]
     fn ab_FindSepInducedComponents() {
-        ab_test_single_eq("FindSepInducedComponents:rs", || {
-            fastrand::seed(123);
-            let mut g = GraphBuilder::new(Optype::Ometis, 16, 1);
-            g.set_seed(123);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.set_contig(true);
-            g.random_adjwgt();
-            g.call().unwrap()
+        ab_test_partition_test_graphs("FindSepInducedComponents:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_ccorder(true);
+            g
         });
     }
 

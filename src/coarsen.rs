@@ -1556,7 +1556,7 @@ pub extern "C" fn ReAdjustMemory(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
-    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder, tests::{ab_test_partition_test_graphs, TestGraph}};
+    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder, tests::{ab_test_partition_test_graphs, ab_test_partition_test_graphs_filter, TestGraph}};
 
     use super::*;
 
@@ -1574,9 +1574,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs ometis"]
     fn ab_CoarsenGraphNlevels() {
-        coarsen_test("CoarsenGraphNlevels:rs");
+        ab_test_partition_test_graphs_filter("CoarsenGraphNlevels:rs", Optype::Ometis, 3, 1, |mut g| {
+            if g.nvtxs() < ometis::MLEVEL_NODE_BISECTION_L2_CUTOFF {
+                return None
+            }
+            g.random_vwgt();
+            Some(g)
+        });
     }
 
     #[test]

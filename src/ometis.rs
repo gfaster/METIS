@@ -266,9 +266,6 @@ pub extern "C" fn MlevelNestedDissection(
     let mut graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
 
-    let nvtxs = graph.nvtxs as usize;
-    mkslice_mut!(order, nvtxs);
-
     MlevelNodeBisectionMultiple(ctrl, graph);
 
     // ifset!(
@@ -283,9 +280,12 @@ pub extern "C" fn MlevelNestedDissection(
     /* Order the nodes in the separator */
     let nbnd = graph.nbnd as usize;
     get_graph_slices!(graph => bndind label);
-    for i in (0)..(nbnd) {
+    let label: &[idx_t] = label; // this is a nop but rust_analyzer is confused
+    for &ind in &bndind[..nbnd] {
         lastvtx -= 1;
-        order[label[bndind[i as usize] as usize] as usize] = lastvtx;
+        // I'm not able to make this a slice since this is called recursively and the size of order
+        // is determined by the call
+        *order.add(label[ind as usize] as usize) = lastvtx;
     }
 
     let mut lgraph = std::ptr::null_mut();
@@ -300,15 +300,15 @@ pub extern "C" fn MlevelNestedDissection(
     /* Recurse on lgraph first, as its lastvtx depends on rgraph.nvtxs, which
     will not be defined upon return from MlevelNestedDissection. */
     if lgraph.nvtxs > MMDSWITCH && lgraph.nedges > 0 {
-        MlevelNestedDissection(ctrl, lgraph, order.as_mut_ptr(), lastvtx - rgraph.nvtxs);
+        MlevelNestedDissection(ctrl, lgraph, order, lastvtx - rgraph.nvtxs);
     } else {
-        MMDOrder(ctrl, lgraph, order.as_mut_ptr(), lastvtx - rgraph.nvtxs);
+        MMDOrder(ctrl, lgraph, order, lastvtx - rgraph.nvtxs);
         graph::FreeGraph((&raw mut lgraph).cast());
     }
     if rgraph.nvtxs > MMDSWITCH && rgraph.nedges > 0 {
-        MlevelNestedDissection(ctrl, rgraph, order.as_mut_ptr(), lastvtx);
+        MlevelNestedDissection(ctrl, rgraph, order, lastvtx);
     } else {
-        MMDOrder(ctrl, rgraph, order.as_mut_ptr(), lastvtx);
+        MMDOrder(ctrl, rgraph, order, lastvtx);
         graph::FreeGraph((&raw mut rgraph).cast());
     }
 }
@@ -353,12 +353,13 @@ pub extern "C" fn MlevelNestedDissectionCC(
     /* Order the nodes in the separator */
     let nbnd = graph.nbnd as usize;
     get_graph_slices!(graph => bndind label);
-    mkslice_mut!(order, nvtxs);
     // bndind = graph.bndind;
     // label = graph.label;
     for i in (0)..(nbnd) {
         lastvtx -= 1;
-        order[label[bndind[i as usize] as usize] as usize] = lastvtx;
+        // I'm not able to make this a slice since this is called recursively and the size of order
+        // is determined by the call
+        *order.add(label[bndind[i as usize] as usize] as usize) = lastvtx;
     }
 
     // WCOREPUSH;
@@ -400,14 +401,14 @@ pub extern "C" fn MlevelNestedDissectionCC(
             MlevelNestedDissectionCC(
                 ctrl,
                 sgraphs[i as usize],
-                order.as_mut_ptr(),
+                order,
                 lastvtx - rnvtxs,
             );
         } else {
             MMDOrder(
                 ctrl,
                 sgraphs[i as usize],
-                order.as_mut_ptr(),
+                order,
                 lastvtx - rnvtxs,
             );
             graph::FreeGraph(&mut sgraphs[i as usize]);
@@ -471,6 +472,8 @@ pub extern "C" fn MlevelNodeBisectionMultiple(ctrl: *mut ctrl_t, graph: *mut gra
     // WCOREPOP;
 }
 
+pub const MLEVEL_NODE_BISECTION_L2_CUTOFF: usize = 5000;
+
 /*************************************************************************/
 /* This function performs multilevel node bisection (i.e., tri-section).
 It performs multiple bisections and selects the best. */
@@ -484,7 +487,7 @@ pub extern "C" fn MlevelNodeBisectionL2(ctrl: *mut ctrl_t, graph: *mut graph_t, 
     let graph = graph.as_mut().unwrap();
 
     /* if the graph is small, just find a single vertex separator */
-    if graph.nvtxs < 5000 {
+    if graph.nvtxs < MLEVEL_NODE_BISECTION_L2_CUTOFF as idx_t {
         MlevelNodeBisectionL1(ctrl, graph, niparts);
         return;
     }
@@ -830,7 +833,7 @@ pub extern "C" fn SplitGraphOrderCC(
                 // for j in istart..iend {
                 //     auxadjncy[j as usize] = adjncy[j as usize];
                 // }
-                let len = istart - iend;
+                let len = iend - istart;
                 sadjncy[cntrng!(snedges, len)].copy_from_slice(&adjncy[istart..iend]);
                 snedges += len;
             } else {
@@ -894,7 +897,6 @@ pub extern "C" fn MMDOrder(
     let nvtxs = graph.nvtxs as usize;
     get_graph_slices_mut!(graph => xadj adjncy);
     get_graph_slices!(graph => label);
-    mkslice_mut!(order, nvtxs);
 
     /* Relabel the vertices so that it starts from 1 */
     for i in &mut *xadj {
@@ -930,7 +932,8 @@ pub extern "C" fn MMDOrder(
     // label = graph.label;
     let firstvtx = lastvtx - nvtxs as idx_t;
     for i in (0)..(nvtxs) {
-        order[label[i] as usize] = firstvtx + iperm[i] - 1;
+        // can't use a slice since size is from the original graph
+        *order.add(label[i] as usize) = firstvtx + iperm[i] - 1;
     }
 
     /* Relabel the vertices so that it starts from 0 */
@@ -953,11 +956,80 @@ mod tests {
 
     #[test]
     fn ab_basic_METIS_NodeND() {
-        // ab_test_partition_test_graphs(overrides, Optype::Kmetis, 20, 1, |mut g| {
-        //     g.random_vwgt();
-        //     g.random_tpwgts();
-        //     g
-        // });
-        
+        ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, std::convert::identity);
+    }
+
+    #[test]
+    fn ab_METIS_NodeND() {
+        ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelNestedDissect_norm() {
+        ab_test_partition_test_graphs("MlevelNestedDissection:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelNestedDissectCC() {
+        ab_test_partition_test_graphs("MlevelNestedDissectionCC:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.set_ccorder(true);
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelNodeBisectionMultiple() {
+        ab_test_partition_test_graphs("MlevelNodeBisectionMultiple:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelNodeBisectionL2() {
+        ab_test_partition_test_graphs("MlevelNodeBisectionL2:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelNodeBisectionL1() {
+        ab_test_partition_test_graphs("MlevelNodeBisectionL1:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_SplitGraphOrder() {
+        ab_test_partition_test_graphs("SplitGraphOrder:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_SplitGraphOrderCC() {
+        ab_test_partition_test_graphs("SplitGraphOrderCC:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.set_ccorder(true);
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MMDOrder() {
+        ab_test_partition_test_graphs("MMDOrder:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
     }
 }

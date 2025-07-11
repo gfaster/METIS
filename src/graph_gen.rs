@@ -501,6 +501,30 @@ impl GraphBuilder {
         }
     }
 
+    pub fn set_ccorder(&mut self, cc: bool) {
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set ccorder on pmetis or kmetis"),
+            GraphOpSettings::Ometis { ccorder, .. } => *ccorder = cc,
+        }
+    }
+
+    pub fn set_nseps(&mut self, n: idx_t) {
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Ometis { nseps, .. } => *nseps = n,
+        }
+    }
+
+    pub fn set_pfactor(&mut self, p: idx_t) {
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Ometis { pfactor, .. } => *pfactor = p,
+        }
+    }
+
     // pub fn set_refine_type(&mut self, rtype: Rtype) {
     //     assert_eq!(
     //         self.op,
@@ -638,17 +662,18 @@ impl GraphBuilder {
                     OmetisRtype::Sep2Sided => Rtype::Sep2Sided,
                 } as idx_t;
                 options[METIS_OPTION_NSEPS as usize] = *nseps as idx_t;
-                let mut perm = vec![0; nvtxs as usize];
                 let mut iperm = vec![0; nvtxs as usize];
-                ometis::METIS_NodeND(
+                let ret = ometis::METIS_NodeND(
                     &mut nvtxs,
                     self.xadj.as_mut_ptr(),
                     self.adjncy.as_mut_ptr(),
                     vec_ptr(&mut self.vwgt),
                     options.as_mut_ptr(),
-                    perm.as_mut_ptr(),
+                    part.as_mut_ptr(), // use part as permutation vector
                     iperm.as_mut_ptr()
-                )
+                );
+                part.extend_from_slice(&iperm);
+                ret
             },
         };
         if res == METIS_ERROR {

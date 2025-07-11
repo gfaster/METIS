@@ -120,6 +120,30 @@ pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usiz
 
 }
 
+/// Runs `f` on each of the small-ish graphs if it passes the filter, and performs `ab_test_single_eq` on partitioning each
+#[cfg(test)]
+pub(crate) fn ab_test_partition_test_graphs_filter<F>(overrides: &str,
+    op: Optype, nparts: usize, ncon: usize, mut f: F)
+where
+    F: FnMut(GraphBuilder) -> Option<GraphBuilder>,
+{
+    use crate::dyncall::ab_test_single_eq;
+
+    fn inner(overrides: &str, op: Optype, nparts: usize, ncon: usize,
+        f: &mut dyn FnMut(GraphBuilder) -> Option<GraphBuilder>
+    ) {
+        for (i, graph) in TestGraph::test_suite().enumerate() {
+            fastrand::seed(12513471239123 + i as u64);
+            eprintln!("Testing with {graph:?}");
+            let graph = GraphBuilder::test_graph(graph, op, nparts, ncon);
+            let Some(graph) = f(graph) else { continue };
+            ab_test_single_eq(overrides, || graph.clone().call());
+        }
+    }
+
+    inner(overrides, op, nparts, ncon, &mut f);
+}
+
 /// Runs `f` on each of the small-ish graphs and performs `ab_test_single_eq` on partitioning each
 #[cfg(test)]
 pub(crate) fn ab_test_partition_test_graphs<F>(overrides: &str,
@@ -127,20 +151,7 @@ pub(crate) fn ab_test_partition_test_graphs<F>(overrides: &str,
 where
     F: FnMut(GraphBuilder) -> GraphBuilder,
 {
-    use crate::dyncall::ab_test_single_eq;
-
-    fn inner(overrides: &str, op: Optype, nparts: usize, ncon: usize,
-        f: &mut dyn FnMut(GraphBuilder) -> GraphBuilder) {
-        for (i, graph) in TestGraph::test_suite().enumerate() {
-            fastrand::seed(12513471239123 + i as u64);
-            eprintln!("Testing with {graph:?}");
-            let graph = GraphBuilder::test_graph(graph, op, nparts, ncon);
-            let graph = f(graph);
-            ab_test_single_eq(overrides, || graph.clone().call());
-        }
-    }
-
-    inner(overrides, op, nparts, ncon, &mut f);
+    ab_test_partition_test_graphs_filter(overrides, op, nparts, ncon, |g| Some(f(g)));
 }
 
 /// function signature of METIS_PartGraphKway, METIS_PartGraphRecursive
