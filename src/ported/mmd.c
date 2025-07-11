@@ -60,9 +60,6 @@ void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
       return;
 
     /* adjust from C to Fortran */
-    // FIXME: this is horrible UB. It doesn't seem like any compiler currently
-    // destroys this but I want to fix it
-    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=34331f6a82be75de727ef2479302c7dd
     xadj--; adjncy--; invp--; perm--; head--; qsize--; list--; marker--;
 
     /* initialization for the minimum degree algorithm */
@@ -92,15 +89,13 @@ void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
 
     /* infinite loop here */
     while (1) {
-      while (head[mdeg] <= 0) {
+      while (head[mdeg] <= 0) 
         mdeg++;
-      }
 
       /* use value of 'delta' to set up 'mdlmt', which governs */
       /* when a degree update is to be performed.              */
       //mdlmt = mdeg + delta;
       // the need for gk_min() was identified by jsf67
-      // https://github.com/KarypisLab/METIS/issues/46
       mdlmt = gk_min(neqns, mdeg+delta);
       ehead = 0;
 
@@ -122,18 +117,16 @@ n500:
       invp[mdeg_node] = -num;
       *ncsub += mdeg + qsize[mdeg_node] - 2;
       if ((num+qsize[mdeg_node]) > neqns)  
-        break;
+        goto n1000;
 
       /*  eliminate 'mdeg_node' and perform quotient graph */
       /*  transformation. reset 'tag' value if necessary.    */
       tag++;
       if (tag >= maxint) {
         tag = 1;
-        for (i = 1; i <= neqns; i++) {
-          if (marker[i] < maxint) {
+        for (i = 1; i <= neqns; i++)
+          if (marker[i] < maxint)  
             marker[i] = 0;
-          }
-        }
       };
 
       mmdelm(mdeg_node, xadj, adjncy, head, invp, perm, qsize, list, marker, maxint, tag);
@@ -147,10 +140,8 @@ n500:
  n900:
       /* update degrees of the nodes involved in the  */
       /* minimum degree nodes elimination.            */
-      if (num > neqns) {
-        break;
-      }
-
+      if (num > neqns)  
+        goto n1000;
       mmdupd(ehead, neqns, xadj, adjncy, delta, &mdeg, head, invp, perm, qsize, list, marker, maxint, &tag);
     }; /* end of -- while ( 1 ) -- */
 
@@ -219,19 +210,15 @@ void mmdelm(idx_t mdeg_node, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *for
       adjncy[rlmt] = -element;
       link = element;
 
-n400: // small loop 
+n400:
       jstart = xadj[link];
       jstop = xadj[link+1] - 1;
       for ( j = jstart; j <= jstop; j++ ) {
           node = adjncy[j];
           link = -node;
-          if ( node < 0 ) {
-            goto n400;
-          }
-          if ( node == 0 ) {
-            break;
-          }
-          if (marker[node]<tag && forward[node]>=0) {
+          if ( node < 0 )  goto n400;
+          if ( node == 0 ) break;
+          if ((marker[node]<tag)&&(forward[node]>=0)) {
              marker[node] = tag;
              /*use storage from eliminated nodes if necessary.*/
              while ( rloc >= rlmt ) {
@@ -243,13 +230,9 @@ n400: // small loop
              rloc++;
           };
       }; /* end of -- for ( j = jstart; -- */
-
       element = list[element];
     };  /* end of -- while ( element > 0 ) -- */
-
-    if ( rloc <= rlmt ) {
-      adjncy[rloc] = 0;
-    }
+    if ( rloc <= rlmt ) adjncy[rloc] = 0;
     /* for each node in the reachable set, do the following. */
     link = mdeg_node;
 
@@ -259,10 +242,8 @@ n1100:
     for ( i = istart; i <= istop; i++ ) {
         rnode = adjncy[i];
         link = -rnode;
-        if ( rnode < 0 )
-          goto n1100;
-        if ( rnode == 0 )
-          return;
+        if ( rnode < 0 ) goto n1100;
+        if ( rnode == 0 ) return;
 
         /* 'rnode' is in the degree list structure. */
         pvnode = backward[rnode];
@@ -281,8 +262,7 @@ n1100:
         xqnbr = jstart;
         for ( j = jstart; j <= jstop; j++ ) {
             nabor = adjncy[j];
-            if ( nabor == 0 )
-              break;
+            if ( nabor == 0 ) break;
             if ( marker[nabor] < tag ) {
                 adjncy[xqnbr] = nabor;
                 xqnbr++;
@@ -305,8 +285,7 @@ n1100:
            backward[rnode] = 0;
            adjncy[xqnbr] = mdeg_node;
            xqnbr++;
-           if ( xqnbr <= jstop )
-             adjncy[xqnbr] = 0;
+           if ( xqnbr <= jstop )  adjncy[xqnbr] = 0;
         };
       }; /* end of -- for ( i = istart; -- */
       return;
@@ -376,10 +355,8 @@ void mmdnum(idx_t neqns, idx_t *perm, idx_t *invp, idx_t *qsize)
 
   for ( node = 1; node <= neqns; node++ ) {
       nqsize = qsize[node];
-      if ( nqsize <= 0 )
-        perm[node] = invp[node];
-      if ( nqsize > 0 )
-        perm[node] = -invp[node];
+      if ( nqsize <= 0 ) perm[node] = invp[node];
+      if ( nqsize > 0 )  perm[node] = -invp[node];
   };
 
   /* for each node which has been merged, do the following. */
@@ -389,9 +366,8 @@ void mmdnum(idx_t neqns, idx_t *perm, idx_t *invp, idx_t *qsize)
 	 /* trace the merged tree until one which has not */
          /* been merged, call it root.                    */
          father = node;
-         while ( perm[father] <= 0 ) {
+         while ( perm[father] <= 0 )
             father = - perm[father];
-         }
 
          /* number node after root. */
          root = father;
@@ -449,21 +425,17 @@ void mmdupd(idx_t ehead, idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t delta, i
       mdeg0 = *mdeg + delta;
       element = ehead;
 
-n100: // (nearly) whole function loop
-      if ( element <= 0 )
-        return;
+n100:
+      if ( element <= 0 ) return;
 
       /* for each of the newly formed element, do the following. */
       /* reset tag value if necessary.                           */
       mtag = *tag + mdeg0;
       if ( mtag >= maxint ) {
-        *tag = 1;
-        for ( i = 1; i <= neqns; i++ ) {
-          if ( marker[i] < maxint ) {
-            marker[i] = 0;
-          }
-        }
-        mtag = *tag + mdeg0;
+         *tag = 1;
+         for ( i = 1; i <= neqns; i++ )
+             if ( marker[i] < maxint ) marker[i] = 0;
+         mtag = *tag + mdeg0;
       };
 
       /* create two linked lists from nodes associated with 'element': */
@@ -481,10 +453,8 @@ n400:
       for ( i = istart; i <= istop; i++ ) {
           enode = adjncy[i];
           link = -enode;
-          if ( enode < 0 )
-            goto n400;
-          if ( enode == 0 )
-            break;
+          if ( enode < 0 )  goto n400;
+          if ( enode == 0 ) break;
           if ( qsize[enode] != 0 ) {
              deg0 += qsize[enode];
              marker[enode] = mtag;
@@ -507,13 +477,9 @@ n400:
       enode = q2head;
       iq2 = 1;
 
-n900: // big loop (outer)
-      if ( enode <= 0 )
-        goto n1500;
-
-      if ( backward[enode] != 0 )
-        goto n2200;
-
+n900:
+      if ( enode <= 0 ) goto n1500;
+      if ( backward[enode] != 0 ) goto n2200;
       (*tag)++;
       deg = deg0;
 
@@ -537,10 +503,8 @@ n1000:
            node = adjncy[i];
            link = -node;
            if ( node != enode ) {
-                if ( node < 0 )
-                  goto n1000;
-                if ( node == 0 )
-                  goto n2100;
+                if ( node < 0 ) goto n1000;
+                if ( node == 0 )  goto n2100;
                 if ( qsize[node] != 0 ) {
                      if ( marker[node] < *tag ) {
                         /* 'node' is not yet considered. */
@@ -558,9 +522,7 @@ n1000:
                                 backward[node] = -maxint;
                              } else {
                                 /* 'node' is outmacthed by 'enode' */
-				if (backward[node]==0) {
-                                  backward[node] = -maxint;
-                                }
+				if (backward[node]==0) backward[node] = -maxint;
                              };
                         }; /* end of -- if ( backward[node] == 0 ) -- */
                     }; /* end of -- if ( marker[node] < *tag ) -- */
@@ -574,11 +536,8 @@ n1500:
           enode = qxhead;
           iq2 = 0;
 
-n1600:    
-          if ( enode <= 0 )
-            goto n2300;
-          if ( backward[enode] != 0 )
-            goto n2200;
+n1600:    if ( enode <= 0 )  goto n2300;
+          if ( backward[enode] != 0 )  goto n2200;
           (*tag)++;
           deg = deg0;
 
@@ -587,8 +546,7 @@ n1600:
           istop = xadj[enode+1] - 1;
           for ( i = istart; i <= istop; i++ ) {
                 nabor = adjncy[i];
-                if ( nabor == 0 )
-                  break;
+                if ( nabor == 0 ) break;
                 if ( marker[nabor] < *tag ) {
                      marker[nabor] = *tag;
                      link = nabor;
@@ -596,7 +554,7 @@ n1600:
                           /*if uneliminated, include it in deg count.*/
                           deg += qsize[nabor];
                      else {
-n1700: // smaller loop
+n1700:
                           /* if eliminated, include unmarked nodes in this*/
                           /* element into the degree count.             */
                           jstart = xadj[link];
@@ -604,10 +562,8 @@ n1700: // smaller loop
                           for ( j = jstart; j <= jstop; j++ ) {
                                 node = adjncy[j];
                                 link = -node;
-                                if ( node < 0 )
-                                  goto n1700;
-                                if ( node == 0 )
-                                  break;
+                                if ( node < 0 ) goto n1700;
+                                if ( node == 0 ) break;
                                 if ( marker[node] < *tag ) {
                                     marker[node] = *tag;
                                     deg += qsize[node];
@@ -624,21 +580,17 @@ n2100:
           fnode = head[deg];
           forward[enode] = fnode;
           backward[enode] = -deg;
-          if ( fnode > 0 )
-            backward[fnode] = enode;
+          if ( fnode > 0 ) backward[fnode] = enode;
           head[deg] = enode;
-          if ( deg < *mdeg )
-            *mdeg = deg;
+          if ( deg < *mdeg ) *mdeg = deg;
 
 n2200:
           /* get next enode in current element. */
           enode = list[enode];
-          if ( iq2 == 1 )
-            goto n900;
-
+          if ( iq2 == 1 ) goto n900;
           goto n1600;
 
-n2300: // epilogue of n100 loop - only way to continue
+n2300:
           /* get next element in the list. */
           *tag = mtag;
           element = list[element];
