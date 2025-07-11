@@ -19,7 +19,6 @@
  * $Id: mmd.c 22385 2019-06-03 22:08:48Z karypis $
  */
 
-#include "metislib.h"
 
 
 /*************************************************************************
@@ -50,20 +49,20 @@
 *     marker -- a temporary marker vector.
 *  Subroutines used -- mmdelm, mmdint, mmdnum, mmdupd.
 **************************************************************************/
-void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
-     idx_t delta, idx_t *head, idx_t *qsize, idx_t *list, idx_t *marker,
-     idx_t maxint, idx_t *ncsub)
+#[metis_func]
+pub extern "C" fn genmmd(neqns: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, invp: *mut idx_t, perm: *mut idx_t, delta: idx_t, head: *mut idx_t, qsize: *mut idx_t, list: *mut idx_t, marker: *mut idx_t, maxint: idx_t, ncsub: *mut idx_t) 
 {
-    idx_t  ehead, i, mdeg, mdlmt, mdeg_node, nextmd, num, tag;
+    // idx_t  ehead, i, mdeg, mdlmt, mdeg_node, nextmd, num, tag;
 
-    if (neqns <= 0)  
+    if (neqns <= 0)   {
       return;
+}
 
     /* adjust from C to Fortran */
     // FIXME: this is horrible UB. It doesn't seem like any compiler currently
     // destroys this but I want to fix it
     // https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=34331f6a82be75de727ef2479302c7dd
-    xadj--; adjncy--; invp--; perm--; head--; qsize--; list--; marker--;
+    xadj; adjncy--; invp--; perm--; head--; qsize--; list--; marker--;xadj-=1;
 
     /* initialization for the minimum degree algorithm */
     *ncsub = 0;
@@ -73,27 +72,28 @@ void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
     num = 1;
 
     /* eliminate all isolated nodes */
-    nextmd = head[1];
+    nextmd = head[1 as usize];
     while (nextmd > 0) {
       mdeg_node = nextmd;
-      nextmd = invp[mdeg_node];
-      marker[mdeg_node] = maxint;
-      invp[mdeg_node] = -num;
-      num++;
+      nextmd = invp[mdeg_node as usize];
+      marker[mdeg_node as usize] = maxint;
+      invp[mdeg_node as usize] = -num;
+      num += 1;
     }
 
     /* search for node of the minimum degree. 'mdeg' is the current */
     /* minimum degree; 'tag' is used to facilitate marking nodes.   */
-    if (num > neqns) 
+    if (num > neqns)  {
       goto n1000;
+}
     tag = 1;
-    head[1] = 0;
+    head[1 as usize] = 0;
     mdeg = 2;
 
     /* infinite loop here */
     while (1) {
-      while (head[mdeg] <= 0) {
-        mdeg++;
+      while (head[mdeg as usize] <= 0) {
+        mdeg += 1;
       }
 
       /* use value of 'delta' to set up 'mdlmt', which governs */
@@ -105,44 +105,48 @@ void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
       ehead = 0;
 
 n500:
-      mdeg_node = head[mdeg];
+      mdeg_node = head[mdeg as usize];
       while (mdeg_node <= 0) {
-        mdeg++;
+        mdeg += 1;
 
-        if (mdeg > mdlmt) 
+        if (mdeg > mdlmt)  {
           goto n900;
-        mdeg_node = head[mdeg];
+}
+        mdeg_node = head[mdeg as usize];
       };
 
       /* remove 'mdeg_node' from the degree structure */
-      nextmd = invp[mdeg_node];
-      head[mdeg] = nextmd;
-      if (nextmd > 0)  
-        perm[nextmd] = -mdeg;
-      invp[mdeg_node] = -num;
-      *ncsub += mdeg + qsize[mdeg_node] - 2;
-      if ((num+qsize[mdeg_node]) > neqns)  
+      nextmd = invp[mdeg_node as usize];
+      head[mdeg as usize] = nextmd;
+      if (nextmd > 0)   {
+        perm[nextmd as usize] = -mdeg;
+}
+      invp[mdeg_node as usize] = -num;
+      *ncsub += mdeg + qsize[mdeg_node as usize] - 2;
+      if ((num+qsize[mdeg_node as usize]) > neqns)   {
         break;
+}
 
       /*  eliminate 'mdeg_node' and perform quotient graph */
       /*  transformation. reset 'tag' value if necessary.    */
-      tag++;
+      tag += 1;
       if (tag >= maxint) {
         tag = 1;
-        for (i = 1; i <= neqns; i++) {
-          if (marker[i] < maxint) {
-            marker[i] = 0;
+        for i in (1)..=(neqns) {
+          if (marker[i as usize] < maxint) {
+            marker[i as usize] = 0;
           }
         }
       };
 
       mmdelm(mdeg_node, xadj, adjncy, head, invp, perm, qsize, list, marker, maxint, tag);
 
-      num += qsize[mdeg_node];
-      list[mdeg_node] = ehead;
+      num += qsize[mdeg_node as usize];
+      list[mdeg_node as usize] = ehead;
       ehead = mdeg_node;
-      if (delta >= 0) 
+      if (delta >= 0)  {
         goto n500;
+}
 
  n900:
       /* update degrees of the nodes involved in the  */
@@ -158,7 +162,7 @@ n1000:
     mmdnum( neqns, perm, invp, qsize );
 
     /* Adjust from Fortran back to C*/
-    xadj++; adjncy++; invp++; perm++; head++; qsize++; list++; marker++;
+    xadj; adjncy++; invp++; perm++; head++; qsize++; list++; marker += 1;xadj+=1;
 }
 
 
@@ -179,8 +183,8 @@ n1000:
 *     marker -- marker vector.
 *     list -- temporary linked list of eliminated nabors.
 ***************************************************************************/
-void mmdelm(idx_t mdeg_node, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *forward,
-     idx_t *backward, idx_t *qsize, idx_t *list, idx_t *marker, idx_t maxint, idx_t tag)
+#[metis_func]
+pub extern "C" fn mmdelm(mdeg_node: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, head: *mut idx_t, forward: *mut idx_t, backward: *mut idx_t, qsize: *mut idx_t, list: *mut idx_t, marker: *mut idx_t, maxint: idx_t, tag: idx_t) 
 {
     idx_t   element, i,   istop, istart, j,
           jstop, jstart, link,
@@ -189,9 +193,9 @@ void mmdelm(idx_t mdeg_node, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *for
 
     /* find the reachable set of 'mdeg_node' and */
     /* place it in the data structure.           */
-    marker[mdeg_node] = tag;
-    istart = xadj[mdeg_node];
-    istop = xadj[mdeg_node+1] - 1;
+    marker[mdeg_node as usize] = tag;
+    istart = xadj[mdeg_node as usize];
+    istop = xadj[(mdeg_node+1) as usize] - 1;
 
     /* 'element' points to the beginning of the list of  */
     /* eliminated nabors of 'mdeg_node', and 'rloc' gives the */
@@ -199,31 +203,31 @@ void mmdelm(idx_t mdeg_node, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *for
     element = 0;
     rloc = istart;
     rlmt = istop;
-    for ( i = istart; i <= istop; i++ ) {
-        nabor = adjncy[i];
+    for ( i = istart; i <= istop; i ) {i+=1;
+        nabor = adjncy[i as usize];
         if ( nabor == 0 ) break;
-        if ( marker[nabor] < tag ) {
-           marker[nabor] = tag;
-           if ( forward[nabor] < 0 )  {
-              list[nabor] = element;
+        if ( marker[nabor as usize] < tag ) {
+           marker[nabor as usize] = tag;
+           if ( forward[nabor as usize] < 0 )  {
+              list[nabor as usize] = element;
               element = nabor;
            } else {
-              adjncy[rloc] = nabor;
-              rloc++;
+              adjncy[rloc as usize] = nabor;
+              rloc += 1;
            };
         }; /* end of -- if -- */
     }; /* end of -- for -- */
 
   /* merge with reachable nodes from generalized elements. */
   while ( element > 0 ) {
-      adjncy[rlmt] = -element;
+      adjncy[rlmt as usize] = -element;
       link = element;
 
 n400: // small loop 
-      jstart = xadj[link];
-      jstop = xadj[link+1] - 1;
-      for ( j = jstart; j <= jstop; j++ ) {
-          node = adjncy[j];
+      jstart = xadj[link as usize];
+      jstop = xadj[(link+1) as usize] - 1;
+      for ( j = jstart; j <= jstop; j ) {j+=1;
+          node = adjncy[j as usize];
           link = -node;
           if ( node < 0 ) {
             goto n400;
@@ -231,61 +235,66 @@ n400: // small loop
           if ( node == 0 ) {
             break;
           }
-          if (marker[node]<tag && forward[node]>=0) {
-             marker[node] = tag;
+          if (marker[node as usize]<tag && forward[node as usize]>=0) {
+             marker[node as usize] = tag;
              /*use storage from eliminated nodes if necessary.*/
              while ( rloc >= rlmt ) {
-                   link = -adjncy[rlmt];
-                   rloc = xadj[link];
-                   rlmt = xadj[link+1] - 1;
+                   link = -adjncy[rlmt as usize];
+                   rloc = xadj[link as usize];
+                   rlmt = xadj[(link+1) as usize] - 1;
              };
-             adjncy[rloc] = node;
-             rloc++;
+             adjncy[rloc as usize] = node;
+             rloc += 1;
           };
       }; /* end of -- for ( j = jstart; -- */
 
-      element = list[element];
+      element = list[element as usize];
     };  /* end of -- while ( element > 0 ) -- */
 
     if ( rloc <= rlmt ) {
-      adjncy[rloc] = 0;
+      adjncy[rloc as usize] = 0;
     }
     /* for each node in the reachable set, do the following. */
     link = mdeg_node;
 
 n1100:
-    istart = xadj[link];
-    istop = xadj[link+1] - 1;
-    for ( i = istart; i <= istop; i++ ) {
-        rnode = adjncy[i];
+    istart = xadj[link as usize];
+    istop = xadj[(link+1) as usize] - 1;
+    for ( i = istart; i <= istop; i ) {i+=1;
+        rnode = adjncy[i as usize];
         link = -rnode;
-        if ( rnode < 0 )
+        if ( rnode < 0 ) {
           goto n1100;
-        if ( rnode == 0 )
+}
+        if ( rnode == 0 ) {
           return;
+}
 
         /* 'rnode' is in the degree list structure. */
-        pvnode = backward[rnode];
+        pvnode = backward[rnode as usize];
         if (( pvnode != 0 ) && ( pvnode != (-maxint) )) {
            /* then remove 'rnode' from the structure. */
-           nxnode = forward[rnode];
-           if ( nxnode > 0 ) backward[nxnode] = pvnode;
-           if ( pvnode > 0 ) forward[pvnode] = nxnode;
+           nxnode = forward[rnode as usize];
+           if ( nxnode > 0 ) backward[nxnode as usize] = pvnode; {
+           if ( pvnode > 0 ) forward[pvnode as usize] = nxnode;
+}
            npv = -pvnode;
-           if ( pvnode < 0 ) head[npv] = nxnode;
+           if ( pvnode < 0 ) head[npv as usize] = nxnode; {
         };
+}
 
         /* purge inactive quotient nabors of 'rnode'. */
-        jstart = xadj[rnode];
-        jstop = xadj[rnode+1] - 1;
+        jstart = xadj[rnode as usize];
+        jstop = xadj[(rnode+1) as usize] - 1;
         xqnbr = jstart;
-        for ( j = jstart; j <= jstop; j++ ) {
-            nabor = adjncy[j];
-            if ( nabor == 0 )
+        for ( j = jstart; j <= jstop; j ) {j+=1;
+            nabor = adjncy[j as usize];
+            if ( nabor == 0 ) {
               break;
-            if ( marker[nabor] < tag ) {
-                adjncy[xqnbr] = nabor;
-                xqnbr++;
+}
+            if ( marker[nabor as usize] < tag ) {
+                adjncy[xqnbr as usize] = nabor;
+                xqnbr += 1;
             };
         };
 
@@ -293,20 +302,21 @@ n1100:
         nqnbrs = xqnbr - jstart;
         if ( nqnbrs <= 0 ) {
            /* merge 'rnode' with 'mdeg_node'. */
-           qsize[mdeg_node] += qsize[rnode];
-           qsize[rnode] = 0;
-           marker[rnode] = maxint;
-           forward[rnode] = -mdeg_node;
-           backward[rnode] = -maxint;
+           qsize[mdeg_node as usize] += qsize[rnode as usize];
+           qsize[rnode as usize] = 0;
+           marker[rnode as usize] = maxint;
+           forward[rnode as usize] = -mdeg_node;
+           backward[rnode as usize] = -maxint;
         } else {
            /* flag 'rnode' for degree update, and  */
            /* add 'mdeg_node' as a nabor of 'rnode'.      */
-           forward[rnode] = nqnbrs + 1;
-           backward[rnode] = 0;
-           adjncy[xqnbr] = mdeg_node;
-           xqnbr++;
-           if ( xqnbr <= jstop )
-             adjncy[xqnbr] = 0;
+           forward[rnode as usize] = nqnbrs + 1;
+           backward[rnode as usize] = 0;
+           adjncy[xqnbr as usize] = mdeg_node;
+           xqnbr += 1;
+           if ( xqnbr <= jstop ) {
+             adjncy[xqnbr as usize] = 0;
+}
         };
       }; /* end of -- for ( i = istart; -- */
       return;
@@ -326,27 +336,29 @@ n1100:
 *       list -- linked list.
 *       marker -- marker vector.
 ****************************************************************************/
-idx_t  mmdint(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *forward,
+#[metis_func]
+pub extern "C" fn  mmdint(neqns: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, head: *mut idx_t, forward: *mut idx_t, -> idx_t
      idx_t *backward, idx_t *qsize, idx_t *list, idx_t *marker)
 {
-  idx_t fnode, ndeg, node;
+  // idx_t fnode, ndeg, node;
 
-  for (node=1; node<=neqns; node++) {
-    head[node] = 0;
-    qsize[node] = 1;
-    marker[node] = 0;
-    list[node] = 0;
+  for node in (1)..=(neqns) {
+    head[node as usize] = 0;
+    qsize[node as usize] = 1;
+    marker[node as usize] = 0;
+    list[node as usize] = 0;
   };
 
   /* initialize the degree doubly linked lists. */
-  for (node=1; node<=neqns; node++) {
-    ndeg = xadj[node+1]-xadj[node]+1;
-    fnode = head[ndeg];
-    forward[node] = fnode;
-    head[ndeg] = node;
-    if (fnode > 0)
-      backward[fnode] = node;
-    backward[node] = -ndeg;
+  for node in (1)..=(neqns) {
+    ndeg = xadj[(node+1) as usize]-xadj[node as usize]+1;
+    fnode = head[ndeg as usize];
+    forward[node as usize] = fnode;
+    head[ndeg as usize] = node;
+    if (fnode > 0) {
+      backward[fnode as usize] = node;
+}
+    backward[node as usize] = -ndeg;
   };
 
   return 0;
@@ -364,57 +376,60 @@ idx_t  mmdint(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *head, idx_t *forwa
 *     qsize -- size of supernodes at elimination.
 * updated parameters --
 *     invp -- inverse permutation vector. on input,
-*             if qsize[node] = 0, then node has been merged
-*             into the node -invp[node]; otherwise,
-*            -invp[node] is its inverse labelling.
+*             if qsize[node as usize] = 0, then node has been merged
+*             into the node -invp[node as usize]; otherwise,
+*            -invp[node as usize] is its inverse labelling.
 * output parameters --
 *     perm -- the permutation vector.
 ****************************************************************************/
-void mmdnum(idx_t neqns, idx_t *perm, idx_t *invp, idx_t *qsize)
+#[metis_func]
+pub extern "C" fn mmdnum(neqns: idx_t, perm: *mut idx_t, invp: *mut idx_t, qsize: *mut idx_t) 
 {
-  idx_t father, nextf, node, nqsize, num, root;
+  // idx_t father, nextf, node, nqsize, num, root;
 
-  for ( node = 1; node <= neqns; node++ ) {
-      nqsize = qsize[node];
-      if ( nqsize <= 0 )
-        perm[node] = invp[node];
-      if ( nqsize > 0 )
-        perm[node] = -invp[node];
+  for ( node = 1; node <= neqns; node ) {node+=1;
+      nqsize = qsize[node as usize];
+      if ( nqsize <= 0 ) {
+        perm[node as usize] = invp[node as usize];
+}
+      if ( nqsize > 0 ) {
+        perm[node as usize] = -invp[node as usize];
+}
   };
 
   /* for each node which has been merged, do the following. */
-  for ( node = 1; node <= neqns; node++ ) {
-      if ( perm[node] <= 0 )  {
+  for ( node = 1; node <= neqns; node ) {node+=1;
+      if ( perm[node as usize] <= 0 )  {
 
 	 /* trace the merged tree until one which has not */
          /* been merged, call it root.                    */
          father = node;
-         while ( perm[father] <= 0 ) {
-            father = - perm[father];
+         while ( perm[father as usize] <= 0 ) {
+            father = - perm[father as usize];
          }
 
          /* number node after root. */
          root = father;
-         num = perm[root] + 1;
-         invp[node] = -num;
-         perm[root] = num;
+         num = perm[root as usize] + 1;
+         invp[node as usize] = -num;
+         perm[root as usize] = num;
 
          /* shorten the merged tree. */
          father = node;
-         nextf = - perm[father];
+         nextf = - perm[father as usize];
          while ( nextf > 0 ) {
-            perm[father] = -root;
+            perm[father as usize] = -root;
             father = nextf;
-            nextf = -perm[father];
+            nextf = -perm[father as usize];
          };
-      };  /* end of -- if ( perm[node] <= 0 ) -- */
+      };  /* end of -- if ( perm[node as usize] <= 0 ) -- */
   }; /* end of -- for ( node = 1; -- */
 
   /* ready to compute perm. */
-  for ( node = 1; node <= neqns; node++ ) {
-        num = -invp[node];
-        invp[node] = num;
-        perm[num] = node;
+  for ( node = 1; node <= neqns; node ) {node+=1;
+        num = -invp[node as usize];
+        invp[node as usize] = num;
+        perm[num as usize] = node;
   };
   return;
 }
@@ -438,7 +453,8 @@ void mmdnum(idx_t neqns, idx_t *perm, idx_t *invp, idx_t *qsize)
 *    list -- marker vector for degree update.
 *    *tag   -- tag value.
 ****************************************************************************/
-void mmdupd(idx_t ehead, idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t delta, idx_t *mdeg,
+#[metis_func]
+pub extern "C" fn mmdupd(ehead: idx_t, neqns: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, delta: idx_t, mdeg: *mut idx_t, 
      idx_t *head, idx_t *forward, idx_t *backward, idx_t *qsize, idx_t *list,
      idx_t *marker, idx_t maxint, idx_t *tag)
 {
@@ -450,17 +466,18 @@ void mmdupd(idx_t ehead, idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t delta, i
       element = ehead;
 
 n100: // (nearly) whole function loop
-      if ( element <= 0 )
+      if ( element <= 0 ) {
         return;
+}
 
       /* for each of the newly formed element, do the following. */
       /* reset tag value if necessary.                           */
       mtag = *tag + mdeg0;
       if ( mtag >= maxint ) {
         *tag = 1;
-        for ( i = 1; i <= neqns; i++ ) {
-          if ( marker[i] < maxint ) {
-            marker[i] = 0;
+        for ( i = 1; i <= neqns; i ) {i+=1;
+          if ( marker[i as usize] < maxint ) {
+            marker[i as usize] = 0;
           }
         }
         mtag = *tag + mdeg0;
@@ -476,31 +493,33 @@ n100: // (nearly) whole function loop
       link =element;
 
 n400:
-      istart = xadj[link];
-      istop = xadj[link+1] - 1;
-      for ( i = istart; i <= istop; i++ ) {
-          enode = adjncy[i];
+      istart = xadj[link as usize];
+      istop = xadj[(link+1) as usize] - 1;
+      for ( i = istart; i <= istop; i ) {i+=1;
+          enode = adjncy[i as usize];
           link = -enode;
-          if ( enode < 0 )
+          if ( enode < 0 ) {
             goto n400;
-          if ( enode == 0 )
+}
+          if ( enode == 0 ) {
             break;
-          if ( qsize[enode] != 0 ) {
-             deg0 += qsize[enode];
-             marker[enode] = mtag;
+}
+          if ( qsize[enode as usize] != 0 ) {
+             deg0 += qsize[enode as usize];
+             marker[enode as usize] = mtag;
 
              /*'enode' requires a degree update*/
-             if ( backward[enode] == 0 ) {
+             if ( backward[enode as usize] == 0 ) {
                 /* place either in qxhead or q2head list. */
-                if ( forward[enode] != 2 ) {
-                     list[enode] = qxhead;
+                if ( forward[enode as usize] != 2 ) {
+                     list[enode as usize] = qxhead;
                      qxhead = enode;
                 } else {
-                     list[enode] = q2head;
+                     list[enode as usize] = q2head;
                      q2head = enode;
                 };
              };
-          }; /* enf of -- if ( qsize[enode] != 0 ) -- */
+          }; /* enf of -- if ( qsize[enode as usize] != 0 ) -- */
       }; /* end of -- for ( i = istart; -- */
 
       /* for each node in q2 list, do the following. */
@@ -508,63 +527,68 @@ n400:
       iq2 = 1;
 
 n900: // big loop (outer)
-      if ( enode <= 0 )
+      if ( enode <= 0 ) {
         goto n1500;
+}
 
-      if ( backward[enode] != 0 )
+      if ( backward[enode as usize] != 0 ) {
         goto n2200;
+}
 
-      (*tag)++;
+      (*tag) += 1;
       deg = deg0;
 
       /* identify the other adjacent element nabor. */
-      istart = xadj[enode];
-      nabor = adjncy[istart];
-      if ( nabor == element ) nabor = adjncy[istart+1];
+      istart = xadj[enode as usize];
+      nabor = adjncy[istart as usize];
+      if ( nabor == element ) nabor = adjncy[(istart+1) as usize]; {
       link = nabor;
-      if ( forward[nabor] >= 0 ) {
+}
+      if ( forward[nabor as usize] >= 0 ) {
            /* nabor is uneliminated, increase degree count. */
-           deg += qsize[nabor];
+           deg += qsize[nabor as usize];
            goto n2100;
       };
 
        /* the nabor is eliminated. for each node in the 2nd element */
        /* do the following.                                         */
 n1000:
-       istart = xadj[link];
-       istop = xadj[link+1] - 1;
-       for ( i = istart; i <= istop; i++ ) {
-           node = adjncy[i];
+       istart = xadj[link as usize];
+       istop = xadj[(link+1) as usize] - 1;
+       for ( i = istart; i <= istop; i ) {i+=1;
+           node = adjncy[i as usize];
            link = -node;
            if ( node != enode ) {
-                if ( node < 0 )
+                if ( node < 0 ) {
                   goto n1000;
-                if ( node == 0 )
+}
+                if ( node == 0 ) {
                   goto n2100;
-                if ( qsize[node] != 0 ) {
-                     if ( marker[node] < *tag ) {
+}
+                if ( qsize[node as usize] != 0 ) {
+                     if ( marker[node as usize] < *tag ) {
                         /* 'node' is not yet considered. */
-                        marker[node] = *tag;
-                        deg += qsize[node];
+                        marker[node as usize] = *tag;
+                        deg += qsize[node as usize];
                      } else {
-                        if ( backward[node] == 0 ) {
-                             if ( forward[node] == 2 ) {
+                        if ( backward[node as usize] == 0 ) {
+                             if ( forward[node as usize] == 2 ) {
                                 /* 'node' is indistinguishable from 'enode'.*/
                                 /* merge them into a new supernode.         */
-                                qsize[enode] += qsize[node];
-                                qsize[node] = 0;
-                                marker[node] = maxint;
-                                forward[node] = -enode;
-                                backward[node] = -maxint;
+                                qsize[enode as usize] += qsize[node as usize];
+                                qsize[node as usize] = 0;
+                                marker[node as usize] = maxint;
+                                forward[node as usize] = -enode;
+                                backward[node as usize] = -maxint;
                              } else {
                                 /* 'node' is outmacthed by 'enode' */
-				if (backward[node]==0) {
-                                  backward[node] = -maxint;
+				if (backward[node as usize]==0) {
+                                  backward[node as usize] = -maxint;
                                 }
                              };
-                        }; /* end of -- if ( backward[node] == 0 ) -- */
-                    }; /* end of -- if ( marker[node] < *tag ) -- */
-                }; /* end of -- if ( qsize[node] != 0 ) -- */
+                        }; /* end of -- if ( backward[node as usize] == 0 ) -- */
+                    }; /* end of -- if ( marker[node as usize] < *tag ) -- */
+                }; /* end of -- if ( qsize[node as usize] != 0 ) -- */
               }; /* end of -- if ( node != enode ) -- */
           }; /* end of -- for ( i = istart; -- */
           goto n2100;
@@ -575,72 +599,80 @@ n1500:
           iq2 = 0;
 
 n1600:    
-          if ( enode <= 0 )
+          if ( enode <= 0 ) {
             goto n2300;
-          if ( backward[enode] != 0 )
+}
+          if ( backward[enode as usize] != 0 ) {
             goto n2200;
-          (*tag)++;
+}
+          (*tag) += 1;
           deg = deg0;
 
           /*for each unmarked nabor of 'enode', do the following.*/
-          istart = xadj[enode];
-          istop = xadj[enode+1] - 1;
-          for ( i = istart; i <= istop; i++ ) {
-                nabor = adjncy[i];
-                if ( nabor == 0 )
+          istart = xadj[enode as usize];
+          istop = xadj[(enode+1) as usize] - 1;
+          for ( i = istart; i <= istop; i ) {i+=1;
+                nabor = adjncy[i as usize];
+                if ( nabor == 0 ) {
                   break;
-                if ( marker[nabor] < *tag ) {
-                     marker[nabor] = *tag;
+}
+                if ( marker[nabor as usize] < *tag ) {
+                     marker[nabor as usize] = *tag;
                      link = nabor;
-                     if ( forward[nabor] >= 0 ) 
+                     if ( forward[nabor as usize] >= 0 ) 
                           /*if uneliminated, include it in deg count.*/
-                          deg += qsize[nabor];
+                          deg += qsize[nabor as usize];
                      else {
 n1700: // smaller loop
                           /* if eliminated, include unmarked nodes in this*/
                           /* element into the degree count.             */
-                          jstart = xadj[link];
-                          jstop = xadj[link+1] - 1;
-                          for ( j = jstart; j <= jstop; j++ ) {
-                                node = adjncy[j];
+                          jstart = xadj[link as usize];
+                          jstop = xadj[(link+1) as usize] - 1;
+                          for ( j = jstart; j <= jstop; j ) {j+=1;
+                                node = adjncy[j as usize];
                                 link = -node;
-                                if ( node < 0 )
+                                if ( node < 0 ) {
                                   goto n1700;
-                                if ( node == 0 )
+}
+                                if ( node == 0 ) {
                                   break;
-                                if ( marker[node] < *tag ) {
-                                    marker[node] = *tag;
-                                    deg += qsize[node];
+}
+                                if ( marker[node as usize] < *tag ) {
+                                    marker[node as usize] = *tag;
+                                    deg += qsize[node as usize];
                                 };
                           }; /* end of -- for ( j = jstart; -- */
-                     }; /* end of -- if ( forward[nabor] >= 0 ) -- */
-                  }; /* end of -- if ( marker[nabor] < *tag ) -- */
+                     }; /* end of -- if ( forward[nabor as usize] >= 0 ) -- */
+                  }; /* end of -- if ( marker[nabor as usize] < *tag ) -- */
           }; /* end of -- for ( i = istart; -- */
 
 n2100:
           /* update external degree of 'enode' in degree structure, */
           /* and '*mdeg' if necessary.                     */
-          deg = deg - qsize[enode] + 1;
-          fnode = head[deg];
-          forward[enode] = fnode;
-          backward[enode] = -deg;
-          if ( fnode > 0 )
-            backward[fnode] = enode;
-          head[deg] = enode;
-          if ( deg < *mdeg )
+          deg = deg - qsize[enode as usize] + 1;
+          fnode = head[deg as usize];
+          forward[enode as usize] = fnode;
+          backward[enode as usize] = -deg;
+          if ( fnode > 0 ) {
+            backward[fnode as usize] = enode;
+}
+          head[deg as usize] = enode;
+          if ( deg < *mdeg ) {
             *mdeg = deg;
+}
 
 n2200:
           /* get next enode in current element. */
-          enode = list[enode];
-          if ( iq2 == 1 )
+          enode = list[enode as usize];
+          if ( iq2 == 1 ) {
             goto n900;
+}
 
           goto n1600;
 
 n2300: // epilogue of n100 loop - only way to continue
           /* get next element in the list. */
           *tag = mtag;
-          element = list[element];
+          element = list[element as usize];
           goto n100;
     }

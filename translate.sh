@@ -46,7 +46,7 @@ v ':g/\v^\w+/:s/\V*/*mut /g'
 # slice indexing
 v ':%s/\v\[([^=\]]*[-+*/ ][^=\]]*)\]/[(\1) as usize]/g'
 v ':%s/\v\[(\w+)\]/[\1 as usize]/g'
-v ':%s/\]\]/] as usize]/'
+v ':%s/\]\]/] as usize]/' || true
 
 # the rest of the function signature
 v ':%s/\v^(\w+) (%(\*mut )*)([^{]*)/#[metis_func]\rpub extern "C" fn \3 -> \2\1/'
@@ -67,9 +67,10 @@ s 's/^ *nvtxs *= graph\.nvtxs/let & as usize/'
 s 's/^ *ncon *= graph\.ncon/let & as usize/'
 
 # for loops
-v ':%s/for (\([a-zA-Z]\+=.\w*\),\s*/\1;\rfor (/' || true
-v ':%s/for (\([a-zA-Z]\+=.\w*\),\s*/\1;\rfor (/' || true
-v ':%s/\vfor \(([a-zA-Z]+)\=(.{-1,}); \1\<(.{-1,}); \1\+\+\)/for \1 in (\2)..(\3)'
+v ':%s/for (\s*\([a-zA-Z]\+\s*=\s*.\w*\)\s*,\s*/\1;\rfor (/' || true
+v ':%s/for (\s*\([a-zA-Z]\+\s*=\s*.\w*\s*\),\s*/\1;\rfor (/' || true
+v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\<\=\s*(.{-1,});\s*\1\+\+\)/for \1 in (\2)..=(\3)' || true
+v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\<\s*(.{-1,});\s*\1\+\+\)/for \1 in (\2)..(\3)' || true
 
 # make sure for loops are gone
 ! grep -qE '\s*for.*;' "$FILE"
@@ -84,7 +85,7 @@ v ':g/--\w\+/norm f-xxyiw0pwi-=1;' || true
 v ':g/\w\+--/norm f-xxhyiw$pA-=1;' || true
 
 # printing
-v ':%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g'
+v ':%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g' || true
 s 's/%s/{}/'
 s 's/\<printf\>/print!/'
 
