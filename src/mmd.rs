@@ -37,7 +37,7 @@
 //! routine's history. For the sake of the optimizer, I want to get rid of as many as possible.
 //!
 //! ### 1-based indexing
-//! 
+//!
 //! Since fortran is 1-indexed and C is not, the FORTRAN-to-C port simply decremented all of the
 //! pointers passed to it. Strictly speaking, this causes [immediate ub] (run with miri), though as
 //! of writing (2025-07-11), no compiler I could find acts on even a very simple case. That being
@@ -244,7 +244,9 @@ pub extern "C" fn genmmd(
 
     assert_eq!(maxint, idx_t::MAX);
 
-    let res = genmmd_rs_entry(neqns, xadj, adjncy, invp, perm, delta, head, qsize, list, marker);
+    let res = genmmd_rs_entry(
+        neqns, xadj, adjncy, invp, perm, delta, head, qsize, list, marker,
+    );
     *ncsub = res;
 }
 
@@ -361,7 +363,7 @@ fn genmmd_rs_entry(
         }
 
         // was merged with n500
-        // n900: 
+        // n900:
 
         /* update degrees of the nodes involved in the  */
         /* minimum degree nodes elimination.            */
@@ -370,8 +372,7 @@ fn genmmd_rs_entry(
         }
 
         mmdupd(
-            ehead, neqns, xadj, adjncy, delta, &mdeg, head, invp, perm, qsize, list, marker,
-            &tag,
+            ehead, neqns, xadj, adjncy, delta, &mdeg, head, invp, perm, qsize, list, marker, &tag,
         );
     }
 
@@ -379,7 +380,7 @@ fn genmmd_rs_entry(
 
     /* Adjust from Fortran back to C*/
     // xadj; adjncy++; invp++; perm++; head++; qsize++; list++; marker += 1;xadj+=1;
-    return ncsub
+    return ncsub;
 }
 
 /**************************************************************************
@@ -449,30 +450,32 @@ fn mmdelm(
         adjncy[rlmt as usize] = -element;
         link = element;
 
-        todo!("n400:"); // small loop
-        jstart = xadj[link as usize];
-        jstop = xadj[(link + 1) as usize] - 1;
-        for j in jstart..=jstop {
-            node = adjncy[j as usize];
-            link = -node;
-            if (node < 0) {
-                todo!("goto n400");
-            }
-            if (node == 0) {
-                break;
-            }
-            if (marker[node as usize] < tag && forward[node as usize] >= 0) {
-                marker[node as usize] = tag;
-                /*use storage from eliminated nodes if necessary.*/
-                while (rloc >= rlmt) {
-                    link = -adjncy[rlmt as usize];
-                    rloc = xadj[link as usize];
-                    rlmt = xadj[(link + 1) as usize] - 1;
+        'n400: loop {
+            jstart = xadj[link as usize];
+            jstop = xadj[(link + 1) as usize] - 1;
+            for j in jstart..=jstop {
+                node = adjncy[j as usize];
+                link = -node;
+                if (node < 0) {
+                    continue 'n400; // goto
                 }
-                adjncy[rloc as usize] = node;
-                rloc += 1;
-            };
-        } /* end of -- for ( j = jstart; -- */
+                if (node == 0) {
+                    break;
+                }
+                if (marker[node as usize] < tag && forward[node as usize] >= 0) {
+                    marker[node as usize] = tag;
+                    /*use storage from eliminated nodes if necessary.*/
+                    while (rloc >= rlmt) {
+                        link = -adjncy[rlmt as usize];
+                        rloc = xadj[link as usize];
+                        rlmt = xadj[(link + 1) as usize] - 1;
+                    }
+                    adjncy[rloc as usize] = node;
+                    rloc += 1;
+                };
+            } /* end of -- for ( j = jstart; -- */
+            break 'n400; // synthetic
+        }
 
         element = list[element as usize];
     } /* end of -- while ( element > 0 ) -- */
@@ -483,72 +486,75 @@ fn mmdelm(
     /* for each node in the reachable set, do the following. */
     link = mdeg_node;
 
-    todo!("n1100:");
-    istart = xadj[link as usize];
-    istop = xadj[(link + 1) as usize] - 1;
-    for i in istart..=istop {
-        rnode = adjncy[i as usize];
-        link = -rnode;
-        if (rnode < 0) {
-            todo!("goto n1100");
-        }
-        if (rnode == 0) {
-            return;
-        }
+    'n1100: loop {
+        istart = xadj[link as usize];
+        istop = xadj[(link + 1) as usize] - 1;
+        for i in istart..=istop {
+            rnode = adjncy[i as usize];
+            link = -rnode;
+            if (rnode < 0) {
+                continue 'n1100; // goto
+            }
+            if (rnode == 0) {
+                return;
+            }
 
-        /* 'rnode' is in the degree list structure. */
-        pvnode = backward[rnode as usize];
-        if ((pvnode != 0) && (pvnode != (-idx_t::MAX))) {
-            /* then remove 'rnode' from the structure. */
-            nxnode = forward[rnode as usize];
-            if (nxnode > 0) {
-                backward[nxnode as usize] = pvnode;
+            /* 'rnode' is in the degree list structure. */
+            pvnode = backward[rnode as usize];
+            if ((pvnode != 0) && (pvnode != (-idx_t::MAX))) {
+                /* then remove 'rnode' from the structure. */
+                nxnode = forward[rnode as usize];
+                if (nxnode > 0) {
+                    backward[nxnode as usize] = pvnode;
+                }
+                if (pvnode > 0) {
+                    forward[pvnode as usize] = nxnode;
+                }
+                npv = -pvnode;
+                if (pvnode < 0) {
+                    head[npv as usize] = nxnode;
+                };
             }
-            if (pvnode > 0) {
-                forward[pvnode as usize] = nxnode;
-            }
-            npv = -pvnode;
-            if (pvnode < 0) {
-                head[npv as usize] = nxnode;
-            };
-        }
 
-        /* purge inactive quotient nabors of 'rnode'. */
-        jstart = xadj[rnode as usize];
-        jstop = xadj[(rnode + 1) as usize] - 1;
-        xqnbr = jstart;
-        for j in jstart..=jstop {
-            nabor = adjncy[j as usize];
-            if (nabor == 0) {
-                break;
+            /* purge inactive quotient nabors of 'rnode'. */
+            jstart = xadj[rnode as usize];
+            jstop = xadj[(rnode + 1) as usize] - 1;
+            xqnbr = jstart;
+            for j in jstart..=jstop {
+                nabor = adjncy[j as usize];
+                if (nabor == 0) {
+                    break;
+                }
+                if (marker[nabor as usize] < tag) {
+                    adjncy[xqnbr as usize] = nabor;
+                    xqnbr += 1;
+                };
             }
-            if (marker[nabor as usize] < tag) {
-                adjncy[xqnbr as usize] = nabor;
+
+            /* no active nabor after the purging. */
+            nqnbrs = xqnbr - jstart;
+            if (nqnbrs <= 0) {
+                /* merge 'rnode' with 'mdeg_node'. */
+                qsize[mdeg_node as usize] += qsize[rnode as usize];
+                qsize[rnode as usize] = 0;
+                marker[rnode as usize] = idx_t::MAX;
+                forward[rnode as usize] = -mdeg_node;
+                backward[rnode as usize] = -idx_t::MAX;
+            } else {
+                /* flag 'rnode' for degree update, and  */
+                /* add 'mdeg_node' as a nabor of 'rnode'.      */
+                forward[rnode as usize] = nqnbrs + 1;
+                backward[rnode as usize] = 0;
+                adjncy[xqnbr as usize] = mdeg_node;
                 xqnbr += 1;
+                if (xqnbr <= jstop) {
+                    adjncy[xqnbr as usize] = 0;
+                }
             };
-        }
+        } /* end of -- for ( i = istart; -- */
 
-        /* no active nabor after the purging. */
-        nqnbrs = xqnbr - jstart;
-        if (nqnbrs <= 0) {
-            /* merge 'rnode' with 'mdeg_node'. */
-            qsize[mdeg_node as usize] += qsize[rnode as usize];
-            qsize[rnode as usize] = 0;
-            marker[rnode as usize] = idx_t::MAX;
-            forward[rnode as usize] = -mdeg_node;
-            backward[rnode as usize] = -idx_t::MAX;
-        } else {
-            /* flag 'rnode' for degree update, and  */
-            /* add 'mdeg_node' as a nabor of 'rnode'.      */
-            forward[rnode as usize] = nqnbrs + 1;
-            backward[rnode as usize] = 0;
-            adjncy[xqnbr as usize] = mdeg_node;
-            xqnbr += 1;
-            if (xqnbr <= jstop) {
-                adjncy[xqnbr as usize] = 0;
-            }
-        };
-    } /* end of -- for ( i = istart; -- */
+        break 'n1100; // synthetic
+    }
     return;
 }
 
