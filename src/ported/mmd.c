@@ -20,6 +20,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************
@@ -50,7 +51,10 @@
 *     marker -- a temporary marker vector.
 *  Subroutines used -- mmdelm, mmdint, mmdnum, mmdupd.
 **************************************************************************/
-void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
+IFUNC(void, genmmd, (idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
+     idx_t delta, idx_t *head, idx_t *qsize, idx_t *list, idx_t *marker,
+     idx_t maxint, idx_t *ncsub));
+void c__libmetis__genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
      idx_t delta, idx_t *head, idx_t *qsize, idx_t *list, idx_t *marker,
      idx_t maxint, idx_t *ncsub)
 {
@@ -58,6 +62,16 @@ void genmmd(idx_t neqns, idx_t *xadj, idx_t *adjncy, idx_t *invp, idx_t *perm,
 
     if (neqns <= 0)  
       return;
+
+    {
+      /* Relabel the vertices so that it starts from 1 */
+      /* moved from MMDOrder */
+      idx_t k = xadj[neqns];
+      for (i=0; i<k; i++)
+        adjncy[i]++;
+      for (i=0; i<neqns+1; i++)
+        xadj[i]++;
+    }
 
     /* adjust from C to Fortran */
     xadj--; adjncy--; invp--; perm--; head--; qsize--; list--; marker--;
@@ -150,6 +164,16 @@ n1000:
 
     /* Adjust from Fortran back to C*/
     xadj++; adjncy++; invp++; perm++; head++; qsize++; list++; marker++;
+
+    {
+      /* Relabel the vertices so that it starts from 0 */
+      /* moved from MMDOrder */
+      for (i=0; i<neqns+1; i++)
+        xadj[i]--;
+      idx_t k = xadj[neqns];
+      for (i=0; i<k; i++)
+        adjncy[i]--;
+    }
 }
 
 

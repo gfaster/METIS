@@ -229,13 +229,25 @@ pub extern "C" fn genmmd(
     maxint: idx_t,
     ncsub: *mut idx_t,
 ) {
-    let xadj = Fslice::from_raw_parts_mut(xadj, neqns as usize + 1);
+    let xadj = std::slice::from_raw_parts_mut(xadj, neqns as usize + 1);
+    let adjncy = std::slice::from_raw_parts_mut(adjncy, xadj[neqns as usize] as usize);
+
+    // do fortran renumbering -- this was previously done in MMDOrder
+    for i in &mut *xadj {
+        *i += 1;
+    }
+    for i in &mut *adjncy {
+        *i += 1;
+    }
+
+    let xadj = Fslice::new_mut(xadj);
+    let adjncy = Fslice::new_mut(adjncy);
+
     // NOTE: the caller (ometis::MMDOrder) already made xadj and adjncy one-indexed, so indexing
     // using the Fslice indexing (one-indexing) is correct, but we need to decrement the last
     // element of xadj since it's now len+1
     debug_assert_eq!(*xadj.as_slice().last().unwrap(), xadj[neqns as usize + 1]); // sanity check
 
-    let adjncy = Fslice::from_raw_parts_mut(adjncy, xadj[neqns as usize + 1] as usize - 1);
 
     // I might need to include the length hack provided in MMDOrder (+5 to len) for each of these
     // scratch slices
@@ -252,6 +264,15 @@ pub extern "C" fn genmmd(
         neqns, xadj, adjncy, invp, perm, delta, head, qsize, list, marker,
     );
     *ncsub = res;
+
+    // Relabel the vertices so that it starts from 0
+    // This was previously done in MMDOrder
+    for i in xadj.as_slice_mut() {
+        *i -= 1;
+    }
+    for i in adjncy.as_slice_mut() {
+        *i -= 1;
+    }
 }
 
 fn genmmd_rs_entry(
@@ -977,13 +998,15 @@ fn mmdupd(
                         continue 'n900; // goto
                     }
 
-                    // continue 'n1600; // goto, superfluous (it's a loop!)
+                    continue 'n1600; // goto, superfluous (it's a loop!)
                 } // bottom of n1600
 
-                // continue 'n900; // goto, superfluous (it's a loop!)
+                #[expect(unreachable_code)]
+                continue 'n900; // goto, superfluous (it's a loop!)
             } // bottom of n900
 
-            // break 'n2300; // synthetic, superfluous (not a loop)
+            // this is also unreachable
+            break 'n2300; // synthetic, superfluous (not a loop)
         } // n2300:
 
         /* get next element in the list. */

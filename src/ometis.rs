@@ -898,14 +898,6 @@ pub extern "C" fn MMDOrder(
     get_graph_slices_mut!(graph => xadj adjncy);
     get_graph_slices!(graph => label);
 
-    /* Relabel the vertices so that it starts from 1 */
-    for i in &mut *xadj {
-        *i += 1;
-    }
-    for i in &mut *adjncy {
-        *i += 1;
-    }
-
     let mut perm = vec![0; nvtxs + 5];
     let mut iperm = vec![0; nvtxs + 5];
     let mut head = vec![0; nvtxs + 5];
@@ -933,15 +925,8 @@ pub extern "C" fn MMDOrder(
     let firstvtx = lastvtx - nvtxs as idx_t;
     for i in (0)..(nvtxs) {
         // can't use a slice since size is from the original graph
+        // I am a bit suspicious of this though
         *order.add(label[i] as usize) = firstvtx + iperm[i] - 1;
-    }
-
-    /* Relabel the vertices so that it starts from 0 */
-    for i in &mut *xadj {
-        *i -= 1;
-    }
-    for i in &mut *adjncy {
-        *i -= 1;
     }
 
     // WCOREPOP;

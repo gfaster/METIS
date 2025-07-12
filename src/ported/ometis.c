@@ -679,13 +679,6 @@ void c__libmetis__MMDOrder(ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t las
   xadj   = graph->xadj;
   adjncy = graph->adjncy;
 
-  /* Relabel the vertices so that it starts from 1 */
-  k = xadj[nvtxs];
-  for (i=0; i<k; i++)
-    adjncy[i]++;
-  for (i=0; i<nvtxs+1; i++)
-    xadj[i]++;
-
   perm   = iwspacemalloc(ctrl, nvtxs+5);
   iperm  = iwspacemalloc(ctrl, nvtxs+5);
   head   = iwspacemalloc(ctrl, nvtxs+5);
@@ -699,13 +692,6 @@ void c__libmetis__MMDOrder(ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t las
   firstvtx = lastvtx-nvtxs;
   for (i=0; i<nvtxs; i++)
     order[label[i]] = firstvtx+iperm[i]-1;
-
-  /* Relabel the vertices so that it starts from 0 */
-  for (i=0; i<nvtxs+1; i++)
-    xadj[i]--;
-  k = xadj[nvtxs];
-  for (i=0; i<k; i++)
-    adjncy[i]--;
 
   WCOREPOP;
 }
