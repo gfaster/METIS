@@ -779,89 +779,130 @@ fn mmdupd(
             iq2 = 1;
 
             'n900: loop {
-                'n2200: {
+                // instead of breaking to n2200 before the n1600 loop, we duplicate the (short)
+                // code of n2200, replacing its final 'goto n1600' with 'break 1600_pre'
+                'n1600_pre: {
                     'n1500: {
-                        if (enode <= 0) {
-                            break 'n1500; // goto (down)
-                        }
+                        'n2100_dup: {
+                            if (enode <= 0) {
+                                break 'n1500; // goto (down)
+                            }
 
-                        if (backward[enode as usize] != 0) {
-                            break 'n2200; // goto (down)
-                        }
+                            if (backward[enode as usize] != 0) {
+                                // goto n2200 (duplicated)
+                                /* get next enode in current element. */
+                                enode = list[enode as usize];
+                                if (iq2 == 1) {
+                                    continue 'n900; // goto
+                                }
+                                break 'n1600_pre;
+                            }
 
-                        (*tag) += 1;
-                        deg = deg0;
+                            (*tag) += 1;
+                            deg = deg0;
 
-                        /* identify the other adjacent element nabor. */
-                        istart = xadj[enode as usize];
-                        nabor = adjncy[istart as usize];
-                        if (nabor == element) {
-                            nabor = adjncy[(istart + 1) as usize];
-                        }
-                        link = nabor;
-                        if (forward[nabor as usize] >= 0) {
-                            /* nabor is uneliminated, increase degree count. */
-                            deg += qsize[nabor as usize];
-                            todo!("goto n2100");
-                        };
+                            /* identify the other adjacent element nabor. */
+                            istart = xadj[enode as usize];
+                            nabor = adjncy[istart as usize];
+                            if (nabor == element) {
+                                nabor = adjncy[(istart + 1) as usize];
+                            }
+                            link = nabor;
+                            if (forward[nabor as usize] >= 0) {
+                                /* nabor is uneliminated, increase degree count. */
+                                deg += qsize[nabor as usize];
+                                break 'n2100_dup; // goto dup (down)
+                            };
 
-                        /* the nabor is eliminated. for each node in the 2nd element */
-                        /* do the following.                                         */
-                        'n1000: loop {
-                            istart = xadj[link as usize];
-                            istop = xadj[(link + 1) as usize] - 1;
-                            for i in istart..=istop {
-                                node = adjncy[i as usize];
-                                link = -node;
-                                if (node != enode) {
-                                    if (node < 0) {
-                                        continue 'n1000; // goto
-                                    }
-                                    if (node == 0) {
-                                        todo!("goto n2100");
-                                    }
-                                    if (qsize[node as usize] != 0) {
-                                        if (marker[node as usize] < *tag) {
-                                            /* 'node' is not yet considered. */
-                                            marker[node as usize] = *tag;
-                                            deg += qsize[node as usize];
-                                        } else {
-                                            if (backward[node as usize] == 0) {
-                                                if (forward[node as usize] == 2) {
-                                                    /* 'node' is indistinguishable from 'enode'.*/
-                                                    /* merge them into a new supernode.         */
-                                                    qsize[enode as usize] += qsize[node as usize];
-                                                    qsize[node as usize] = 0;
-                                                    marker[node as usize] = idx_t::MAX;
-                                                    forward[node as usize] = -enode;
-                                                    backward[node as usize] = -idx_t::MAX;
-                                                } else {
-                                                    /* 'node' is outmacthed by 'enode' */
-                                                    if (backward[node as usize] == 0) {
+                            /* the nabor is eliminated. for each node in the 2nd element */
+                            /* do the following.                                         */
+                            'n1000: loop {
+                                istart = xadj[link as usize];
+                                istop = xadj[(link + 1) as usize] - 1;
+                                for i in istart..=istop {
+                                    node = adjncy[i as usize];
+                                    link = -node;
+                                    if (node != enode) {
+                                        if (node < 0) {
+                                            continue 'n1000; // goto
+                                        }
+                                        if (node == 0) {
+                                            break 'n2100_dup; // goto dup (down)
+                                        }
+                                        if (qsize[node as usize] != 0) {
+                                            if (marker[node as usize] < *tag) {
+                                                /* 'node' is not yet considered. */
+                                                marker[node as usize] = *tag;
+                                                deg += qsize[node as usize];
+                                            } else {
+                                                if (backward[node as usize] == 0) {
+                                                    if (forward[node as usize] == 2) {
+                                                        /* 'node' is indistinguishable from 'enode'.*/
+                                                        /* merge them into a new supernode.         */
+                                                        qsize[enode as usize] +=
+                                                            qsize[node as usize];
+                                                        qsize[node as usize] = 0;
+                                                        marker[node as usize] = idx_t::MAX;
+                                                        forward[node as usize] = -enode;
                                                         backward[node as usize] = -idx_t::MAX;
-                                                    }
-                                                };
+                                                    } else {
+                                                        /* 'node' is outmacthed by 'enode' */
+                                                        if (backward[node as usize] == 0) {
+                                                            backward[node as usize] = -idx_t::MAX;
+                                                        }
+                                                    };
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            break 'n1000; // synthetic fallthrough
+                                break 'n1000; // synthetic fallthrough
+                            }
+                        } // n2100 dup:
+                        {
+                            // n2100: duplicated and moved earlier
+
+                            /* update external degree of 'enode' in degree structure, */
+                            /* and '*mdeg' if necessary.                     */
+                            deg = deg - qsize[enode as usize] + 1;
+                            fnode = head[deg as usize];
+                            forward[enode as usize] = fnode;
+                            backward[enode as usize] = -deg;
+                            if (fnode > 0) {
+                                backward[fnode as usize] = enode;
+                            }
+                            head[deg as usize] = enode;
+                            if (deg < *mdeg) {
+                                *mdeg = deg;
+                            }
+                            // goto n2200 (duplicated)
+                            /* get next enode in current element. */
+                            enode = list[enode as usize];
+                            if (iq2 == 1) {
+                                continue 'n900; // goto
+                            }
+                            break 'n1600_pre;
                         }
-                        todo!("goto n2100");
                     } // n1500:
 
                     /* for each 'enode' in the 'qx' list, do the following. */
                     enode = qxhead;
                     iq2 = 0;
+                } // n1600: (pre)
 
-                    todo!("n1600:");
+                'n1600: loop {
                     if (enode <= 0) {
                         break 'n2300; // goto (down)
                     }
                     if (backward[enode as usize] != 0) {
-                        break 'n2200; // goto (down)
+                        // goto n2200 (duplicated)
+                        /* get next enode in current element. */
+                        enode = list[enode as usize];
+                        if (iq2 == 1) {
+                            continue 'n900; // goto
+                        }
+                        continue 'n1600;
                     }
                     (*tag) += 1;
                     deg = deg0;
@@ -908,7 +949,8 @@ fn mmdupd(
                         }
                     }
 
-                    todo!("n2100:");
+                    // n2100: (original - now only reached by fallthrough)
+
                     /* update external degree of 'enode' in degree structure, */
                     /* and '*mdeg' if necessary.                     */
                     deg = deg - qsize[enode as usize] + 1;
@@ -922,16 +964,16 @@ fn mmdupd(
                     if (deg < *mdeg) {
                         *mdeg = deg;
                     }
-                    break 'n2200; // synthetic, superfluous (not a loop)
-                } // n2200:
+                    // n2200: (original, now fallthrough only)
 
-                /* get next enode in current element. */
-                enode = list[enode as usize];
-                if (iq2 == 1) {
-                    continue 'n900; // goto
-                }
+                    /* get next enode in current element. */
+                    enode = list[enode as usize];
+                    if (iq2 == 1) {
+                        continue 'n900; // goto
+                    }
 
-                todo!("goto n1600");
+                    continue 'n1600; // goto, superfluous (it's a loop!)
+                } // bottom of n1600
             } // bottom of n900
 
             break 'n2300; // synthetic, superfluous (not a loop)
