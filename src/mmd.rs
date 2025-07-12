@@ -697,230 +697,239 @@ fn mmdupd(
     adjncy: &mut Fslice,
     delta: idx_t,
     mdeg: &mut Fslice,
-    head: &Fslice,
-    forward: &Fslice,
-    backward: &Fslice,
-    qsize: &Fslice,
-    list: &Fslice,
-    marker: &Fslice,
-    tag: &Fslice,
+    head: &mut Fslice,
+    forward: &mut Fslice,
+    backward: &mut Fslice,
+    qsize: &mut Fslice,
+    list: &mut Fslice,
+    marker: &mut Fslice,
+    tag: &mut Fslice,
 ) {
     // idx_t  deg, deg0, element, enode, fnode, i, iq2, istop,
     //      istart, j, jstop, jstart, link, mdeg0, mtag, nabor,
     //      node, q2head, qxhead;
     //
-    //      mdeg0 = *mdeg + delta;
-    //      element = ehead;
+    let mdeg0 = *mdeg + delta;
+    let mut element = ehead;
 
     'n100: loop {
-        if (element <= 0) {
-            return;
-        }
-
-        /* for each of the newly formed element, do the following. */
-        /* reset tag value if necessary.                           */
-        mtag = *tag + mdeg0;
-        if (mtag >= idx_t::MAX) {
-            *tag = 1;
-            for i in 1..=neqns {
-                if (marker[i as usize] < idx_t::MAX) {
-                    marker[i as usize] = 0;
-                }
+        // header (so n2300 is only ever broken out of)
+        'n2300: {
+            if (element <= 0) {
+                return;
             }
+
+            /* for each of the newly formed element, do the following. */
+            /* reset tag value if necessary.                           */
             mtag = *tag + mdeg0;
-        };
-
-        /* create two linked lists from nodes associated with 'element': */
-        /* one with two nabors (q2head) in the adjacency structure, and the*/
-        /* other with more than two nabors (qxhead). also compute 'deg0',*/
-        /* number of nodes in this element.                              */
-        q2head = 0;
-        qxhead = 0;
-        deg0 = 0;
-        link = element;
-
-        todo!("n400:");
-        istart = xadj[link as usize];
-        istop = xadj[(link + 1) as usize] - 1;
-        for i in istart..=istop {
-            enode = adjncy[i as usize];
-            link = -enode;
-            if (enode < 0) {
-                todo!("goto n400");
-            }
-            if (enode == 0) {
-                break;
-            }
-            if (qsize[enode as usize] != 0) {
-                deg0 += qsize[enode as usize];
-                marker[enode as usize] = mtag;
-
-                /*'enode' requires a degree update*/
-                if (backward[enode as usize] == 0) {
-                    /* place either in qxhead or q2head list. */
-                    if (forward[enode as usize] != 2) {
-                        list[enode as usize] = qxhead;
-                        qxhead = enode;
-                    } else {
-                        list[enode as usize] = q2head;
-                        q2head = enode;
-                    };
-                };
-            }; /* enf of -- if ( qsize[enode as usize] != 0 ) -- */
-        } /* end of -- for ( i = istart; -- */
-
-        /* for each node in q2 list, do the following. */
-        enode = q2head;
-        iq2 = 1;
-
-        todo!("n900:"); // big loop (outer)
-        if (enode <= 0) {
-            todo!("goto n1500");
-        }
-
-        if (backward[enode as usize] != 0) {
-            todo!("goto n2200");
-        }
-
-        (*tag) += 1;
-        deg = deg0;
-
-        /* identify the other adjacent element nabor. */
-        istart = xadj[enode as usize];
-        nabor = adjncy[istart as usize];
-        if (nabor == element) {
-            nabor = adjncy[(istart + 1) as usize];
-        }
-        link = nabor;
-        if (forward[nabor as usize] >= 0) {
-            /* nabor is uneliminated, increase degree count. */
-            deg += qsize[nabor as usize];
-            todo!("goto n2100");
-        };
-
-        /* the nabor is eliminated. for each node in the 2nd element */
-        /* do the following.                                         */
-        todo!("n1000:");
-        istart = xadj[link as usize];
-        istop = xadj[(link + 1) as usize] - 1;
-        for i in istart..=istop {
-            node = adjncy[i as usize];
-            link = -node;
-            if (node != enode) {
-                if (node < 0) {
-                    todo!("goto n1000");
+            if (mtag >= idx_t::MAX) {
+                *tag = 1;
+                for i in 1..=neqns {
+                    if (marker[i as usize] < idx_t::MAX) {
+                        marker[i as usize] = 0;
+                    }
                 }
-                if (node == 0) {
-                    todo!("goto n2100");
-                }
-                if (qsize[node as usize] != 0) {
-                    if (marker[node as usize] < *tag) {
-                        /* 'node' is not yet considered. */
-                        marker[node as usize] = *tag;
-                        deg += qsize[node as usize];
-                    } else {
-                        if (backward[node as usize] == 0) {
-                            if (forward[node as usize] == 2) {
-                                /* 'node' is indistinguishable from 'enode'.*/
-                                /* merge them into a new supernode.         */
-                                qsize[enode as usize] += qsize[node as usize];
-                                qsize[node as usize] = 0;
-                                marker[node as usize] = idx_t::MAX;
-                                forward[node as usize] = -enode;
-                                backward[node as usize] = -idx_t::MAX;
+                mtag = *tag + mdeg0;
+            };
+
+            /* create two linked lists from nodes associated with 'element': */
+            /* one with two nabors (q2head) in the adjacency structure, and the*/
+            /* other with more than two nabors (qxhead). also compute 'deg0',*/
+            /* number of nodes in this element.                              */
+            q2head = 0;
+            qxhead = 0;
+            let mut deg0 = 0;
+            let mut link = element;
+
+            'n400: loop {
+                istart = xadj[link as usize];
+                istop = xadj[(link + 1) as usize] - 1;
+                for i in istart..=istop {
+                    enode = adjncy[i as usize];
+                    link = -enode;
+                    if (enode < 0) {
+                        continue 'n400; // goto
+                    }
+                    if (enode == 0) {
+                        break;
+                    }
+                    if (qsize[enode as usize] != 0) {
+                        deg0 += qsize[enode as usize];
+                        marker[enode as usize] = mtag;
+
+                        /*'enode' requires a degree update*/
+                        if (backward[enode as usize] == 0) {
+                            /* place either in qxhead or q2head list. */
+                            if (forward[enode as usize] != 2) {
+                                list[enode as usize] = qxhead;
+                                qxhead = enode;
                             } else {
-                                /* 'node' is outmacthed by 'enode' */
-                                if (backward[node as usize] == 0) {
-                                    backward[node as usize] = -idx_t::MAX;
-                                }
-                            };
-                        }; /* end of -- if ( backward[node as usize] == 0 ) -- */
-                    }; /* end of -- if ( marker[node as usize] < *tag ) -- */
-                }; /* end of -- if ( qsize[node as usize] != 0 ) -- */
-            }; /* end of -- if ( node != enode ) -- */
-        } /* end of -- for ( i = istart; -- */
-        todo!("goto n2100");
+                                list[enode as usize] = q2head;
+                                q2head = enode;
+                            }
+                        }
+                    }
+                }
 
-        todo!("n1500:");
-        /* for each 'enode' in the 'qx' list, do the following. */
-        enode = qxhead;
-        iq2 = 0;
-
-        todo!("n1600:");
-        if (enode <= 0) {
-            todo!("goto n2300");
-        }
-        if (backward[enode as usize] != 0) {
-            todo!("goto n2200");
-        }
-        (*tag) += 1;
-        deg = deg0;
-
-        /*for each unmarked nabor of 'enode', do the following.*/
-        istart = xadj[enode as usize];
-        istop = xadj[(enode + 1) as usize] - 1;
-        for i in istart..=istop {
-            nabor = adjncy[i as usize];
-            if (nabor == 0) {
-                break;
+                break 'n400; // synthetic fallthrough
             }
-            if (marker[nabor as usize] < *tag) {
-                marker[nabor as usize] = *tag;
-                link = nabor;
-                if (forward[nabor as usize] >= 0) {
-                    /*if uneliminated, include it in deg count.*/
-                    deg += qsize[nabor as usize];
-                } else {
-                    todo!("n1700:"); // smaller loop
 
-                    /* if eliminated, include unmarked nodes in this*/
-                    /* element into the degree count.             */
-                    jstart = xadj[link as usize];
-                    jstop = xadj[(link + 1) as usize] - 1;
-                    for j in jstart..=jstop {
-                        j += 1;
-                        node = adjncy[j as usize];
-                        link = -node;
+            /* for each node in q2 list, do the following. */
+            enode = q2head;
+            iq2 = 1;
+
+            todo!("n900:"); // big loop (outer)
+            if (enode <= 0) {
+                todo!("goto n1500");
+            }
+
+            if (backward[enode as usize] != 0) {
+                todo!("goto n2200");
+            }
+
+            (*tag) += 1;
+            deg = deg0;
+
+            /* identify the other adjacent element nabor. */
+            istart = xadj[enode as usize];
+            nabor = adjncy[istart as usize];
+            if (nabor == element) {
+                nabor = adjncy[(istart + 1) as usize];
+            }
+            link = nabor;
+            if (forward[nabor as usize] >= 0) {
+                /* nabor is uneliminated, increase degree count. */
+                deg += qsize[nabor as usize];
+                todo!("goto n2100");
+            };
+
+            /* the nabor is eliminated. for each node in the 2nd element */
+            /* do the following.                                         */
+            'n1000: loop {
+                istart = xadj[link as usize];
+                istop = xadj[(link + 1) as usize] - 1;
+                for i in istart..=istop {
+                    node = adjncy[i as usize];
+                    link = -node;
+                    if (node != enode) {
                         if (node < 0) {
-                            todo!("goto n1700");
+                            continue 'n1000; // goto
                         }
                         if (node == 0) {
-                            break;
+                            todo!("goto n2100");
                         }
-                        if (marker[node as usize] < *tag) {
-                            marker[node as usize] = *tag;
-                            deg += qsize[node as usize];
-                        };
-                    } /* end of -- for ( j = jstart; -- */
-                }; /* end of -- if ( forward[nabor as usize] >= 0 ) -- */
-            }; /* end of -- if ( marker[nabor as usize] < *tag ) -- */
-        } /* end of -- for ( i = istart; -- */
+                        if (qsize[node as usize] != 0) {
+                            if (marker[node as usize] < *tag) {
+                                /* 'node' is not yet considered. */
+                                marker[node as usize] = *tag;
+                                deg += qsize[node as usize];
+                            } else {
+                                if (backward[node as usize] == 0) {
+                                    if (forward[node as usize] == 2) {
+                                        /* 'node' is indistinguishable from 'enode'.*/
+                                        /* merge them into a new supernode.         */
+                                        qsize[enode as usize] += qsize[node as usize];
+                                        qsize[node as usize] = 0;
+                                        marker[node as usize] = idx_t::MAX;
+                                        forward[node as usize] = -enode;
+                                        backward[node as usize] = -idx_t::MAX;
+                                    } else {
+                                        /* 'node' is outmacthed by 'enode' */
+                                        if (backward[node as usize] == 0) {
+                                            backward[node as usize] = -idx_t::MAX;
+                                        }
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
 
-        todo!("n2100:");
-        /* update external degree of 'enode' in degree structure, */
-        /* and '*mdeg' if necessary.                     */
-        deg = deg - qsize[enode as usize] + 1;
-        fnode = head[deg as usize];
-        forward[enode as usize] = fnode;
-        backward[enode as usize] = -deg;
-        if (fnode > 0) {
-            backward[fnode as usize] = enode;
-        }
-        head[deg as usize] = enode;
-        if (deg < *mdeg) {
-            *mdeg = deg;
-        }
+                break 'n1000; // synthetic fallthrough
+            }
+            todo!("goto n2100");
 
-        todo!("n2200:");
-        /* get next enode in current element. */
-        enode = list[enode as usize];
-        if (iq2 == 1) {
-            todo!("goto n900");
-        }
+            todo!("n1500:");
+            /* for each 'enode' in the 'qx' list, do the following. */
+            enode = qxhead;
+            iq2 = 0;
 
-        todo!("goto n1600");
+            todo!("n1600:");
+            if (enode <= 0) {
+                break 'n2300; // goto (down)
+            }
+            if (backward[enode as usize] != 0) {
+                todo!("goto n2200");
+            }
+            (*tag) += 1;
+            deg = deg0;
 
-        todo!("n2300:"); // epilogue of n100 loop - only way to continue
+            /*for each unmarked nabor of 'enode', do the following.*/
+            istart = xadj[enode as usize];
+            istop = xadj[(enode + 1) as usize] - 1;
+            for i in istart..=istop {
+                nabor = adjncy[i as usize];
+                if (nabor == 0) {
+                    break;
+                }
+                if (marker[nabor as usize] < *tag) {
+                    marker[nabor as usize] = *tag;
+                    link = nabor;
+                    if (forward[nabor as usize] >= 0) {
+                        /*if uneliminated, include it in deg count.*/
+                        deg += qsize[nabor as usize];
+                    } else {
+                        'n1700: loop {
+                            /* if eliminated, include unmarked nodes in this*/
+                            /* element into the degree count.             */
+                            jstart = xadj[link as usize];
+                            jstop = xadj[(link + 1) as usize] - 1;
+                            for j in jstart..=jstop {
+                                j += 1;
+                                node = adjncy[j as usize];
+                                link = -node;
+                                if (node < 0) {
+                                    continue 'n1700; // goto
+                                }
+                                if (node == 0) {
+                                    break;
+                                }
+                                if (marker[node as usize] < *tag) {
+                                    marker[node as usize] = *tag;
+                                    deg += qsize[node as usize];
+                                }
+                            }
+
+                            break 'n1700; // synthetic fallthrough
+                        }
+                    }
+                }
+            }
+
+            todo!("n2100:");
+            /* update external degree of 'enode' in degree structure, */
+            /* and '*mdeg' if necessary.                     */
+            deg = deg - qsize[enode as usize] + 1;
+            fnode = head[deg as usize];
+            forward[enode as usize] = fnode;
+            backward[enode as usize] = -deg;
+            if (fnode > 0) {
+                backward[fnode as usize] = enode;
+            }
+            head[deg as usize] = enode;
+            if (deg < *mdeg) {
+                *mdeg = deg;
+            }
+
+            todo!("n2200:");
+            /* get next enode in current element. */
+            enode = list[enode as usize];
+            if (iq2 == 1) {
+                todo!("goto n900");
+            }
+
+            todo!("goto n1600");
+        } // n2300:
 
         /* get next element in the list. */
         *tag = mtag;
