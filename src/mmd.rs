@@ -107,6 +107,78 @@
  * $Id: mmd.c 22385 2019-06-03 22:08:48Z karypis $
  */
 
+/// wrapper for slices that use FORTRAN indexing
+#[repr(transparent)]
+struct Fslice([idx_t]);
+
+impl Fslice {
+    fn new(slice: &[idx_t]) -> &Fslice {
+        unsafe { std::mem::transmute(slice) }
+    }
+
+    fn new_mut(slice: &mut [idx_t]) -> &mut Fslice {
+        unsafe { std::mem::transmute(slice) }
+    }
+
+    unsafe fn from_raw_parts<'a>(p: *const idx_t, len: usize) -> &'a Fslice {
+        std::mem::transmute(std::slice::from_raw_parts(p, len))
+    }
+
+    unsafe fn from_raw_parts_mut<'a>(p: *mut idx_t, len: usize) -> &'a mut Fslice {
+        std::mem::transmute(std::slice::from_raw_parts_mut(p, len))
+    }
+
+    fn as_slice(&self) -> &[idx_t] {
+        &self.0
+    }
+
+    fn as_slice_mut(&mut self) -> &mut [idx_t] {
+        &mut self.0
+    }
+}
+
+trait FsliceIndex {
+    fn to_slice_index(self) -> Self;
+}
+
+impl<I: FsliceIndex> std::ops::Index<I> for Fslice {
+    type Output = I::Output;
+    fn index(&self, index: I) -> &Self::Output {
+        &self.0[index.to_slice_index()]
+    }
+}
+
+impl<I: FsliceIndex> std::ops::Index<I> for Fslice {
+    type Output = I::Output;
+    fn index(&self, index: I) -> &Self::Output {
+        &self.0[index.to_slice_index()]
+    }
+}
+
+impl FsliceIndex for std::ops::Range<usize> {
+    fn to_slice_index(self) -> Self {
+        (self.start - 1)..(self.end - 1)
+    }
+}
+
+impl FsliceIndex for std::ops::RangeToInclusive<usize> {
+    fn to_slice_index(self) -> Self {
+        ..=(self.end() - 1)
+    }
+}
+
+impl FsliceIndex for std::ops::RangeInclusive<usize> {
+    fn to_slice_index(self) -> Self {
+        (self.start() - 1)..=(self.end() - 1)
+    }
+}
+
+impl FsliceIndex for usize {
+    fn to_slice_index(self) -> Self {
+        self - 1
+    }
+}
+
 /*************************************************************************
 *  genmmd  -- multiple minimum external degree
 *  purpose -- this routine implements the minimum degree
@@ -135,11 +207,13 @@
 *     marker -- a temporary marker vector.
 *  Subroutines used -- mmdelm, mmdint, mmdnum, mmdupd.
 **************************************************************************/
+/// this is the entry point to for `genmmd`. Right now it just forwards to [`genmmd_rs_entry`]
 #[metis_func]
 pub extern "C" fn genmmd(
     neqns: idx_t,
     xadj: *mut idx_t,
     adjncy: *mut idx_t,
+
     invp: *mut idx_t,
     perm: *mut idx_t,
     delta: idx_t,
@@ -147,23 +221,53 @@ pub extern "C" fn genmmd(
     qsize: *mut idx_t,
     list: *mut idx_t,
     marker: *mut idx_t,
+
     maxint: idx_t,
     ncsub: *mut idx_t,
 ) {
+    let xadj = Fslice::from_raw_parts_mut(xadj, neqns as usize + 1);
+    // NOTE: the caller (ometis::MMDOrder) already made xadj and adjncy one-indexed, so indexing
+    // using the Fslice indexing (one-indexing) is correct, but we need to decrement the last
+    // element of xadj since it's now len+1
+    debug_assert_eq!(*xadj.as_slice().last().unwrap(), xadj[neqns as usize + 1]); // sanity check
+
+    let adjncy = Fslice::from_raw_parts_mut(adjncy, xadj[neqns as usize + 1] as usize - 1);
+
+    // I might need to include the length hack provided in MMDOrder (+5 to len) for each of these
+    // scratch slices
+    let invp = Fslice::from_raw_parts_mut(invp, neqns as usize);
+    let perm = Fslice::from_raw_parts_mut(perm, neqns as usize);
+    let head = Fslice::from_raw_parts_mut(head, neqns as usize);
+    let qsize = Fslice::from_raw_parts_mut(qsize, neqns as usize);
+    let list = Fslice::from_raw_parts_mut(list, neqns as usize);
+    let marker = Fslice::from_raw_parts_mut(marker, neqns as usize);
+
+    assert_eq!(maxint, idx_t::MAX);
+
+    let res = genmmd_rs_entry(neqns, xadj, adjncy, invp, perm, delta, head, qsize, list, marker);
+    *ncsub = res;
+}
+
+fn genmmd_rs_entry(
+    neqns: idx_t,
+    xadj: &mut Fslice,
+    adjncy: &mut Fslice,
+    invp: &mut Fslice,
+    perm: &mut Fslice,
+    delta: idx_t,
+    head: &mut Fslice,
+    qsize: &mut Fslice,
+    list: &mut Fslice,
+    marker: &mut Fslice,
+) -> idx_t {
     // idx_t  ehead, i, mdeg, mdlmt, mdeg_node, nextmd, num, tag;
 
     if (neqns <= 0) {
-        return;
+        return 0;
     }
 
-    /* adjust from C to Fortran */
-    // FIXME: this is horrible UB. It doesn't seem like any compiler currently
-    // destroys this but I want to fix it
-    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=34331f6a82be75de727ef2479302c7dd
-    todo!("xadj--; adjncy--; invp--; perm--; head--; qsize--; list--; marker--;")
-
     /* initialization for the minimum degree algorithm */
-    *ncsub = 0;
+    let mut ncsub = 0;
     mmdint(neqns, xadj, adjncy, head, invp, perm, qsize, list, marker);
 
     /* 'num' counts the number of ordered nodes plus 1 */
@@ -174,7 +278,7 @@ pub extern "C" fn genmmd(
     while (nextmd > 0) {
         mdeg_node = nextmd;
         nextmd = invp[mdeg_node as usize];
-        marker[mdeg_node as usize] = maxint;
+        marker[mdeg_node as usize] = idx_t::MAX;
         invp[mdeg_node as usize] = -num;
         num += 1;
     }
@@ -233,17 +337,17 @@ pub extern "C" fn genmmd(
             /*  eliminate 'mdeg_node' and perform quotient graph */
             /*  transformation. reset 'tag' value if necessary.    */
             tag += 1;
-            if (tag >= maxint) {
+            if (tag >= idx_t::MAX) {
                 tag = 1;
                 for i in (1)..=(neqns) {
-                    if (marker[i as usize] < maxint) {
+                    if (marker[i as usize] < idx_t::MAX) {
                         marker[i as usize] = 0;
                     }
                 }
             };
 
             mmdelm(
-                mdeg_node, xadj, adjncy, head, invp, perm, qsize, list, marker, maxint, tag,
+                mdeg_node, xadj, adjncy, head, invp, perm, qsize, list, marker, tag,
             );
 
             num += qsize[mdeg_node as usize];
@@ -267,7 +371,7 @@ pub extern "C" fn genmmd(
 
         mmdupd(
             ehead, neqns, xadj, adjncy, delta, &mdeg, head, invp, perm, qsize, list, marker,
-            maxint, &tag,
+            &tag,
         );
     }
 
@@ -275,6 +379,7 @@ pub extern "C" fn genmmd(
 
     /* Adjust from Fortran back to C*/
     // xadj; adjncy++; invp++; perm++; head++; qsize++; list++; marker += 1;xadj+=1;
+    return ncsub
 }
 
 /**************************************************************************
@@ -285,7 +390,6 @@ pub extern "C" fn genmmd(
 *     of the elimination graph.
 * Input parameters --
 *     mdeg_node -- node of minimum degree.
-*     maxint -- estimate of maximum representable (short) integer.
 *     tag    -- tag value.
 * Updated parameters --
 *     (xadj, adjncy) -- updated adjacency structure.
@@ -296,15 +400,14 @@ pub extern "C" fn genmmd(
 ***************************************************************************/
 fn mmdelm(
     mdeg_node: idx_t,
-    xadj: *mut idx_t,
-    adjncy: *mut idx_t,
-    head: *mut idx_t,
-    forward: *mut idx_t,
-    backward: *mut idx_t,
-    qsize: *mut idx_t,
-    list: *mut idx_t,
-    marker: *mut idx_t,
-    maxint: idx_t,
+    xadj: &mut Fslice,
+    adjncy: &mut Fslice,
+    head: &mut Fslice,
+    forward: &mut Fslice,
+    backward: &mut Fslice,
+    qsize: &mut Fslice,
+    list: &mut Fslice,
+    marker: &mut Fslice,
     tag: idx_t,
 ) {
     // idx_t   element, i,   istop, istart, j,
@@ -395,7 +498,7 @@ fn mmdelm(
 
         /* 'rnode' is in the degree list structure. */
         pvnode = backward[rnode as usize];
-        if ((pvnode != 0) && (pvnode != (-maxint))) {
+        if ((pvnode != 0) && (pvnode != (-idx_t::MAX))) {
             /* then remove 'rnode' from the structure. */
             nxnode = forward[rnode as usize];
             if (nxnode > 0) {
@@ -431,9 +534,9 @@ fn mmdelm(
             /* merge 'rnode' with 'mdeg_node'. */
             qsize[mdeg_node as usize] += qsize[rnode as usize];
             qsize[rnode as usize] = 0;
-            marker[rnode as usize] = maxint;
+            marker[rnode as usize] = idx_t::MAX;
             forward[rnode as usize] = -mdeg_node;
-            backward[rnode as usize] = -maxint;
+            backward[rnode as usize] = -idx_t::MAX;
         } else {
             /* flag 'rnode' for degree update, and  */
             /* add 'mdeg_node' as a nabor of 'rnode'.      */
@@ -464,14 +567,14 @@ fn mmdelm(
 ****************************************************************************/
 fn mmdint(
     neqns: idx_t,
-    xadj: *mut idx_t,
-    adjncy: *mut idx_t,
-    head: *mut idx_t,
-    forward: *mut idx_t,
-    backward: *const idx_t,
-    qsize: *const idx_t,
-    list: *const idx_t,
-    marker: *const idx_t,
+    xadj: &mut Fslice,
+    adjncy: &mut Fslice,
+    head: &mut Fslice,
+    forward: &mut Fslice,
+    backward: &Fslice,
+    qsize: &Fslice,
+    list: &Fslice,
+    marker: &Fslice,
 ) -> idx_t {
     // idx_t fnode, ndeg, node;
 
@@ -514,7 +617,7 @@ fn mmdint(
 * output parameters --
 *     perm -- the permutation vector.
 ****************************************************************************/
-fn mmdnum(neqns: idx_t, perm: *mut idx_t, invp: *mut idx_t, qsize: *mut idx_t) {
+fn mmdnum(neqns: idx_t, perm: &mut Fslice, invp: &mut Fslice, qsize: &mut Fslice) {
     // idx_t father, nextf, node, nqsize, num, root;
 
     // for ( node = 1; node <= neqns; node ) {
@@ -574,7 +677,6 @@ fn mmdnum(neqns: idx_t, perm: *mut idx_t, invp: *mut idx_t, qsize: *mut idx_t) {
 *    neqns -- number of equations.
 *    (xadj, adjncy) -- adjacency structure.
 *    delta -- tolerance value for multiple elimination.
-*    maxint -- maximum machine representable (short) integer.
 * updated parameters --
 *    mdeg -- new minimum degree after degree update.
 *    (head, forward, backward) -- degree doubly linked structure.
@@ -585,18 +687,17 @@ fn mmdnum(neqns: idx_t, perm: *mut idx_t, invp: *mut idx_t, qsize: *mut idx_t) {
 fn mmdupd(
     ehead: idx_t,
     neqns: idx_t,
-    xadj: *mut idx_t,
-    adjncy: *mut idx_t,
+    xadj: &mut Fslice,
+    adjncy: &mut Fslice,
     delta: idx_t,
-    mdeg: *mut idx_t,
-    head: *const idx_t,
-    forward: *const idx_t,
-    backward: *const idx_t,
-    qsize: *const idx_t,
-    list: *const idx_t,
-    marker: *const idx_t,
-    maxint: idx_t,
-    tag: *const idx_t,
+    mdeg: &mut Fslice,
+    head: &Fslice,
+    forward: &Fslice,
+    backward: &Fslice,
+    qsize: &Fslice,
+    list: &Fslice,
+    marker: &Fslice,
+    tag: &Fslice,
 ) {
     // idx_t  deg, deg0, element, enode, fnode, i, iq2, istop,
     //      istart, j, jstop, jstart, link, mdeg0, mtag, nabor,
@@ -613,10 +714,10 @@ fn mmdupd(
         /* for each of the newly formed element, do the following. */
         /* reset tag value if necessary.                           */
         mtag = *tag + mdeg0;
-        if (mtag >= maxint) {
+        if (mtag >= idx_t::MAX) {
             *tag = 1;
             for i in 1..=neqns {
-                if (marker[i as usize] < maxint) {
+                if (marker[i as usize] < idx_t::MAX) {
                     marker[i as usize] = 0;
                 }
             }
@@ -718,13 +819,13 @@ fn mmdupd(
                                 /* merge them into a new supernode.         */
                                 qsize[enode as usize] += qsize[node as usize];
                                 qsize[node as usize] = 0;
-                                marker[node as usize] = maxint;
+                                marker[node as usize] = idx_t::MAX;
                                 forward[node as usize] = -enode;
-                                backward[node as usize] = -maxint;
+                                backward[node as usize] = -idx_t::MAX;
                             } else {
                                 /* 'node' is outmacthed by 'enode' */
                                 if (backward[node as usize] == 0) {
-                                    backward[node as usize] = -maxint;
+                                    backward[node as usize] = -idx_t::MAX;
                                 }
                             };
                         }; /* end of -- if ( backward[node as usize] == 0 ) -- */
