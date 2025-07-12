@@ -86,6 +86,8 @@
 //! fuzzing)
 //!
 
+use crate::*;
+
 /*
  * mmd.c
  *
@@ -112,6 +114,8 @@
 struct Fslice([idx_t]);
 
 impl Fslice {
+    #![allow(dead_code)]
+
     fn new(slice: &[idx_t]) -> &Fslice {
         unsafe { std::mem::transmute(slice) }
     }
@@ -141,17 +145,17 @@ trait FsliceIndex {
     fn to_slice_index(self) -> Self;
 }
 
-impl<I: FsliceIndex> std::ops::Index<I> for Fslice {
+impl<I: FsliceIndex + std::slice::SliceIndex<[idx_t]>> std::ops::Index<I> for Fslice {
     type Output = I::Output;
+
     fn index(&self, index: I) -> &Self::Output {
         &self.0[index.to_slice_index()]
     }
 }
 
-impl<I: FsliceIndex> std::ops::Index<I> for Fslice {
-    type Output = I::Output;
-    fn index(&self, index: I) -> &Self::Output {
-        &self.0[index.to_slice_index()]
+impl<I: FsliceIndex + std::slice::SliceIndex<[idx_t]>> std::ops::IndexMut<I> for Fslice {
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        &mut self.0[index.to_slice_index()]
     }
 }
 
@@ -163,7 +167,7 @@ impl FsliceIndex for std::ops::Range<usize> {
 
 impl FsliceIndex for std::ops::RangeToInclusive<usize> {
     fn to_slice_index(self) -> Self {
-        ..=(self.end() - 1)
+        ..=(self.end - 1)
     }
 }
 
@@ -264,21 +268,21 @@ fn genmmd_rs_entry(
 ) -> idx_t {
     // idx_t  ehead, i, mdeg, mdlmt, mdeg_node, nextmd, num, tag;
 
-    if (neqns <= 0) {
+    if neqns <= 0 {
         return 0;
     }
 
     /* initialization for the minimum degree algorithm */
     let mut ncsub = 0;
-    mmdint(neqns, xadj, adjncy, head, invp, perm, qsize, list, marker);
+    mmdint(neqns, xadj, head, invp, perm, qsize, list, marker);
 
     /* 'num' counts the number of ordered nodes plus 1 */
-    num = 1;
+    let mut num = 1;
 
     /* eliminate all isolated nodes */
-    nextmd = head[1 as usize];
-    while (nextmd > 0) {
-        mdeg_node = nextmd;
+    let mut nextmd = head[1 as usize];
+    while nextmd > 0 {
+        let mdeg_node = nextmd;
         nextmd = invp[mdeg_node as usize];
         marker[mdeg_node as usize] = idx_t::MAX;
         invp[mdeg_node as usize] = -num;
@@ -287,18 +291,19 @@ fn genmmd_rs_entry(
 
     /* search for node of the minimum degree. 'mdeg' is the current */
     /* minimum degree; 'tag' is used to facilitate marking nodes.   */
-    if (num > neqns) {
+    if num > neqns {
         mmdnum(neqns, perm, invp, qsize);
-        return;
+        return 0;
     }
 
-    tag = 1;
+    let mut tag = 1;
     head[1 as usize] = 0;
-    mdeg = 2;
+
+    let mut mdeg = 2;
 
     /* infinite loop here */
     'outer: loop {
-        while (head[mdeg as usize] <= 0) {
+        while head[mdeg as usize] <= 0 {
             mdeg += 1;
         }
 
@@ -307,18 +312,18 @@ fn genmmd_rs_entry(
         //mdlmt = mdeg + delta;
         // the need for gk_min() was identified by jsf67
         // https://github.com/KarypisLab/METIS/issues/46
-        mdlmt = gk_min(neqns, mdeg + delta);
-        ehead = 0;
+        let mdlmt = neqns.min(mdeg + delta);
+        let mut ehead = 0;
 
         // merged n500 and n900
         // goto n500 => continue n500
         // goto n900 => break n500
         'n500: loop {
-            mdeg_node = head[mdeg as usize];
-            while (mdeg_node <= 0) {
+            let mut mdeg_node = head[mdeg as usize];
+            while mdeg_node <= 0 {
                 mdeg += 1;
 
-                if (mdeg > mdlmt) {
+                if mdeg > mdlmt {
                     break 'n500;
                 }
                 mdeg_node = head[mdeg as usize];
@@ -327,22 +332,22 @@ fn genmmd_rs_entry(
             /* remove 'mdeg_node' from the degree structure */
             nextmd = invp[mdeg_node as usize];
             head[mdeg as usize] = nextmd;
-            if (nextmd > 0) {
+            if nextmd > 0 {
                 perm[nextmd as usize] = -mdeg;
             }
             invp[mdeg_node as usize] = -num;
-            *ncsub += mdeg + qsize[mdeg_node as usize] - 2;
-            if ((num + qsize[mdeg_node as usize]) > neqns) {
+            ncsub += mdeg + qsize[mdeg_node as usize] - 2;
+            if num + qsize[mdeg_node as usize] > neqns {
                 break 'outer;
             }
 
             /*  eliminate 'mdeg_node' and perform quotient graph */
             /*  transformation. reset 'tag' value if necessary.    */
             tag += 1;
-            if (tag >= idx_t::MAX) {
+            if tag >= idx_t::MAX {
                 tag = 1;
                 for i in (1)..=(neqns) {
-                    if (marker[i as usize] < idx_t::MAX) {
+                    if marker[i as usize] < idx_t::MAX {
                         marker[i as usize] = 0;
                     }
                 }
@@ -355,7 +360,7 @@ fn genmmd_rs_entry(
             num += qsize[mdeg_node as usize];
             list[mdeg_node as usize] = ehead;
             ehead = mdeg_node;
-            if (delta >= 0) {
+            if delta >= 0 {
                 continue 'n500;
             } else {
                 break 'n500;
@@ -367,19 +372,17 @@ fn genmmd_rs_entry(
 
         /* update degrees of the nodes involved in the  */
         /* minimum degree nodes elimination.            */
-        if (num > neqns) {
+        if num > neqns {
             break 'outer;
         }
 
         mmdupd(
-            ehead, neqns, xadj, adjncy, delta, &mdeg, head, invp, perm, qsize, list, marker, &tag,
+            ehead, neqns, xadj, adjncy, delta, &mut mdeg, head, invp, perm, qsize, list, marker, &mut tag,
         );
     }
 
     mmdnum(neqns, perm, invp, qsize);
 
-    /* Adjust from Fortran back to C*/
-    // xadj; adjncy++; invp++; perm++; head++; qsize++; list++; marker += 1;xadj+=1;
     return ncsub;
 }
 
@@ -419,23 +422,23 @@ fn mmdelm(
     /* find the reachable set of 'mdeg_node' and */
     /* place it in the data structure.           */
     marker[mdeg_node as usize] = tag;
-    istart = xadj[mdeg_node as usize];
-    istop = xadj[(mdeg_node + 1) as usize] - 1;
+    let istart = xadj[mdeg_node as usize];
+    let istop = xadj[(mdeg_node + 1) as usize] - 1;
 
     /* 'element' points to the beginning of the list of  */
     /* eliminated nabors of 'mdeg_node', and 'rloc' gives the */
     /* storage location for the next reachable node.   */
-    element = 0;
-    rloc = istart;
-    rlmt = istop;
+    let mut element = 0;
+    let mut rloc = istart;
+    let mut rlmt = istop;
     for i in istart..=istop {
-        nabor = adjncy[i as usize];
-        if (nabor == 0) {
+        let nabor = adjncy[i as usize];
+        if nabor == 0 {
             break;
         }
-        if (marker[nabor as usize] < tag) {
+        if marker[nabor as usize] < tag {
             marker[nabor as usize] = tag;
-            if (forward[nabor as usize] < 0) {
+            if forward[nabor as usize] < 0 {
                 list[nabor as usize] = element;
                 element = nabor;
             } else {
@@ -446,26 +449,26 @@ fn mmdelm(
     } /* end of -- for -- */
 
     /* merge with reachable nodes from generalized elements. */
-    while (element > 0) {
+    while element > 0 {
         adjncy[rlmt as usize] = -element;
-        link = element;
+        let mut link = element;
 
         'n400: loop {
-            jstart = xadj[link as usize];
-            jstop = xadj[(link + 1) as usize] - 1;
+            let jstart = xadj[link as usize];
+            let jstop = xadj[(link + 1) as usize] - 1;
             for j in jstart..=jstop {
-                node = adjncy[j as usize];
+                let node = adjncy[j as usize];
                 link = -node;
-                if (node < 0) {
+                if node < 0 {
                     continue 'n400; // goto
                 }
-                if (node == 0) {
+                if node == 0 {
                     break;
                 }
-                if (marker[node as usize] < tag && forward[node as usize] >= 0) {
+                if marker[node as usize] < tag && forward[node as usize] >= 0 {
                     marker[node as usize] = tag;
                     /*use storage from eliminated nodes if necessary.*/
-                    while (rloc >= rlmt) {
+                    while rloc >= rlmt {
                         link = -adjncy[rlmt as usize];
                         rloc = xadj[link as usize];
                         rlmt = xadj[(link + 1) as usize] - 1;
@@ -478,62 +481,62 @@ fn mmdelm(
         }
 
         element = list[element as usize];
-    } /* end of -- while ( element > 0 ) -- */
+    } /* end of -- while  element > 0  -- */
 
-    if (rloc <= rlmt) {
+    if rloc <= rlmt {
         adjncy[rloc as usize] = 0;
     }
     /* for each node in the reachable set, do the following. */
-    link = mdeg_node;
+    let mut link = mdeg_node;
 
     'n1100: loop {
-        istart = xadj[link as usize];
-        istop = xadj[(link + 1) as usize] - 1;
+        let istart = xadj[link as usize];
+        let istop = xadj[(link + 1) as usize] - 1;
         for i in istart..=istop {
-            rnode = adjncy[i as usize];
+            let rnode = adjncy[i as usize];
             link = -rnode;
-            if (rnode < 0) {
+            if rnode < 0 {
                 continue 'n1100; // goto
             }
-            if (rnode == 0) {
+            if rnode == 0 {
                 return;
             }
 
             /* 'rnode' is in the degree list structure. */
-            pvnode = backward[rnode as usize];
-            if ((pvnode != 0) && (pvnode != (-idx_t::MAX))) {
+            let pvnode = backward[rnode as usize];
+            if pvnode != 0 && (pvnode != (-idx_t::MAX)) {
                 /* then remove 'rnode' from the structure. */
-                nxnode = forward[rnode as usize];
-                if (nxnode > 0) {
+                let nxnode = forward[rnode as usize];
+                if nxnode > 0 {
                     backward[nxnode as usize] = pvnode;
                 }
-                if (pvnode > 0) {
+                if pvnode > 0 {
                     forward[pvnode as usize] = nxnode;
                 }
-                npv = -pvnode;
-                if (pvnode < 0) {
+                let npv = -pvnode;
+                if pvnode < 0 {
                     head[npv as usize] = nxnode;
                 };
             }
 
             /* purge inactive quotient nabors of 'rnode'. */
-            jstart = xadj[rnode as usize];
-            jstop = xadj[(rnode + 1) as usize] - 1;
-            xqnbr = jstart;
+            let jstart = xadj[rnode as usize];
+            let jstop = xadj[(rnode + 1) as usize] - 1;
+            let mut xqnbr = jstart;
             for j in jstart..=jstop {
-                nabor = adjncy[j as usize];
-                if (nabor == 0) {
+                let nabor = adjncy[j as usize];
+                if nabor == 0 {
                     break;
                 }
-                if (marker[nabor as usize] < tag) {
+                if marker[nabor as usize] < tag {
                     adjncy[xqnbr as usize] = nabor;
                     xqnbr += 1;
                 };
             }
 
             /* no active nabor after the purging. */
-            nqnbrs = xqnbr - jstart;
-            if (nqnbrs <= 0) {
+            let nqnbrs = xqnbr - jstart;
+            if nqnbrs <= 0 {
                 /* merge 'rnode' with 'mdeg_node'. */
                 qsize[mdeg_node as usize] += qsize[rnode as usize];
                 qsize[rnode as usize] = 0;
@@ -547,7 +550,7 @@ fn mmdelm(
                 backward[rnode as usize] = 0;
                 adjncy[xqnbr as usize] = mdeg_node;
                 xqnbr += 1;
-                if (xqnbr <= jstop) {
+                if xqnbr <= jstop {
                     adjncy[xqnbr as usize] = 0;
                 }
             };
@@ -574,13 +577,13 @@ fn mmdelm(
 fn mmdint(
     neqns: idx_t,
     xadj: &mut Fslice,
-    adjncy: &mut Fslice,
+    // adjncy: &mut Fslice,
     head: &mut Fslice,
     forward: &mut Fslice,
-    backward: &Fslice,
-    qsize: &Fslice,
-    list: &Fslice,
-    marker: &Fslice,
+    backward: &mut Fslice,
+    qsize: &mut Fslice,
+    list: &mut Fslice,
+    marker: &mut Fslice,
 ) -> idx_t {
     // idx_t fnode, ndeg, node;
 
@@ -593,11 +596,11 @@ fn mmdint(
 
     /* initialize the degree doubly linked lists. */
     for node in (1)..=(neqns) {
-        ndeg = xadj[(node + 1) as usize] - xadj[node as usize] + 1;
-        fnode = head[ndeg as usize];
+        let ndeg = xadj[(node + 1) as usize] - xadj[node as usize] + 1;
+        let fnode = head[ndeg as usize];
         forward[node as usize] = fnode;
         head[ndeg as usize] = node;
-        if (fnode > 0) {
+        if fnode > 0 {
             backward[fnode as usize] = node;
         }
         backward[node as usize] = -ndeg;
@@ -626,47 +629,46 @@ fn mmdint(
 fn mmdnum(neqns: idx_t, perm: &mut Fslice, invp: &mut Fslice, qsize: &mut Fslice) {
     // idx_t father, nextf, node, nqsize, num, root;
 
-    // for ( node = 1; node <= neqns; node ) {
     for node in 1..=neqns {
-        nqsize = qsize[node as usize];
-        if (nqsize <= 0) {
+        let nqsize = qsize[node as usize];
+        if nqsize <= 0 {
             perm[node as usize] = invp[node as usize];
         }
-        if (nqsize > 0) {
+        if nqsize > 0 {
             perm[node as usize] = -invp[node as usize];
         }
     }
 
     /* for each node which has been merged, do the following. */
     for node in 1..=neqns {
-        if (perm[node as usize] <= 0) {
+        if perm[node as usize] <= 0 {
             /* trace the merged tree until one which has not */
             /* been merged, call it root.                    */
-            father = node;
-            while (perm[father as usize] <= 0) {
+            let mut father = node;
+            while perm[father as usize] <= 0 {
                 father = -perm[father as usize];
             }
 
             /* number node after root. */
-            root = father;
-            num = perm[root as usize] + 1;
+            let root = father;
+            let num = perm[root as usize] + 1;
             invp[node as usize] = -num;
             perm[root as usize] = num;
 
             /* shorten the merged tree. */
-            father = node;
-            nextf = -perm[father as usize];
-            while (nextf > 0) {
+            let mut father = node;
+            let mut nextf = -perm[father as usize];
+            while nextf > 0 {
                 perm[father as usize] = -root;
                 father = nextf;
                 nextf = -perm[father as usize];
             }
-        }; /* end of -- if ( perm[node as usize] <= 0 ) -- */
+        }; /* end of -- if  perm[node as usize] <= 0  -- */
     } /* end of -- for ( node = 1; -- */
 
     /* ready to compute perm. */
     for node in 1..=neqns {
-        num = -invp[node as usize];
+        let num = -invp[node as usize];
         invp[node as usize] = num;
         perm[num as usize] = node;
     }
@@ -696,14 +698,14 @@ fn mmdupd(
     xadj: &mut Fslice,
     adjncy: &mut Fslice,
     delta: idx_t,
-    mdeg: &mut Fslice,
+    mdeg: &mut idx_t,
     head: &mut Fslice,
     forward: &mut Fslice,
     backward: &mut Fslice,
     qsize: &mut Fslice,
     list: &mut Fslice,
     marker: &mut Fslice,
-    tag: &mut Fslice,
+    tag: &mut idx_t,
 ) {
     // idx_t  deg, deg0, element, enode, fnode, i, iq2, istop,
     //      istart, j, jstop, jstart, link, mdeg0, mtag, nabor,
@@ -712,20 +714,23 @@ fn mmdupd(
     let mdeg0 = *mdeg + delta;
     let mut element = ehead;
 
-    'n100: loop {
+    // n100:
+    loop {
+        let mut mtag;
+
         // header (so n2300 is only ever broken out of)
         'n2300: {
-            if (element <= 0) {
+            if element <= 0 {
                 return;
             }
 
             /* for each of the newly formed element, do the following. */
             /* reset tag value if necessary.                           */
             mtag = *tag + mdeg0;
-            if (mtag >= idx_t::MAX) {
+            if mtag >= idx_t::MAX {
                 *tag = 1;
                 for i in 1..=neqns {
-                    if (marker[i as usize] < idx_t::MAX) {
+                    if marker[i as usize] < idx_t::MAX {
                         marker[i as usize] = 0;
                     }
                 }
@@ -736,31 +741,31 @@ fn mmdupd(
             /* one with two nabors (q2head) in the adjacency structure, and the*/
             /* other with more than two nabors (qxhead). also compute 'deg0',*/
             /* number of nodes in this element.                              */
-            q2head = 0;
-            qxhead = 0;
+            let mut q2head = 0;
+            let mut qxhead = 0;
             let mut deg0 = 0;
             let mut link = element;
 
             'n400: loop {
-                istart = xadj[link as usize];
-                istop = xadj[(link + 1) as usize] - 1;
+                let istart = xadj[link as usize];
+                let istop = xadj[(link + 1) as usize] - 1;
                 for i in istart..=istop {
-                    enode = adjncy[i as usize];
+                    let enode = adjncy[i as usize];
                     link = -enode;
-                    if (enode < 0) {
+                    if enode < 0 {
                         continue 'n400; // goto
                     }
-                    if (enode == 0) {
+                    if enode == 0 {
                         break;
                     }
-                    if (qsize[enode as usize] != 0) {
+                    if qsize[enode as usize] != 0 {
                         deg0 += qsize[enode as usize];
                         marker[enode as usize] = mtag;
 
                         /*'enode' requires a degree update*/
-                        if (backward[enode as usize] == 0) {
+                        if backward[enode as usize] == 0 {
                             /* place either in qxhead or q2head list. */
-                            if (forward[enode as usize] != 2) {
+                            if forward[enode as usize] != 2 {
                                 list[enode as usize] = qxhead;
                                 qxhead = enode;
                             } else {
@@ -775,8 +780,9 @@ fn mmdupd(
             }
 
             /* for each node in q2 list, do the following. */
-            enode = q2head;
-            iq2 = 1;
+            let mut enode = q2head;
+            let mut iq2 = 1;
+            let mut deg;
 
             'n900: loop {
                 // instead of breaking to n2200 before the n1600 loop, we duplicate the (short)
@@ -784,15 +790,15 @@ fn mmdupd(
                 'n1600_pre: {
                     'n1500: {
                         'n2100_dup: {
-                            if (enode <= 0) {
+                            if enode <= 0 {
                                 break 'n1500; // goto (down)
                             }
 
-                            if (backward[enode as usize] != 0) {
+                            if backward[enode as usize] != 0 {
                                 // goto n2200 (duplicated)
                                 /* get next enode in current element. */
                                 enode = list[enode as usize];
-                                if (iq2 == 1) {
+                                if iq2 == 1 {
                                     continue 'n900; // goto
                                 }
                                 break 'n1600_pre;
@@ -802,13 +808,13 @@ fn mmdupd(
                             deg = deg0;
 
                             /* identify the other adjacent element nabor. */
-                            istart = xadj[enode as usize];
-                            nabor = adjncy[istart as usize];
-                            if (nabor == element) {
+                            let istart = xadj[enode as usize];
+                            let mut nabor = adjncy[istart as usize];
+                            if nabor == element {
                                 nabor = adjncy[(istart + 1) as usize];
                             }
                             link = nabor;
-                            if (forward[nabor as usize] >= 0) {
+                            if forward[nabor as usize] >= 0 {
                                 /* nabor is uneliminated, increase degree count. */
                                 deg += qsize[nabor as usize];
                                 break 'n2100_dup; // goto dup (down)
@@ -817,26 +823,26 @@ fn mmdupd(
                             /* the nabor is eliminated. for each node in the 2nd element */
                             /* do the following.                                         */
                             'n1000: loop {
-                                istart = xadj[link as usize];
-                                istop = xadj[(link + 1) as usize] - 1;
+                                let istart = xadj[link as usize];
+                                let istop = xadj[(link + 1) as usize] - 1;
                                 for i in istart..=istop {
-                                    node = adjncy[i as usize];
+                                    let node = adjncy[i as usize];
                                     link = -node;
-                                    if (node != enode) {
-                                        if (node < 0) {
+                                    if node != enode {
+                                        if node < 0 {
                                             continue 'n1000; // goto
                                         }
-                                        if (node == 0) {
+                                        if node == 0 {
                                             break 'n2100_dup; // goto dup (down)
                                         }
-                                        if (qsize[node as usize] != 0) {
-                                            if (marker[node as usize] < *tag) {
+                                        if qsize[node as usize] != 0 {
+                                            if marker[node as usize] < *tag {
                                                 /* 'node' is not yet considered. */
                                                 marker[node as usize] = *tag;
                                                 deg += qsize[node as usize];
                                             } else {
-                                                if (backward[node as usize] == 0) {
-                                                    if (forward[node as usize] == 2) {
+                                                if backward[node as usize] == 0 {
+                                                    if forward[node as usize] == 2 {
                                                         /* 'node' is indistinguishable from 'enode'.*/
                                                         /* merge them into a new supernode.         */
                                                         qsize[enode as usize] +=
@@ -847,7 +853,7 @@ fn mmdupd(
                                                         backward[node as usize] = -idx_t::MAX;
                                                     } else {
                                                         /* 'node' is outmacthed by 'enode' */
-                                                        if (backward[node as usize] == 0) {
+                                                        if backward[node as usize] == 0 {
                                                             backward[node as usize] = -idx_t::MAX;
                                                         }
                                                     };
@@ -866,20 +872,20 @@ fn mmdupd(
                             /* update external degree of 'enode' in degree structure, */
                             /* and '*mdeg' if necessary.                     */
                             deg = deg - qsize[enode as usize] + 1;
-                            fnode = head[deg as usize];
+                            let fnode = head[deg as usize];
                             forward[enode as usize] = fnode;
                             backward[enode as usize] = -deg;
-                            if (fnode > 0) {
+                            if fnode > 0 {
                                 backward[fnode as usize] = enode;
                             }
                             head[deg as usize] = enode;
-                            if (deg < *mdeg) {
+                            if deg < *mdeg {
                                 *mdeg = deg;
                             }
                             // goto n2200 (duplicated)
                             /* get next enode in current element. */
                             enode = list[enode as usize];
-                            if (iq2 == 1) {
+                            if iq2 == 1 {
                                 continue 'n900; // goto
                             }
                             break 'n1600_pre;
@@ -892,14 +898,14 @@ fn mmdupd(
                 } // n1600: (pre)
 
                 'n1600: loop {
-                    if (enode <= 0) {
+                    if enode <= 0 {
                         break 'n2300; // goto (down)
                     }
-                    if (backward[enode as usize] != 0) {
+                    if backward[enode as usize] != 0 {
                         // goto n2200 (duplicated)
                         /* get next enode in current element. */
                         enode = list[enode as usize];
-                        if (iq2 == 1) {
+                        if iq2 == 1 {
                             continue 'n900; // goto
                         }
                         continue 'n1600;
@@ -908,36 +914,35 @@ fn mmdupd(
                     deg = deg0;
 
                     /*for each unmarked nabor of 'enode', do the following.*/
-                    istart = xadj[enode as usize];
-                    istop = xadj[(enode + 1) as usize] - 1;
+                    let istart = xadj[enode as usize];
+                    let istop = xadj[(enode + 1) as usize] - 1;
                     for i in istart..=istop {
-                        nabor = adjncy[i as usize];
-                        if (nabor == 0) {
+                        let nabor = adjncy[i as usize];
+                        if nabor == 0 {
                             break;
                         }
-                        if (marker[nabor as usize] < *tag) {
+                        if marker[nabor as usize] < *tag {
                             marker[nabor as usize] = *tag;
                             link = nabor;
-                            if (forward[nabor as usize] >= 0) {
+                            if forward[nabor as usize] >= 0 {
                                 /*if uneliminated, include it in deg count.*/
                                 deg += qsize[nabor as usize];
                             } else {
                                 'n1700: loop {
                                     /* if eliminated, include unmarked nodes in this*/
                                     /* element into the degree count.             */
-                                    jstart = xadj[link as usize];
-                                    jstop = xadj[(link + 1) as usize] - 1;
+                                    let jstart = xadj[link as usize];
+                                    let jstop = xadj[(link + 1) as usize] - 1;
                                     for j in jstart..=jstop {
-                                        j += 1;
-                                        node = adjncy[j as usize];
+                                        let node = adjncy[j as usize];
                                         link = -node;
-                                        if (node < 0) {
+                                        if node < 0 {
                                             continue 'n1700; // goto
                                         }
-                                        if (node == 0) {
+                                        if node == 0 {
                                             break;
                                         }
-                                        if (marker[node as usize] < *tag) {
+                                        if marker[node as usize] < *tag {
                                             marker[node as usize] = *tag;
                                             deg += qsize[node as usize];
                                         }
@@ -954,29 +959,31 @@ fn mmdupd(
                     /* update external degree of 'enode' in degree structure, */
                     /* and '*mdeg' if necessary.                     */
                     deg = deg - qsize[enode as usize] + 1;
-                    fnode = head[deg as usize];
+                    let fnode = head[deg as usize];
                     forward[enode as usize] = fnode;
                     backward[enode as usize] = -deg;
-                    if (fnode > 0) {
+                    if fnode > 0 {
                         backward[fnode as usize] = enode;
                     }
                     head[deg as usize] = enode;
-                    if (deg < *mdeg) {
+                    if deg < *mdeg {
                         *mdeg = deg;
                     }
                     // n2200: (original, now fallthrough only)
 
                     /* get next enode in current element. */
                     enode = list[enode as usize];
-                    if (iq2 == 1) {
+                    if iq2 == 1 {
                         continue 'n900; // goto
                     }
 
-                    continue 'n1600; // goto, superfluous (it's a loop!)
+                    // continue 'n1600; // goto, superfluous (it's a loop!)
                 } // bottom of n1600
+
+                // continue 'n900; // goto, superfluous (it's a loop!)
             } // bottom of n900
 
-            break 'n2300; // synthetic, superfluous (not a loop)
+            // break 'n2300; // synthetic, superfluous (not a loop)
         } // n2300:
 
         /* get next element in the list. */

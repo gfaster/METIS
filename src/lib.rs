@@ -32,6 +32,7 @@ pub mod minconn;
 pub mod pmetis;
 pub mod refine;
 pub mod ometis;
+pub mod mmd;
 
 pub mod gklib_replace;
 pub mod graphio;
