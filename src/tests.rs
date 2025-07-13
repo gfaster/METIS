@@ -63,7 +63,7 @@ impl TestGraph {
         }
     }
 
-    fn test_suite() -> impl Iterator<Item = Self> {
+    pub fn test_suite() -> impl Iterator<Item = Self> {
         static DO_BIG: LazyLock<bool> = LazyLock::new(|| {
             std::env::var_os("DO_BIG") == Some("1".into())
         });

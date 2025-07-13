@@ -540,8 +540,9 @@ where
     ab_test_multi(("*", &exc_overrides), Some(mg), &mut f)
 }
 
-/// runs the provided function three times. the second time with all C functions and the third with all C
-/// functions, with overrides added. Asserts the results of the second and third are equal
+/// runs the provided function twice. The first time with all C functions, and the second with all
+/// C functions except the override, it then asserts the returned values are the same. Panics if
+/// the override isn't used
 ///
 /// Will panic if the provided override isn't used
 #[cfg(test)]

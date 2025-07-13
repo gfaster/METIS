@@ -243,9 +243,6 @@ pub extern "C" fn genmmd(
     let xadj = Fslice::new_mut(xadj);
     let adjncy = Fslice::new_mut(adjncy);
 
-    // NOTE: the caller (ometis::MMDOrder) already made xadj and adjncy one-indexed, so indexing
-    // using the Fslice indexing (one-indexing) is correct, but we need to decrement the last
-    // element of xadj since it's now len+1
     debug_assert_eq!(*xadj.as_slice().last().unwrap(), xadj[neqns as usize + 1]); // sanity check
 
 
@@ -575,7 +572,7 @@ fn mmdelm(
                     adjncy[xqnbr as usize] = 0;
                 }
             };
-        } /* end of -- for ( i = istart; -- */
+        }
 
         break 'n1100; // synthetic
     }
@@ -684,8 +681,8 @@ fn mmdnum(neqns: idx_t, perm: &mut Fslice, invp: &mut Fslice, qsize: &mut Fslice
                 father = nextf;
                 nextf = -perm[father as usize];
             }
-        }; /* end of -- if  perm[node as usize] <= 0  -- */
-    } /* end of -- for ( node = 1; -- */
+        }
+    }
 
     /* ready to compute perm. */
     for node in 1..=neqns {
@@ -1012,5 +1009,93 @@ fn mmdupd(
         /* get next element in the list. */
         *tag = mtag;
         element = list[element as usize];
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{dyncall::ab_test_single_eq, graph_gen::Csr, tests::{ab_test_partition_test_graphs, TestGraph}};
+
+    use super::*;
+
+    #[test]
+    fn ab_genmmd_through_metis() {
+        ab_test_partition_test_graphs("genmmd:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_genmmd_through_metis_cc() {
+        ab_test_partition_test_graphs("genmmd:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_ccorder(true);
+            g
+        });
+    }
+
+    fn mmd_ab_test(graph: Csr, delta: idx_t) {
+        ab_test_single_eq("genmmd:rs", || {
+            let csr = graph.clone();
+            let nvtxs = csr.nvtxs();
+            let (mut xadj, mut adjncy) = csr.into_parts();
+            let mut perm = vec![0; nvtxs + 5];
+            let mut iperm = vec![0; nvtxs + 5];
+            let mut head = vec![0; nvtxs + 5];
+            let mut qsize = vec![0; nvtxs + 5];
+            let mut list = vec![0; nvtxs + 5];
+            let mut marker = vec![0; nvtxs + 5];
+            let mut nofsub = 0;
+            unsafe { genmmd(
+                nvtxs as idx_t,
+                xadj.as_mut_ptr(),
+                adjncy.as_mut_ptr(),
+                iperm.as_mut_ptr(),
+                perm.as_mut_ptr(),
+                delta,
+                head.as_mut_ptr(),
+                qsize.as_mut_ptr(),
+                list.as_mut_ptr(),
+                marker.as_mut_ptr(),
+                idx_t::MAX,
+                &mut nofsub,
+            )};
+            // idk if I want to compare literally everything?
+            (
+                nofsub,
+                iperm,
+                perm,
+                head,
+                qsize,
+                list,
+                marker
+            )
+        });
+    }
+
+    #[test]
+    fn ab_mmd_direct_simple() {
+        let g = Csr::test_graph(TestGraph::Webbase2004);
+        mmd_ab_test(g, 1);
+    }
+
+    #[test]
+    fn ab_mmd_direct_larger_delta() {
+        let g = Csr::test_graph(TestGraph::Webbase2004);
+        mmd_ab_test(g.clone(), 2);
+        mmd_ab_test(g.clone(), 3);
+        mmd_ab_test(g.clone(), 4);
+    }
+
+    #[test]
+    fn ab_mmd_direct_full() {
+        for tg in TestGraph::test_suite() {
+            let graph = Csr::test_graph(tg);
+            for i in 1..=10 {
+                println!("testing {tg:?} with delta={i}");
+                mmd_ab_test(graph.clone(), i);
+            }
+        }
     }
 }

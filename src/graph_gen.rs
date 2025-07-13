@@ -15,6 +15,26 @@ pub struct Csr {
     adjncy: Box<[idx_t]>,
 }
 
+impl Csr {
+
+    /// returns (xadj, adjncy)
+    #[cfg(test)]
+    pub fn into_parts(self) -> (Box<[idx_t]>, Box<[idx_t]>) {
+        let Csr { xadj, adjncy } = self;
+        (xadj, adjncy)
+    }
+
+    #[cfg(test)]
+    pub fn nvtxs(&self) -> usize {
+        self.xadj.len() - 1
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_graph(tg: tests::TestGraph) -> Self {
+        GraphBuilder::test_graph(tg, Optype::Ometis, 3, 1).to_csr()
+    }
+}
+
 #[derive(Clone)]
 pub struct GraphBuilder {
     op: GraphOpSettings,
