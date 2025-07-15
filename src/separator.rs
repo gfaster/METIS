@@ -12,49 +12,67 @@
  *
  */
 
-#include "metislib.h"
+use crate::*;
 
 /*************************************************************************
 * This function takes a bisection and constructs a minimum weight vertex 
 * separator out of it. It uses the node-based separator refinement for it.
 **************************************************************************/
-void ConstructSeparator(ctrl_t *ctrl, graph_t *graph)
+#[metis_func]
+pub extern "C" fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) 
 {
-  idx_t i, j, k, nvtxs, nbnd;
-  idx_t *xadj, *where, *bndind;
+  let graph = graph.as_mut().unwrap();
+  let ctrl = ctrl.as_mut().unwrap();
 
-  WCOREPUSH;
+  // WCOREPUSH;
 
-  nvtxs  = graph->nvtxs;
-  xadj   = graph->xadj;
-  nbnd   = graph->nbnd;
-  bndind = graph->bndind;
+  get_graph_slices!(graph => xadj bndind);
 
-  where = icopy(nvtxs, graph->where, iwspacemalloc(ctrl, nvtxs));
+  let mut where_ = Vec::from(get_graph_slice!(graph => where_));
 
   /* Put the nodes in the boundary into the separator */
-  for (i=0; i<nbnd; i++) {
-    j = bndind[i];
-    if (xadj[j+1]-xadj[j] > 0)  /* Ignore islands */
-      where[j] = 2;
+  for i in (0)..(graph.nbnd) {
+    let j = bndind[i as usize] as usize;
+    // ignore islands
+    if xadj[j+1]-xadj[j] <= 0 {
+      continue
+    }
+
+    where_[j] = 2;
   }
 
-  FreeRData(graph);
+  graph::FreeRData(graph);
 
   Allocate2WayNodePartitionMemory(ctrl, graph);
-  icopy(nvtxs, where, graph->where);
+  get_graph_slice_mut!(graph => where_).copy_from_slice(&where_);
 
-  WCOREPOP;
+  // WCOREPOP;
 
-  ASSERT(IsSeparable(graph));
+  debug_assert!(debug::IsSeparable(graph) != 0);
 
   Compute2WayNodePartitionParams(ctrl, graph);
 
-  ASSERT(CheckNodePartitionParams(graph));
+  debug_assert!(debug::CheckNodePartitionParams(graph) != 0);
 
   FM_2WayNodeRefine2Sided(ctrl, graph, 1); 
   FM_2WayNodeRefine1Sided(ctrl, graph, 4); 
 
-  ASSERT(IsSeparable(graph));
+  debug_assert!(debug::IsSeparable(graph) != 0);
 
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+
+    use super::*;
+    use crate::tests::ab_test_partition_test_graphs;
+
+    #[test]
+    fn ab_ConstructSeparator() {
+        ab_test_partition_test_graphs("ConstructSeparator:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
 }

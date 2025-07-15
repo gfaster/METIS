@@ -16,6 +16,8 @@ extern "C" {
         nbrpoolsize_max: idx_t,
         nbrpoolsize: idx_t,
     ) -> std::ffi::c_void;
+    pub fn  Allocate2WayNodePartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+
     pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
@@ -65,7 +67,6 @@ extern "C" {
         graph: *mut graph_t,
         tpwgts: *mut real_t,
     ) -> std::ffi::c_void;
-    pub fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn Compute2WayNodePartitionParams(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,

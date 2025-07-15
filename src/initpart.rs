@@ -113,7 +113,7 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
                 GrowBisection(ctrl, graph, ntpwgts.as_mut_ptr(), niparts);
             }
             refine::Compute2WayPartitionParams(ctrl, graph);
-            ConstructSeparator(ctrl, graph);
+            separator::ConstructSeparator(ctrl, graph);
         }
 
         METIS_IPTYPE_NODE => {

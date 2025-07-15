@@ -13,12 +13,14 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 /*************************************************************************
 * This function takes a bisection and constructs a minimum weight vertex 
 * separator out of it. It uses the node-based separator refinement for it.
 **************************************************************************/
-void ConstructSeparator(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, ConstructSeparator, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__ConstructSeparator(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, k, nvtxs, nbnd;
   idx_t *xadj, *where, *bndind;
@@ -66,6 +68,7 @@ void ConstructSeparator(ctrl_t *ctrl, graph_t *graph)
 * separator out of it. It uses an unweighted minimum-cover algorithm
 * followed by node-based separator refinement.
 **************************************************************************/
+// not used
 void ConstructMinCoverSeparator(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, jj, k, l, nvtxs, nbnd, bnvtxs[3], bnedges[2], csize;

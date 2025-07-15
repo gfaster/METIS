@@ -63,6 +63,7 @@ in
       rustup
       guile
       new_metis
+      cloc
     ];
     RUSTC_VERSION = overrides.toolchain.channel;
     # https://github.com/rust-lang/rust-bindgen#environment-variables
