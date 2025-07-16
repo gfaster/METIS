@@ -67,10 +67,15 @@ s 's/^ *nvtxs *= graph\.nvtxs/let & as usize/'
 s 's/^ *ncon *= graph\.ncon/let & as usize/'
 
 # for loops
+# extract extra initial variables
 v ':%s/for (\s*\([a-zA-Z]\+\s*=\s*.\w*\)\s*,\s*/\1;\rfor (/' || true
 v ':%s/for (\s*\([a-zA-Z]\+\s*=\s*.\w*\s*\),\s*/\1;\rfor (/' || true
+# actual loops
+v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});;\s*\1\+\+\)/for \1 in (\2)..' || true
 v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\<\=\s*(.{-1,});\s*\1\+\+\)/for \1 in (\2)..=(\3)' || true
 v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\<\s*(.{-1,});\s*\1\+\+\)/for \1 in (\2)..(\3)' || true
+v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\>\=\s*(.{-1,});\s*\1\-\-\)/for \1 in ((\2)..=(\3)).rev()' || true
+v ':%s/\vfor \((\s*[a-zA-Z]+)\s*\=\s*(.{-1,});\s*\1\s*\>\s*(.{-1,});\s*\1\-\-\)/for \1 in ((\2)..(\3)).rev()' || true
 
 # make sure for loops are gone
 ! grep -qE '\s*for.*;' "$FILE"
@@ -85,12 +90,12 @@ v ':g/--\w\+/norm f-xxyiw0pwi-=1;' || true
 v ':g/\w\+--/norm f-xxhyiw$pA-=1;' || true
 
 # printing
-v ':%s/\v\%(.{-0,5})"%(PR%(IDX|REAL))"/{:\1}/g' || true
+v ':%s/\v\%(.{-0,5})"%(PRIDX|PRREAL)"/{:\1}/g' || true
 s 's/%s/{}/'
 s 's/\<printf\>/print!/'
 
 # temp allocations
-v ':%s/\viset\(([^,]+), (-?\d), iwspacemalloc\(ctrl, .+\)\);/vec![\2; \1 as usize];/g' || true
+v ':%s/\viset\(([^,]+), ([^,]+), iwspacemalloc\(ctrl, .+\)\);/vec![\2; \1 as usize];/g' || true
 v ':%s/\viwspacemalloc\(ctrl, (.*)\);/vec![0; \1 as usize];/g' || true
 v ':%s/\vrwspacemalloc\(ctrl, (.*)\);/vec![0.0; \1 as usize];/g' || true
 v ':g/WCORE\%\(PUSH\|POP\)/norm gcc' || true
