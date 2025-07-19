@@ -176,8 +176,6 @@ pub unsafe extern "C" fn trigger_panic(msg: *const std::ffi::c_char) -> ! {
 
 /// returns the max element in slice by stride incx
 ///
-/// eventually will be `metis_func`, but need to port everything from the `gk_mkblas` at once
-///
 /// In the original, `iargmax` takes an `n` parameter which is the number of steps that will be
 /// taken. This is implied by the length of the slice
 ///
@@ -198,6 +196,30 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
         }
     }
     max / incx
+}
+
+/// returns the max element in slice by stride incx
+///
+/// In the original, `iargmin` takes an `n` parameter which is the number of steps that will be
+/// taken. This is implied by the length of the slice
+///
+/// ```
+/// # use metis::util::iargmin;
+/// let vals = &[2, 3, 4, 3, 1];
+/// assert_eq!(iargmin(vals, 1), 2);
+/// assert_eq!(iargmin(vals, 2), 1);
+/// assert_eq!(iargmin(vals, 3), 1);
+/// assert_eq!(iargmin(vals, 4), 0);
+/// ```
+pub fn iargmin(x: &[idx_t], incx: usize) -> usize {
+    let mut min = 0;
+
+    for j in (incx..x.len()).step_by(incx) {
+        if x[j] > x[min] {
+            min = j;
+        }
+    }
+    min / incx
 }
 
 /// converts a user provided ufactor into a real ubfactor
@@ -572,6 +594,20 @@ pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
         .all(|(li, &zi)| li <= zi)
 }
 
+/// from mcutil.c(?)
+///
+/// returns true if forall `i`, `a * x[i] + y[i] >= z[i]`
+/// original took length argument at beginning
+pub fn ivecaxpygez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
+    assert_eq!(x.len(), y.len());
+    assert_eq!(x.len(), z.len());
+    x.into_iter()
+        .zip(y)
+        .map(|(&xi, &yi)| a * xi + yi)
+        .zip(z)
+        .all(|(li, &zi)| li >= zi)
+}
+
 /// from mcutil.c
 ///
 /// returns true if `x[i] <= z[i]` forall `i`
@@ -579,6 +615,19 @@ pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
 pub fn ivecle(x: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), z.len());
     x.into_iter().zip(z).all(|(xi, zi)| xi <= zi)
+}
+#[macro_export]
+macro_rules! ListInsert {
+    ($($tt:tt)*) => {
+        BNDInsert!($($tt)*)
+    };
+}
+
+#[macro_export]
+macro_rules! ListDelete {
+    ($($tt:tt)*) => {
+        BNDDelete!($($tt)*)
+    };
 }
 
 #[macro_export]
@@ -606,15 +655,15 @@ macro_rules! BNDDelete {
 #[macro_export]
 macro_rules! UpdateMovedVertexInfoAndBND {
     ($i:expr, $from:expr, $k:expr, $to:expr, $myrinfo:expr, $mynbrs:expr, $where:expr, $nbnd:expr,
-    $bndptr:expr, $bndind:expr, $bndtype:expr) => {
-        $where[$i] = $to;
+    $bndptr:expr, $bndind:expr, $bndtype:expr $(,)?) => {
+        $where[$i] = $to as idx_t;
         $myrinfo.ed += $myrinfo.id - $mynbrs[$k as usize].ed;
         std::mem::swap(&mut $myrinfo.id, &mut $mynbrs[$k as usize].ed);
         if ($mynbrs[$k as usize].ed == 0) {
             $myrinfo.nnbrs -= 1;
             $mynbrs[$k as usize] = $mynbrs[$myrinfo.nnbrs as usize];
         } else {
-            $mynbrs[$k as usize].pid = $from;
+            $mynbrs[$k as usize].pid = $from as idx_t;
         }
 
         /* Update the boundary information. Both deletion and addition is
@@ -637,10 +686,9 @@ macro_rules! UpdateMovedVertexInfoAndBND {
     };
 }
 
-/// note the original mangles 'j'
 #[macro_export]
 macro_rules! UpdateAdjacentVertexInfoAndBND {
-    ($ctrl:expr, $vid:expr, $adjlen:expr, $me:expr, $from:expr, $to:expr, $myrinfo:expr, $ewgt:expr, $nbnd:expr, $bndptr:expr, $bndind:expr, $bndtype:expr) => {
+    ($ctrl:expr, $vid:expr, $adjlen:expr, $me:expr, $from:expr, $to:expr, $myrinfo:expr, $ewgt:expr, $nbnd:expr, $bndptr:expr, $bndind:expr, $bndtype:expr$(,)?) => {
         // idx_t k;
         // cnbr_t *mynbrs;
 
@@ -648,7 +696,7 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
             $myrinfo.inbr = cnbrpoolGetNext($ctrl, $adjlen);
             $myrinfo.nnbrs = 0;
         }
-        assert!(CheckRInfo($ctrl, $myrinfo) != 0);
+        debug_assert!(debug::CheckRInfo($ctrl, $myrinfo) != 0);
 
         let mynbrs = std::slice::from_raw_parts_mut(
             $ctrl.cnbrpool.add($myrinfo.inbr as usize),
@@ -656,7 +704,7 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
         );
 
         /* Update global ID/ED and boundary */
-        if ($me == $from) {
+        if ($me as idx_t == $from as idx_t) {
             inc_dec!($myrinfo.ed, $myrinfo.id, ($ewgt));
             if ($bndtype == BNDTYPE_REFINE) {
                 if ($myrinfo.ed - $myrinfo.id >= 0 && $bndptr[($vid)] == -1) {
@@ -683,12 +731,12 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
         /* Remove contribution $from the .ed of '$from' */
         if ($me != $from) {
             for k in 0..($myrinfo.nnbrs as usize) {
-                if (mynbrs[k].pid == $from) {
+                if (mynbrs[k].pid == $from as idx_t) {
                     if (mynbrs[k].ed == ($ewgt)) {
                         $myrinfo.nnbrs -= 1;
                         mynbrs[k] = mynbrs[$myrinfo.nnbrs as usize];
                     } else {
-                        mynbrs[k].ed -= ($ewgt);
+                        mynbrs[k].ed -= $ewgt;
                     }
                     break;
                 }
@@ -697,22 +745,22 @@ macro_rules! UpdateAdjacentVertexInfoAndBND {
 
         /* Add contribution $to the .ed of '$to' */
         if ($me != $to) {
-            let mut k = 0;
+            let mut k: usize = 0;
             while k < $myrinfo.nnbrs as usize {
-                if (mynbrs[k].pid == $to) {
+                if (mynbrs[k].pid == $to as idx_t) {
                     mynbrs[k].ed += ($ewgt);
                     break;
                 }
                 k += 1;
             }
             if (k == $myrinfo.nnbrs as usize) {
-                mynbrs[k].pid = $to;
-                mynbrs[k].ed = ($ewgt);
+                mynbrs[k].pid = $to as idx_t;
+                mynbrs[k].ed = $ewgt as idx_t;
                 $myrinfo.nnbrs += 1;
             }
         }
 
-        assert!(CheckRInfo($ctrl, $myrinfo) != 0);
+        debug_assert!(debug::CheckRInfo($ctrl, $myrinfo) != 0);
     };
 }
 

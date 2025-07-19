@@ -152,7 +152,7 @@ pub extern "C" fn CheckNodeBnd(graph: *mut graph_t, onbnd: idx_t) -> idx_t {
 
 /// Checks whether or not the rinfo of a vertex is consistent
 #[metis_func]
-pub extern "C" fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t {
+pub extern "C" fn CheckRInfo(ctrl: *const ctrl_t, rinfo: *const ckrinfo_t) -> idx_t {
     let ctrl = ctrl.as_ref().unwrap();
     let rinfo = rinfo.as_ref().unwrap();
     // idx_t i, j;

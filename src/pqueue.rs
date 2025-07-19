@@ -507,7 +507,7 @@ pub mod rs {
         /// This function returns the item at the top of the queue and removes it from the priority queue
         /// This should never return -1
         ///
-        /// equivalent to pqueue_get_top
+        /// equivalent to `xpqGetTop`
         #[doc(alias = "get_top")]
         pub fn pop(&mut self) -> Option<I> {
             Some(self.pop_node()?.1)

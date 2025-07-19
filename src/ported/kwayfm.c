@@ -216,7 +216,7 @@ void Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
       }
 #endif
 
-      if (ctrl->contig && IsArticulationNode(i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
+      if (ctrl->contig && IsArticulationNode(nvtxs, i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
         continue;
 
       if (ctrl->minconn)
@@ -540,7 +540,7 @@ void Greedy_KWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
           continue;
       }
 
-      if (ctrl->contig && IsArticulationNode(i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
+      if (ctrl->contig && IsArticulationNode(nvtxs, i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
         continue;
 
       if (ctrl->minconn)
@@ -874,7 +874,7 @@ void Greedy_McKWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
           continue;   
       }
 
-      if (ctrl->contig && IsArticulationNode(i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
+      if (ctrl->contig && IsArticulationNode(nvtxs, i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
         continue;
 
       if (ctrl->minconn)
@@ -1215,7 +1215,7 @@ void Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
           continue;
       }
 
-      if (ctrl->contig && IsArticulationNode(i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
+      if (ctrl->contig && IsArticulationNode(nvtxs, i, xadj, adjncy, where, bfslvl, bfsind, bfsmrk))
         continue;
 
       if (ctrl->minconn)
@@ -1383,10 +1383,15 @@ void Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
     It assumes that the bfslvl, bfsind, and bfsmrk arrays are initialized
     appropriately. */
 /*************************************************************************/
-idx_t IsArticulationNode(idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
+idx_t IsArticulationNode(idx_t nvtxs, idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
           idx_t *bfslvl, idx_t *bfsind, idx_t *bfsmrk)
 {
   idx_t ii, j, k=0, head, tail, nhits, tnhits, from, BFSDEPTH=5;
+
+  // NOTE(porting): I added nvtxs as a parameter so I could properly create
+  // slices in the Rust version, but other than that there are no changes in
+  // the C version
+  (void)nvtxs;
 
   from = where[i];
 
@@ -1482,6 +1487,8 @@ idx_t IsArticulationNode(idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
         list of vertices whose gains need to be updated.
 */
 /*************************************************************************/
+// NOTE(porting): this can't be a metis_func since I don't want to have to make queue abi
+// compatible
 void KWayVolUpdate(ctrl_t *ctrl, graph_t *graph, idx_t v, idx_t from, 
          idx_t to, ipq_t *queue, idx_t *vstatus, idx_t *r_nupd, idx_t *updptr, 
          idx_t *updind, idx_t bndtype, idx_t *vmarker, idx_t *pmarker, 

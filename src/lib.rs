@@ -34,6 +34,7 @@ pub mod refine;
 pub mod ometis;
 pub mod mmd;
 pub mod separator;
+pub mod kwayfm;
 
 pub mod gklib_replace;
 pub mod graphio;

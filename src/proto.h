@@ -148,7 +148,7 @@ idx_t GrowMultisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
 void BalanceAndRefineLP(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where);
 
 
-/* kwayfm.c */
+/* kwayfm.c - Ported */
 void Greedy_KWayOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode);
 void Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
@@ -159,7 +159,7 @@ void Greedy_McKWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
          real_t ffactor, idx_t omode);
 void Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode);
-idx_t IsArticulationNode(idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
+idx_t IsArticulationNode(idx_t nvtxs, idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
           idx_t *bfslvl, idx_t *bfsind, idx_t *bfsmrk);
 void KWayVolUpdate(ctrl_t *ctrl, graph_t *graph, idx_t v, idx_t from,
          idx_t to, ipq_t *queue, idx_t *vstatus, idx_t *r_nupd, idx_t *updptr,
@@ -233,7 +233,7 @@ void MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t nind,
          idx_t *ind, idx_t *vmarker, idx_t *pmarker, idx_t *modind);
 
 
-/* mincover.c */
+/* mincover.c - unused (not ported) */
 void MinCover(idx_t *, idx_t *, idx_t, idx_t, idx_t *, idx_t *);
 idx_t MinCover_Augment(idx_t *, idx_t *, idx_t, idx_t *, idx_t *, idx_t *, idx_t);
 void MinCover_Decompose(idx_t *, idx_t *, idx_t, idx_t, idx_t *, idx_t *, idx_t *);
@@ -241,7 +241,7 @@ void MinCover_ColDFS(idx_t *, idx_t *, idx_t, idx_t *, idx_t *, idx_t);
 void MinCover_RowDFS(idx_t *, idx_t *, idx_t, idx_t *, idx_t *, idx_t);
 
 
-/* mmd.c */
+/* mmd.c - ported (only genmmd - subroutines are not ifunc'd) */
 void genmmd(idx_t, idx_t *, idx_t *, idx_t *, idx_t *, idx_t , idx_t *, idx_t *, idx_t *, idx_t *, idx_t, idx_t *);
 void mmdelm(idx_t, idx_t *xadj, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t, idx_t);
 idx_t mmdint(idx_t, idx_t *xadj, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *, idx_t *);
@@ -297,7 +297,7 @@ void Compute2WayPartitionParams(ctrl_t *ctrl, graph_t *graph);
 void Project2WayPartition(ctrl_t *ctrl, graph_t *graph);
 
 
-/* separator.c */
+/* separator.c - Ported */
 void ConstructSeparator(ctrl_t *ctrl, graph_t *graph);
 void ConstructMinCoverSeparator(ctrl_t *ctrl, graph_t *graph);
 

@@ -82,7 +82,6 @@ extern "C" {
         niter: idx_t,
     ) -> std::ffi::c_void;
 
-    pub fn CheckRInfo(ctrl: *mut ctrl_t, rinfo: *mut ckrinfo_t) -> idx_t;
     pub fn KWayVolUpdate(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,

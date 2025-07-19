@@ -218,7 +218,7 @@
 
 /*************************************************************************/
 /*! This macro determines the set of subdomains that a vertex can move to
-    without increasins the maxndoms. */
+    without increasing the maxndoms. */
 /*************************************************************************/
 #define SelectSafeTargetSubdomains(myrinfo, mynbrs, nads, adids, maxndoms, safetos, vtmp) \
   do { \
