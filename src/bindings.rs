@@ -16,7 +16,7 @@ extern "C" {
         nbrpoolsize_max: idx_t,
         nbrpoolsize: idx_t,
     ) -> std::ffi::c_void;
-    pub fn  Allocate2WayNodePartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
+    pub fn Allocate2WayNodePartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
 
     pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
@@ -42,13 +42,6 @@ extern "C" {
     pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
     pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
-    pub fn Greedy_KWayOptimize(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        niter: idx_t,
-        ffactor: real_t,
-        omode: idx_t,
-    ) -> std::ffi::c_void;
     pub fn isrand(seed: idx_t) -> std::ffi::c_void;
     pub fn SetupKWayBalMultipliers(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
@@ -81,27 +74,6 @@ extern "C" {
         graph: *mut graph_t,
         niter: idx_t,
     ) -> std::ffi::c_void;
-
-    pub fn KWayVolUpdate(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        v: idx_t,
-        from: idx_t,
-        to: idx_t,
-        queue: *mut ipq_t,
-        vstatus: *mut idx_t,
-        r_nupd: *mut idx_t,
-        updptr: *mut idx_t,
-        updind: *mut idx_t,
-        bndtype: idx_t,
-        vmarker: *mut idx_t,
-        pmarker: *mut idx_t,
-        modind: *mut idx_t,
-    ) -> std::ffi::c_void;
-
-    pub fn genmmd(neqns: idx_t, xadj: *mut idx_t, adjncy: *mut idx_t, invp: *mut idx_t, perm: *mut idx_t,
-         delta: idx_t, head: *mut idx_t, qsize: *mut idx_t, list: *mut idx_t, marker: *mut idx_t,
-         maxint: idx_t, ncsub: &mut idx_t) -> std::ffi::c_void;
 
 
     pub fn Refine2WayNode(ctrl: *mut ctrl_t, orginal_graph: *mut graph_t, graph: *mut graph_t);
@@ -225,17 +197,6 @@ extern "C" {
         objval: *mut idx_t,
         epart: *mut idx_t,
         npart: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_NodeND(
-        nvtxs: *mut idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        options: *mut idx_t,
-        perm: *mut idx_t,
-        iperm: *mut idx_t,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {

@@ -864,8 +864,24 @@ pub extern "C" fn MoveGroupMinConnForVol(ctrl: *mut ctrl_t, graph: *mut graph_t,
     }
 
     /* Update the id/ed/gains/bnd of potentially affected nodes */
-    KWayVolUpdate(ctrl, graph, i as idx_t, from as idx_t, to, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(),
-      std::ptr::null_mut(), BNDTYPE_REFINE, vmarker, pmarker, modind);
+    mkslice_mut!(vmarker, graph.nvtxs);
+    mkslice_mut!(pmarker, ctrl.nparts);
+    mkslice_mut!(modind, graph.nvtxs);
+    kwayfm::KWayVolUpdate(ctrl,
+      graph,
+      i,
+      from,
+      to as usize,
+      None,
+      None,
+      None,
+      None,
+      None,
+      BNDTYPE_REFINE,
+      vmarker,
+      pmarker,
+      modind
+    );
 
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }

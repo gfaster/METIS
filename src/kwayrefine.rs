@@ -50,10 +50,10 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
         contig::EliminateComponents(ctrl, graph);
 
         ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
-        Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
+        kwayfm::Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
 
         ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
-        Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
+        kwayfm::Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
 
         (*ctrl).contig = 0;
     }
@@ -68,11 +68,11 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
         if 2 * i >= nlevels && IsBalanced(ctrl, graph, 0.02) == 0 {
             ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
-            Greedy_KWayOptimize(ctrl, graph, 1, 0.0, OMODE_BALANCE);
+            kwayfm::Greedy_KWayOptimize(ctrl, graph, 1, 0.0, OMODE_BALANCE);
             ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
         }
 
-        Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 5.0, OMODE_REFINE);
+        kwayfm::Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 5.0, OMODE_REFINE);
 
         // IFSET((*ctrl).dbglvl, METIS_DBG_TIME, gk_stopcputimer((*ctrl).RefTmr));
 
@@ -91,10 +91,10 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
             if IsBalanced(ctrl, graph, 0.02) == 0 {
                 (*ctrl).contig = 1;
                 ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
-                Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
+                kwayfm::Greedy_KWayOptimize(ctrl, graph, 5, 0.0, OMODE_BALANCE);
 
                 ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
-                Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
+                kwayfm::Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
                 (*ctrl).contig = 0;
             }
         }
@@ -137,10 +137,10 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
 
     if IsBalanced(ctrl, graph, 0.0) == 0 {
         ComputeKWayBoundary(ctrl, graph, BNDTYPE_BALANCE);
-        Greedy_KWayOptimize(ctrl, graph, 10, 0.0, OMODE_BALANCE);
+        kwayfm::Greedy_KWayOptimize(ctrl, graph, 10, 0.0, OMODE_BALANCE);
 
         ComputeKWayBoundary(ctrl, graph, BNDTYPE_REFINE);
-        Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
+        kwayfm::Greedy_KWayOptimize(ctrl, graph, (*ctrl).niter, 0.0, OMODE_REFINE);
     }
 
     if (*ctrl).contig != 0 {
@@ -245,7 +245,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
         }
     } else {
         for i in 0..(nvtxs as usize) {
-            let me = where_[i];
+            let me: idx_t = where_[i];
             for j in 0..ncon {
                 pwgts[(me * ncon + j) as usize] += vwgt[(i as idx_t * ncon + j) as usize];
             }

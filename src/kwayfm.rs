@@ -55,12 +55,22 @@ pub extern "C" fn Greedy_KWayOptimize(
 
 fn imax(n: usize, slice: &[idx_t], step: usize) -> idx_t {
     debug_assert_eq!(n, slice.len());
-    slice.iter().copied().step_by(step).max().unwrap_or_default()
+    slice
+        .iter()
+        .copied()
+        .step_by(step)
+        .max()
+        .unwrap_or_default()
 }
 
 fn imin(n: usize, slice: &[idx_t], step: usize) -> idx_t {
     debug_assert_eq!(n, slice.len());
-    slice.iter().copied().step_by(step).min().unwrap_or_default()
+    slice
+        .iter()
+        .copied()
+        .step_by(step)
+        .min()
+        .unwrap_or_default()
 }
 
 fn isum(n: usize, slice: &[idx_t], step: usize) -> idx_t {
@@ -70,19 +80,45 @@ fn isum(n: usize, slice: &[idx_t], step: usize) -> idx_t {
 
 /// little helper to replace all the times we get a `ckrinfo_t` + `&[cnbr_t]`
 #[inline]
-unsafe fn crinfos<'a>(graph_ckrinfo: *const ckrinfo_t, ctrl_cnbrpool: *const cnbr_t, idx: usize) -> (&'a ckrinfo_t, &'a [cnbr_t]) {
+unsafe fn crinfos<'a>(
+    graph_ckrinfo: *const ckrinfo_t,
+    ctrl_cnbrpool: *const cnbr_t,
+    idx: usize,
+) -> (&'a ckrinfo_t, &'a [cnbr_t]) {
     let info = &*graph_ckrinfo.add(idx);
     debug_assert!(info.inbr != -1);
-    let slice = std::slice::from_raw_parts(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    let slice =
+        std::slice::from_raw_parts(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    (info, slice)
+}
+
+/// little helper to replace all the times we get a `ckrinfo_t` `&mut [cnbr_t]`. Note that if we
+/// want to modify `ckrinfo_t.nnbrs`, then we have to reconstruct in order to access that new
+/// element (or to not oob the old in case of removal)
+#[inline]
+unsafe fn crinfos_mut<'a>(
+    graph_ckrinfo: *mut ckrinfo_t,
+    ctrl_cnbrpool: *mut cnbr_t,
+    idx: usize,
+) -> (&'a mut ckrinfo_t, &'a mut [cnbr_t]) {
+    let info = &mut *graph_ckrinfo.add(idx);
+    debug_assert!(info.inbr != -1);
+    let slice =
+        std::slice::from_raw_parts_mut(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
     (info, slice)
 }
 
 /// little helper to replace all the times we get a `vkrinfo_t` `&[vnbr_t]`
 #[inline]
-unsafe fn vrinfos<'a>(graph_vkrinfo: *const vkrinfo_t, ctrl_vnbrpool: *const vnbr_t, idx: usize) -> (&'a vkrinfo_t, &'a [vnbr_t]) {
+unsafe fn vrinfos<'a>(
+    graph_vkrinfo: *const vkrinfo_t,
+    ctrl_vnbrpool: *const vnbr_t,
+    idx: usize,
+) -> (&'a vkrinfo_t, &'a [vnbr_t]) {
     let info = &*graph_vkrinfo.add(idx);
     debug_assert!(info.inbr != -1);
-    let slice = std::slice::from_raw_parts(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    let slice =
+        std::slice::from_raw_parts(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
     (info, slice)
 }
 
@@ -90,89 +126,269 @@ unsafe fn vrinfos<'a>(graph_vkrinfo: *const vkrinfo_t, ctrl_vnbrpool: *const vnb
 /// want to modify `vkrinfo_t.nnbrs`, then we have to reconstruct in order to access that new
 /// element (or to not oob the old in case of removal)
 #[inline]
-unsafe fn vrinfos_mut<'a>(graph_vkrinfo: *mut vkrinfo_t, ctrl_vnbrpool: *mut vnbr_t, idx: usize) -> (&'a mut vkrinfo_t, &'a mut [vnbr_t]) {
+unsafe fn vrinfos_mut<'a>(
+    graph_vkrinfo: *mut vkrinfo_t,
+    ctrl_vnbrpool: *mut vnbr_t,
+    idx: usize,
+) -> (&'a mut vkrinfo_t, &'a mut [vnbr_t]) {
     let info = &mut *graph_vkrinfo.add(idx);
     debug_assert!(info.inbr != -1);
-    let slice = std::slice::from_raw_parts_mut(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    let slice =
+        std::slice::from_raw_parts_mut(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
     (info, slice)
 }
 
 /// function to replace the identically named macro
 #[allow(non_snake_case)]
-unsafe fn UpdateAdjacentVertexInfoAndBND (ctrl: &mut ctrl_t, vid: usize, adjlen: idx_t, me: usize, from: usize,
-    to: usize, myrinfo: &mut ckrinfo_t, ewgt: idx_t, nbnd: &mut usize, bndptr: &mut [idx_t], bndind: &mut [idx_t], bndtype: i32)  {
-        // idx_t k;
-        // cnbr_t *mynbrs;
+unsafe fn UpdateAdjacentVertexInfoAndBND(
+    ctrl: &mut ctrl_t,
+    vid: usize,
+    adjlen: idx_t,
+    me: usize,
+    from: usize,
+    to: usize,
+    myrinfo: &mut ckrinfo_t,
+    ewgt: idx_t,
+    nbnd: &mut usize,
+    bndptr: &mut [idx_t],
+    bndind: &mut [idx_t],
+    bndtype: i32,
+) {
+    // idx_t k;
+    // cnbr_t *mynbrs;
 
-        if myrinfo.inbr == -1 {
-            myrinfo.inbr = cnbrpoolGetNext(ctrl, adjlen as idx_t);
-            myrinfo.nnbrs = 0;
-        }
-        debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
+    if myrinfo.inbr == -1 {
+        myrinfo.inbr = cnbrpoolGetNext(ctrl, adjlen as idx_t);
+        myrinfo.nnbrs = 0;
+    }
+    debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
 
-        let mynbrs = std::slice::from_raw_parts_mut(
-            ctrl.cnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize + 1,
-        );
+    let mynbrs = std::slice::from_raw_parts_mut(
+        ctrl.cnbrpool.add(myrinfo.inbr as usize),
+        myrinfo.nnbrs as usize + 1,
+    );
 
-        /* Update global ID/ED and boundary */
-        if me as idx_t == from as idx_t {
-            inc_dec!(myrinfo.ed, myrinfo.id, ewgt);
-            if bndtype == BNDTYPE_REFINE {
-                if myrinfo.ed - myrinfo.id >= 0 && bndptr[vid] == -1 {
-                    BNDInsert!(*nbnd, bndind, bndptr, vid);
-                }
-            } else {
-                if myrinfo.ed > 0 && bndptr[vid] == -1 {
-                    BNDInsert!(*nbnd, bndind, bndptr, vid);
-                }
+    /* Update global ID/ED and boundary */
+    if me as idx_t == from as idx_t {
+        inc_dec!(myrinfo.ed, myrinfo.id, ewgt);
+        if bndtype == BNDTYPE_REFINE {
+            if myrinfo.ed - myrinfo.id >= 0 && bndptr[vid] == -1 {
+                BNDInsert!(*nbnd, bndind, bndptr, vid);
             }
-        } else if me == to {
-            inc_dec!(myrinfo.id, myrinfo.ed, ewgt);
-            if bndtype == BNDTYPE_REFINE {
-                if myrinfo.ed - myrinfo.id < 0 && bndptr[vid] != -1 {
-                    BNDDelete!(*nbnd, bndind, bndptr, vid);
-                }
-            } else {
-                if myrinfo.ed <= 0 && bndptr[vid] != -1 {
-                    BNDDelete!(*nbnd, bndind, bndptr, vid);
-                }
+        } else {
+            if myrinfo.ed > 0 && bndptr[vid] == -1 {
+                BNDInsert!(*nbnd, bndind, bndptr, vid);
             }
         }
+    } else if me == to {
+        inc_dec!(myrinfo.id, myrinfo.ed, ewgt);
+        if bndtype == BNDTYPE_REFINE {
+            if myrinfo.ed - myrinfo.id < 0 && bndptr[vid] != -1 {
+                BNDDelete!(*nbnd, bndind, bndptr, vid);
+            }
+        } else {
+            if myrinfo.ed <= 0 && bndptr[vid] != -1 {
+                BNDDelete!(*nbnd, bndind, bndptr, vid);
+            }
+        }
+    }
 
-        /* Remove contribution from the .ed of 'from' */
-        if me != from {
-            for k in 0..myrinfo.nnbrs as usize {
-                if mynbrs[k].pid == from as idx_t {
-                    if mynbrs[k].ed == (ewgt) {
-                        myrinfo.nnbrs -= 1;
-                        mynbrs[k] = mynbrs[myrinfo.nnbrs as usize];
-                    } else {
-                        mynbrs[k].ed -= ewgt;
-                    }
+    /* Remove contribution from the .ed of 'from' */
+    if me != from {
+        for k in 0..myrinfo.nnbrs as usize {
+            if mynbrs[k].pid == from as idx_t {
+                if mynbrs[k].ed == (ewgt) {
+                    myrinfo.nnbrs -= 1;
+                    mynbrs[k] = mynbrs[myrinfo.nnbrs as usize];
+                } else {
+                    mynbrs[k].ed -= ewgt;
+                }
+                break;
+            }
+        }
+    }
+
+    /* Add contribution to the .ed of 'to' */
+    if me != to {
+        let mut k: usize = 0;
+        while k < myrinfo.nnbrs as usize {
+            if mynbrs[k].pid == to as idx_t {
+                mynbrs[k].ed += ewgt;
+                break;
+            }
+            k += 1;
+        }
+        if k == myrinfo.nnbrs as usize {
+            mynbrs[k].pid = to as idx_t;
+            mynbrs[k].ed = ewgt as idx_t;
+            myrinfo.nnbrs += 1;
+        }
+    }
+
+    debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
+}
+
+/// function to replace the identically named macro (without suffix)
+///
+/// Having it as a macro allowed for reusing for both [`ckrinfo_t`] and [`vkrinfo_t`]. I could
+/// maybe address it by having `Deref`-based subclassing, but I don't know if that's actually worth
+/// the trouble
+#[allow(non_snake_case)]
+fn SelectSafeTargetSubdomains_cut(
+    myrinfo: &ckrinfo_t,
+    mynbrs: &[cnbr_t],
+    nads: &[idx_t],
+    adids: &[*mut idx_t],
+    maxndoms: idx_t,
+    safetos: &mut [idx_t],
+    vtmp: &mut [idx_t],
+) {
+    for j in 0..myrinfo.nnbrs as usize {
+        let to = mynbrs[j].pid as usize;
+        safetos[to] = 0;
+        let adids = unsafe { std::slice::from_raw_parts_mut(adids[to], nads[to] as usize) };
+
+        /* uncompress the connectivity info for the 'to' subdomain */
+        for &v in &*adids {
+            vtmp[v as usize] = 1;
+        }
+        let mut nadd = 0;
+        for k in 0..myrinfo.nnbrs as usize {
+            if k == j {
+                continue;
+            }
+
+            let l = mynbrs[k].pid as usize;
+            if vtmp[l] == 0 {
+                if nads[l] > maxndoms - 1 {
+                    nadd = maxndoms;
                     break;
                 }
+                nadd += 1;
             }
         }
+        if nads[to] + nadd <= maxndoms {
+            safetos[to] = 1;
+        }
+        if nadd == 0 {
+            safetos[to] = 2;
+        }
 
-        /* Add contribution to the .ed of 'to' */
-        if me != to {
-            let mut k: usize = 0;
-            while k < myrinfo.nnbrs as usize {
-                if mynbrs[k].pid == to as idx_t {
-                    mynbrs[k].ed += ewgt;
+        /* cleanup the connectivity info due to the 'to' subdomain */
+        for &v in &*adids {
+            vtmp[v as usize] = 0;
+        }
+    }
+}
+
+/// function to replace the identically named macro (without suffix)
+///
+/// Having it as a macro allowed for reusing for both [`ckrinfo_t`] and [`vkrinfo_t`]. I could
+/// maybe address it by having `Deref`-based subclassing, but I don't know if that's actually worth
+/// the trouble
+#[allow(non_snake_case)]
+fn SelectSafeTargetSubdomains_vol(
+    myrinfo: &vkrinfo_t,
+    mynbrs: &[vnbr_t],
+    nads: &[idx_t],
+    adids: &[*mut idx_t],
+    maxndoms: idx_t,
+    safetos: &mut [idx_t],
+    vtmp: &mut [idx_t],
+) {
+    for j in 0..myrinfo.nnbrs as usize {
+        let to = mynbrs[j].pid as usize;
+        safetos[to] = 0;
+        let adids = unsafe { std::slice::from_raw_parts_mut(adids[to], nads[to] as usize) };
+
+        /* uncompress the connectivity info for the 'to' subdomain */
+        for &v in &*adids {
+            vtmp[v as usize] = 1;
+        }
+        let mut nadd = 0;
+        for k in 0..myrinfo.nnbrs as usize {
+            if k == j {
+                continue;
+            }
+
+            let l = mynbrs[k].pid as usize;
+            if vtmp[l] == 0 {
+                if nads[l] > maxndoms - 1 {
+                    nadd = maxndoms;
                     break;
                 }
-                k += 1;
-            }
-            if k == myrinfo.nnbrs as usize {
-                mynbrs[k].pid = to as idx_t;
-                mynbrs[k].ed = ewgt as idx_t;
-                myrinfo.nnbrs += 1;
+                nadd += 1;
             }
         }
+        if nads[to] + nadd <= maxndoms {
+            safetos[to] = 1;
+        }
+        if nadd == 0 {
+            safetos[to] = 2;
+        }
 
-        debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
+        /* cleanup the connectivity info due to the 'to' subdomain */
+        for &v in &*adids {
+            vtmp[v as usize] = 0;
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+fn UpdateQueueInfo(
+    queue: &mut pqueue::RPQueue,
+    vstatus: &mut [idx_t],
+    vid: usize,
+    me: usize,
+    from: usize,
+    to: usize,
+    myrinfo: &ckrinfo_t,
+    oldnnbrs: idx_t,
+    nupd: &mut usize,
+    updptr: &mut [idx_t],
+    updind: &mut [idx_t],
+    bndtype: idx_t,
+) {
+    let vid = vid as idx_t;
+    if me == to || me == from || oldnnbrs != myrinfo.nnbrs {
+        let rgain = (if myrinfo.nnbrs > 0 {
+            myrinfo.ed as f64 / (myrinfo.nnbrs as f64).sqrt()
+        } else {
+            0.0
+        }) - myrinfo.id as f64;
+        let rgain = rgain as real_t;
+
+        if bndtype == BNDTYPE_REFINE {
+            if vstatus[vid as usize] == VPQSTATUS_PRESENT {
+                if myrinfo.ed - myrinfo.id >= 0 {
+                    queue.update(vid, rgain);
+                } else {
+                    queue.delete(vid);
+                    vstatus[vid as usize] = VPQSTATUS_NOTPRESENT;
+                    ListDelete!(*nupd, updind, updptr, vid as usize);
+                }
+            } else if vstatus[vid as usize] == VPQSTATUS_NOTPRESENT && myrinfo.ed - myrinfo.id >= 0
+            {
+                queue.insert(vid, rgain);
+                vstatus[vid as usize] = VPQSTATUS_PRESENT;
+                ListInsert!(*nupd, updind, updptr, vid as usize);
+            }
+        } else {
+            if vstatus[vid as usize] == VPQSTATUS_PRESENT {
+                if myrinfo.ed > 0 {
+                    queue.update(vid, rgain);
+                } else {
+                    queue.delete(vid);
+                    vstatus[vid as usize] = VPQSTATUS_NOTPRESENT;
+                    ListDelete!(*nupd, updind, updptr, vid as usize);
+                }
+            } else if vstatus[vid as usize] == VPQSTATUS_NOTPRESENT && myrinfo.ed > 0 {
+                queue.insert(vid, rgain);
+                vstatus[vid as usize] = VPQSTATUS_PRESENT;
+                ListInsert!(*nupd, updind, updptr, vid as usize);
+            }
+        }
+    }
 }
 
 /*************************************************************************/
@@ -195,7 +411,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     niter: idx_t,
-    ffactor: real_t,
+    _ffactor: real_t,
     omode: idx_t,
 ) {
     let graph = graph.as_mut().unwrap();
@@ -224,13 +440,14 @@ pub extern "C" fn Greedy_KWayCutOptimize(
         BNDTYPE_BALANCE
     };
 
-    ffactor = 0.0;
+    let _ffactor = 0.0;
     // WCOREPUSH;
 
     /* Link the graph fields */
     let nvtxs = graph.nvtxs as usize;
     let nparts = ctrl.nparts as usize;
-    get_graph_slices!(ctrl, graph => xadj adjncy adjwgt bndind bndptr where_ pwgts ckrinfo vwgt);
+    get_graph_slices!(ctrl, graph => xadj adjncy adjwgt vwgt);
+    get_graph_slices_mut!(ctrl, graph => pwgts bndind bndptr where_);
     mkslice!(ctrl->tpwgts, nparts);
 
     /* Setup the weight intervals of the various subdomains */
@@ -240,7 +457,11 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     let ubfactor = if omode == OMODE_BALANCE {
         *ctrl.ubfactors
     } else {
-        (*ctrl.ubfactors).max(mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm))
+        (*ctrl.ubfactors).max(mcutil::ComputeLoadImbalance(
+            graph,
+            nparts as idx_t,
+            ctrl.pijbm,
+        ))
     };
 
     for i in (0)..(nparts) {
@@ -258,14 +479,14 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
     let mut nads = &mut [][..];
     let mut adids = &mut [][..];
-    let mut adwgts = &mut [][..];
+    let mut _adwgts = &mut [][..];
     let mut doms = &mut [][..];
     if ctrl.minconn != 0 {
         minconn::ComputeSubDomainGraph(ctrl, graph);
 
         nads = std::slice::from_raw_parts_mut(ctrl.nads, nparts);
         adids = std::slice::from_raw_parts_mut(ctrl.adids, nparts);
-        adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
+        _adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
         doms = std::slice::from_raw_parts_mut(ctrl.pvec1, nparts);
         doms.fill(0);
     }
@@ -287,12 +508,19 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     }
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!("{}: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
+        print!(
+            "{}: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
             Nv-Nb[({:6} {:6}) as usize], Cut: {:6}",
             (if omode == OMODE_REFINE { "GRC" } else { "GBC" }),
-            pwgts[util::iargmin(pwgts, 1) as usize], imax(nparts, pwgts,1), minpwgts[0], maxpwgts[0], 
-            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm), 
-            graph.nvtxs, graph.nbnd, graph.mincut);
+            pwgts[util::iargmin(pwgts, 1) as usize],
+            imax(nparts, pwgts, 1),
+            minpwgts[0],
+            maxpwgts[0],
+            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+            graph.nvtxs,
+            graph.nbnd,
+            graph.mincut
+        );
         if ctrl.minconn != 0 {
             print!(
                 ", Doms: [({:3} {:4}) as usize]",
@@ -308,7 +536,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     /*=====================================================================
      * The top-level refinement loop
      *======================================================================*/
-    for pass in (0)..(niter) {
+    for _pass in (0)..(niter) {
         debug_assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
         if omode == OMODE_REFINE {
             debug_assert!(debug::CheckBnd2(graph) != 0);
@@ -331,15 +559,16 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
             // Check to see if things are out of balance, given the tolerance, and return right
             // away if things are balanced
-            if !(0..nparts).any(|i| pwgts[i] > maxpwgts[i]
-                || pwgts[i] < minpwgts[i]) {break}
+            if !(0..nparts).any(|i| pwgts[i] > maxpwgts[i] || pwgts[i] < minpwgts[i]) {
+                break;
+            }
         }
 
         let oldcut = graph.mincut;
-        let nbnd = graph.nbnd as usize;
-        let nupd = 0;
+        let mut nbnd = graph.nbnd as usize;
+        let mut nupd = 0;
 
-        let maxndoms;
+        let mut maxndoms;
         if ctrl.minconn != 0 {
             maxndoms = imax(nparts, nads, 1);
         } else {
@@ -349,6 +578,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
         /* Insert the boundary vertices in the priority queue */
         irandArrayPermute(nbnd as idx_t, perm.as_mut_ptr(), nbnd as idx_t / 4, 1);
         for ii in (0)..(nbnd) {
+            get_graph_slices!(graph => ckrinfo);
             let i = bndind[perm[ii as usize] as usize] as usize;
             let rgain: real_t = ((if ckrinfo[i].nnbrs > 0 {
                 1.0 * ckrinfo[i].ed as f64 / (ckrinfo[i].nnbrs as f64).sqrt()
@@ -362,7 +592,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
         /* Start extracting vertices from the queue and try to move them */
         let mut nmoved = 0;
-        for iii in (0).. {
+        loop {
             // if ((i = rpqGetTop(queue)) == -1) {
             //     break;
             // }
@@ -371,7 +601,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
             vstatus[i] = VPQSTATUS_EXTRACTED;
 
-            let (myrinfo, mynbrs) = crinfos(graph.ckrinfo, ctrl.cnbrpool, i);
+            let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
             let from = where_[i as usize] as usize;
             let vwgt = vwgt[i as usize];
@@ -391,18 +621,35 @@ pub extern "C" fn Greedy_KWayCutOptimize(
             // #endif
 
             if ctrl.contig != 0
-            && IsArticulationNode(nvtxs as idx_t, i as idx_t, xadj.as_mut_ptr(), adjncy.as_mut_ptr(), where_.as_mut_ptr(), bfslvl.as_mut_ptr(), bfsind.as_mut_ptr(), bfsmrk.as_mut_ptr()) != 0
+                && IsArticulationNode(
+                    nvtxs as idx_t,
+                    i as idx_t,
+                    xadj.as_ptr(),
+                    adjncy.as_ptr(),
+                    where_.as_ptr(),
+                    bfslvl.as_mut_ptr(),
+                    bfsind.as_mut_ptr(),
+                    bfsmrk.as_mut_ptr(),
+                ) != 0
             {
                 continue;
             }
 
             if ctrl.minconn != 0 {
-                SelectSafeTargetSubdomains(myrinfo, mynbrs, nads, adids, maxndoms, safetos, doms);
+                SelectSafeTargetSubdomains_cut(
+                    myrinfo,
+                    mynbrs,
+                    nads,
+                    adids,
+                    maxndoms,
+                    &mut safetos,
+                    doms,
+                );
             }
 
             /* Find the most promising subdomain to move to */
-            let gain;
-            let mut to: usize = usize::MAX;
+            let _gain;
+            let mut to: usize;
             let k = if omode == OMODE_REFINE {
                 // for k in (0..=(myrinfo.nnbrs - 1)).rev() {
                 //     if (!safetos[to = mynbrs[k as usize].pid]) {
@@ -435,12 +682,15 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                         let to = mynbrs[k].pid as usize;
                         let from = from as usize;
                         ((mynbrs[k].ed > myrinfo.id)
-                        && ((pwgts[from] - vwgt >= minpwgts[from])
-                        || (tpwgts[from] * (pwgts[to] as real_t) < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
-                        && ((pwgts[to] + vwgt <= maxpwgts[to])
-                        || (tpwgts[from] * (pwgts[to] as real_t) < tpwgts[to] * (pwgts[from] - vwgt) as real_t)))
-                        || ((mynbrs[k].ed == myrinfo.id)
-                        && (tpwgts[from] * (pwgts[to] as real_t) < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
+                            && ((pwgts[from] - vwgt >= minpwgts[from])
+                                || (tpwgts[from] * (pwgts[to] as real_t)
+                                    < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
+                            && ((pwgts[to] + vwgt <= maxpwgts[to])
+                                || (tpwgts[from] * (pwgts[to] as real_t)
+                                    < tpwgts[to] * (pwgts[from] - vwgt) as real_t)))
+                            || ((mynbrs[k].ed == myrinfo.id)
+                                && (tpwgts[from] * (pwgts[to] as real_t)
+                                    < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
                     })
                 else {
                     // break out if you did not find a candidate
@@ -453,15 +703,15 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                         continue;
                     }
                     if ((mynbrs[j].ed > mynbrs[k].ed)
-                    && ((pwgts[from] - vwgt >= minpwgts[from])
-                    || ((tpwgts[from] * pwgts[to] as real_t)
-                    < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
-                    && ((pwgts[to] + vwgt <= maxpwgts[to])
-                    || (tpwgts[from] * (pwgts[to] as real_t)
-                    < tpwgts[to] * (pwgts[from] - vwgt) as real_t)))
-                    || ((mynbrs[j].ed == mynbrs[k].ed)
-                    && (tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
-                    < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t))
+                        && ((pwgts[from] - vwgt >= minpwgts[from])
+                            || ((tpwgts[from] * pwgts[to] as real_t)
+                                < tpwgts[to] * (pwgts[from] - vwgt) as real_t))
+                        && ((pwgts[to] + vwgt <= maxpwgts[to])
+                            || (tpwgts[from] * (pwgts[to] as real_t)
+                                < tpwgts[to] * (pwgts[from] - vwgt) as real_t)))
+                        || ((mynbrs[j].ed == mynbrs[k].ed)
+                            && (tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
+                                < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t))
                     {
                         k = j;
                     }
@@ -469,7 +719,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
                 to = mynbrs[k as usize].pid as usize;
 
-                gain = mynbrs[k as usize].ed - myrinfo.id;
+                _gain = mynbrs[k as usize].ed - myrinfo.id;
 
                 k
             } else {
@@ -490,7 +740,6 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                 // if (k < 0) {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
                 let Some(mut k) = (0..myrinfo.nnbrs as usize)
                     .filter(|&k| {
                         let to = mynbrs[k].pid as usize;
@@ -503,9 +752,10 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                         from >= nparts
                             || tpwgts[from] * (pwgts[to] as real_t)
                                 < tpwgts[to] * (pwgts[from] - vwgt) as real_t
-                    }) else {
+                    })
+                else {
                     // break out if you did not find a candidate
-                    continue
+                    continue;
                 };
 
                 for j in (0..k).rev() {
@@ -514,7 +764,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                         continue;
                     }
                     if tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
-                    < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t
+                        < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t
                     {
                         k = j;
                     }
@@ -567,8 +817,20 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                 for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                     let me = where_[adjncy[j as usize] as usize] as usize;
                     if me != from && me != to {
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, from as idx_t, me as idx_t, -adjwgt[j as usize], &mut maxndoms);
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, to as idx_t, me as idx_t, adjwgt[j as usize], &mut maxndoms);
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            from as idx_t,
+                            me as idx_t,
+                            -adjwgt[j as usize],
+                            &mut maxndoms,
+                        );
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            to as idx_t,
+                            me as idx_t,
+                            adjwgt[j as usize],
+                            &mut maxndoms,
+                        );
                     }
                 }
             }
@@ -590,20 +852,30 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                 UpdateAdjacentVertexInfoAndBND(
                     ctrl,
                     ii,
-                    (xadj[ii + 1] - xadj[ii]) as usize,
+                    xadj[ii + 1] - xadj[ii],
                     me,
                     from,
                     to,
                     myrinfo,
                     adjwgt[j as usize],
                     &mut nbnd,
-                    &mut bndptr,
-                    &mut bndind,
+                    bndptr,
+                    bndind,
                     bndtype,
                 );
 
                 UpdateQueueInfo(
-                    queue, vstatus, ii, me, from, to, myrinfo, oldnnbrs, nupd, updptr, updind,
+                    &mut queue,
+                    &mut vstatus,
+                    ii,
+                    me,
+                    from,
+                    to,
+                    myrinfo,
+                    oldnnbrs,
+                    &mut nupd,
+                    &mut updptr,
+                    &mut updind,
                     bndtype,
                 );
 
@@ -622,11 +894,17 @@ pub extern "C" fn Greedy_KWayCutOptimize(
         }
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!("\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
+            print!(
+                "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
               Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
-              pwgts[util::iargmin(pwgts, 1)], imax(nparts, pwgts,1),
-              mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm), 
-              graph.nbnd, nmoved, graph.mincut, debug::ComputeVolume(graph, where_.as_ptr()));
+                pwgts[util::iargmin(pwgts, 1)],
+                imax(nparts, pwgts, 1),
+                mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+                graph.nbnd,
+                nmoved,
+                graph.mincut,
+                debug::ComputeVolume(graph, where_.as_ptr())
+            );
             if ctrl.minconn != 0 {
                 print!(
                     ", Doms: [{:3} {:4}]",
@@ -696,7 +974,8 @@ pub extern "C" fn Greedy_KWayVolOptimize(
 
     /* Link the graph fields */
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(ctrl, graph => xadj adjncy bndptr bndind where_ pwgts vwgt tvwgt vsize);
+    get_graph_slices!(ctrl, graph => xadj adjncy bndind vwgt tvwgt vsize);
+    get_graph_slices_mut!(ctrl, graph => pwgts where_);
 
     let nparts = ctrl.nparts as usize;
     mkslice!(ctrl->tpwgts, nparts);
@@ -705,10 +984,8 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     let mut minpwgts: Vec<idx_t> = vec![0; nparts as usize];
     let mut maxpwgts: Vec<idx_t> = vec![0; nparts as usize];
 
-    mkslice!(ctrl->tpwgts, nparts);
     for i in (0)..(nparts) {
-        maxpwgts[i as usize] =
-            (tpwgts[i as usize] * tvwgt[0] as real_t * *ctrl.ubfactors) as idx_t;
+        maxpwgts[i as usize] = (tpwgts[i as usize] * tvwgt[0] as real_t * *ctrl.ubfactors) as idx_t;
         minpwgts[i as usize] =
             (tpwgts[i as usize] * tvwgt[0] as real_t * (1.0 / *ctrl.ubfactors)) as idx_t;
     }
@@ -723,14 +1000,12 @@ pub extern "C" fn Greedy_KWayVolOptimize(
 
     let mut nads = &mut [][..];
     let mut adids = &mut [][..];
-    let mut adwgts = &mut [][..];
     let mut doms = &mut [][..];
     if ctrl.minconn != 0 {
         minconn::ComputeSubDomainGraph(ctrl, graph);
 
         nads = std::slice::from_raw_parts_mut(ctrl.nads, nparts);
         adids = std::slice::from_raw_parts_mut(ctrl.adids, nparts);
-        adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
         doms = std::slice::from_raw_parts_mut(ctrl.pvec1, nparts);
         doms.fill(0);
     }
@@ -761,12 +1036,20 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     let mut pmarker: Vec<idx_t> = vec![-1; nparts as usize];
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!("{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}\
+        print!(
+            "{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}\
             , Nv-Nb[{:6} {:6}], Cut: {:5}, Vol: {:5}",
             (if omode == OMODE_REFINE { "GRV" } else { "GBV" }),
-            pwgts[(util::iargmin(&pwgts, 1)) as usize], imax(nparts, pwgts,1), minpwgts[0], maxpwgts[0], 
-            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm), 
-            graph.nvtxs, graph.nbnd, graph.mincut, graph.minvol);
+            pwgts[(util::iargmin(&pwgts, 1)) as usize],
+            imax(nparts, pwgts, 1),
+            minpwgts[0],
+            maxpwgts[0],
+            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+            graph.nvtxs,
+            graph.nbnd,
+            graph.mincut,
+            graph.minvol
+        );
         if ctrl.minconn != 0 {
             print!(
                 ", Doms: [({:3} {:4}) as usize]",
@@ -783,7 +1066,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     /*=====================================================================
      * The top-level refinement loop
      *======================================================================*/
-    for pass in (0)..(niter) {
+    for _pass in (0)..(niter) {
         debug_assert!(debug::ComputeVolume(graph, where_.as_ptr()) == graph.minvol);
 
         if omode == OMODE_BALANCE {
@@ -802,7 +1085,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
             // Check to see if things are out of balance, given the tolerance
             if pwgts.iter().enumerate().all(|(i, &p)| p <= maxpwgts[i]) {
                 // Things are balanced. Return right away
-                break
+                break;
             }
         }
 
@@ -828,7 +1111,6 @@ pub extern "C" fn Greedy_KWayVolOptimize(
 
         /* Start extracting vertices from the queue and try to move them */
         let mut nmoved = 0;
-        let mut to: usize;
         for iii in (0).. {
             let Some(i) = queue.pop() else { break };
             let i = i as usize;
@@ -852,13 +1134,31 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 }
             }
 
-            if ctrl.contig != 0 && IsArticulationNode(nvtxs as idx_t, i as idx_t, xadj.as_ptr(), adjncy.as_ptr(), where_.as_ptr(), bfslvl.as_mut_ptr(), bfsind.as_mut_ptr(), bfsmrk.as_mut_ptr()) != 0
+            if ctrl.contig != 0
+                && IsArticulationNode(
+                    nvtxs as idx_t,
+                    i as idx_t,
+                    xadj.as_ptr(),
+                    adjncy.as_ptr(),
+                    where_.as_ptr(),
+                    bfslvl.as_mut_ptr(),
+                    bfsind.as_mut_ptr(),
+                    bfsmrk.as_mut_ptr(),
+                ) != 0
             {
                 continue;
             }
 
             if ctrl.minconn != 0 {
-                SelectSafeTargetSubdomains(myrinfo, mynbrs, nads, adids, maxndoms, safetos, doms);
+                SelectSafeTargetSubdomains_vol(
+                    myrinfo,
+                    mynbrs,
+                    nads,
+                    adids,
+                    maxndoms,
+                    &mut safetos,
+                    doms,
+                );
             }
 
             let xgain = if myrinfo.nid == 0 && myrinfo.ned > 0 {
@@ -868,7 +1168,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
             };
 
             /* Find the most promising subdomain to move to */
-            let mut to;
+            let to;
             let k = if omode == OMODE_REFINE {
                 // for k in (0..=(myrinfo.nnbrs - 1)).rev() {
                 //     to = mynbrs[k as usize].pid as usize;
@@ -886,17 +1186,19 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 // if (k < 0) {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
-                let Some(mut k) = (0..myrinfo.nnbrs as usize).filter(|&k| {
-                    let to = mynbrs[k].pid as usize;
-                    safetos[to] != 0
-                }).rfind(|&k| {
-                        to = mynbrs[k].pid as usize;
+                let Some(mut k) = (0..myrinfo.nnbrs as usize)
+                    .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
+                    .rfind(|&k| {
+                        let to = mynbrs[k].pid as usize;
                         let gain = mynbrs[k].gv + xgain;
-                        
-                        gain >= 0 
-                            && (pwgts[to as usize] + vwgt) as real_t <= maxpwgts[to as usize] as real_t + ffactor * gain as real_t
-                    }) else { continue };
+
+                        gain >= 0
+                            && (pwgts[to as usize] + vwgt) as real_t
+                                <= maxpwgts[to as usize] as real_t + ffactor * gain as real_t
+                    })
+                else {
+                    continue;
+                };
 
                 for j in (0..k).rev() {
                     let to = mynbrs[j as usize].pid as usize;
@@ -905,14 +1207,15 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                     }
                     let gain = mynbrs[j].gv + xgain;
                     if (mynbrs[j].gv > mynbrs[k].gv
-                    && (pwgts[to] + vwgt) as real_t <= maxpwgts[to] as real_t + ffactor * gain as real_t)
-                    || (mynbrs[j].gv == mynbrs[k].gv
-                    && mynbrs[j].ned > mynbrs[k].ned
-                    && pwgts[to] + vwgt <= maxpwgts[to])
-                    || (mynbrs[j].gv == mynbrs[k].gv
-                    && mynbrs[j].ned == mynbrs[k].ned
-                    && tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
-                    < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t)
+                        && (pwgts[to] + vwgt) as real_t
+                            <= maxpwgts[to] as real_t + ffactor * gain as real_t)
+                        || (mynbrs[j].gv == mynbrs[k].gv
+                            && mynbrs[j].ned > mynbrs[k].ned
+                            && pwgts[to] + vwgt <= maxpwgts[to])
+                        || (mynbrs[j].gv == mynbrs[k].gv
+                            && mynbrs[j].ned == mynbrs[k].ned
+                            && tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
+                                < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t)
                     {
                         k = j;
                     }
@@ -926,9 +1229,9 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                     j = 1;
                 } else if mynbrs[k as usize].ned - myrinfo.nid == 0 {
                     if (iii % 2 == 0 && safetos[to as usize] == 2)
-                    || pwgts[from as usize] >= maxpwgts[from as usize]
-                    || tpwgts[from as usize] * ((pwgts[to as usize] + vwgt) as real_t)
-                    < tpwgts[to as usize] * pwgts[from as usize] as real_t
+                        || pwgts[from as usize] >= maxpwgts[from as usize]
+                        || tpwgts[from as usize] * ((pwgts[to as usize] + vwgt) as real_t)
+                            < tpwgts[to as usize] * pwgts[from as usize] as real_t
                     {
                         j = 1;
                     }
@@ -954,15 +1257,17 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 // if k < 0 {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
-                let Some(mut k) = (0..myrinfo.nnbrs as usize).filter(|&k| {
-                    safetos[mynbrs[k].pid as usize] != 0
-                }).rfind(|&k| {
+                let Some(mut k) = (0..myrinfo.nnbrs as usize)
+                    .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
+                    .rfind(|&k| {
                         let to = mynbrs[k].pid as usize;
                         pwgts[to as usize] + vwgt <= maxpwgts[to as usize]
-                        || tpwgts[from as usize] * (pwgts[to as usize] + vwgt) as real_t
-                        <= tpwgts[to as usize] * pwgts[from as usize] as real_t
-                    }) else { continue };
+                            || tpwgts[from as usize] * (pwgts[to as usize] + vwgt) as real_t
+                                <= tpwgts[to as usize] * pwgts[from as usize] as real_t
+                    })
+                else {
+                    continue;
+                };
 
                 for j in (0..k).rev() {
                     let to = mynbrs[j as usize].pid as usize;
@@ -970,7 +1275,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                         continue;
                     }
                     if tpwgts[mynbrs[k].pid as usize] * (pwgts[to] as real_t)
-                    < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t
+                        < tpwgts[to] * pwgts[mynbrs[k].pid as usize] as real_t
                     {
                         k = j;
                     }
@@ -978,10 +1283,10 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 to = mynbrs[k as usize].pid as usize;
 
                 if pwgts[from as usize] < maxpwgts[from as usize]
-                && pwgts[to as usize] > minpwgts[to as usize]
-                && (xgain + mynbrs[k as usize].gv < 0
-                || (xgain + mynbrs[k as usize].gv == 0
-                && mynbrs[k as usize].ned - myrinfo.nid < 0))
+                    && pwgts[to as usize] > minpwgts[to as usize]
+                    && (xgain + mynbrs[k as usize].gv < 0
+                        || (xgain + mynbrs[k as usize].gv == 0
+                            && mynbrs[k as usize].ned - myrinfo.nid < 0))
                 {
                     continue;
                 }
@@ -1001,10 +1306,17 @@ pub extern "C" fn Greedy_KWayVolOptimize(
             ifset!(
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
-                print!("\t\tMoving {:6} from {:3} to {:3}. \
-                Gain: [{:4} {:4}]. Cut: {:6}, Vol: {:6}\n", 
-                    i, from, to, xgain+mynbrs[k as usize].gv, mynbrs[k as usize].ned-myrinfo.nid, 
-              graph.mincut, graph.minvol)
+                print!(
+                    "\t\tMoving {:6} from {:3} to {:3}. \
+                Gain: [{:4} {:4}]. Cut: {:6}, Vol: {:6}\n",
+                    i,
+                    from,
+                    to,
+                    xgain + mynbrs[k as usize].gv,
+                    mynbrs[k as usize].ned - myrinfo.nid,
+                    graph.mincut,
+                    graph.minvol
+                )
             );
 
             /* Update the subdomain connectivity information */
@@ -1022,16 +1334,40 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                     let me = where_[adjncy[j as usize] as usize] as usize;
                     if me != from && me != to {
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, from as idx_t, me as idx_t, -1, &mut maxndoms);
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, to as idx_t, me as idx_t, 1, &mut maxndoms);
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            from as idx_t,
+                            me as idx_t,
+                            -1,
+                            &mut maxndoms,
+                        );
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            to as idx_t,
+                            me as idx_t,
+                            1,
+                            &mut maxndoms,
+                        );
                     }
                 }
             }
 
             /* Update the id/ed/gains/bnd/queue of potentially affected nodes */
             KWayVolUpdate(
-                ctrl, graph, i, from, to, &mut queue, &mut vstatus, &mut nupd, &mut updptr, &mut updind, bndtype, &mut vmarker,
-                &mut pmarker, &mut modind,
+                ctrl,
+                graph,
+                i,
+                from,
+                to,
+                Some(&mut queue),
+                Some(&mut vstatus),
+                Some(&mut nupd),
+                Some(&mut updptr),
+                Some(&mut updind),
+                bndtype,
+                &mut vmarker,
+                &mut pmarker,
+                &mut modind,
             );
 
             /*CheckKWayVolPartitionParams(ctrl, graph); */
@@ -1046,11 +1382,17 @@ pub extern "C" fn Greedy_KWayVolOptimize(
         }
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!("\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
+            print!(
+                "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
               Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
-              pwgts[(iargmin(nparts, pwgts,1)) as usize], imax(nparts, pwgts,1),
-              mcutil::ComputeLoadImbalance(graph, nparts, ctrl.pijbm), 
-              graph.nbnd, nmoved, graph.mincut, graph.minvol);
+                pwgts[util::iargmin(&pwgts, 1) as usize],
+                imax(nparts, pwgts, 1),
+                mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+                graph.nbnd,
+                nmoved,
+                graph.mincut,
+                graph.minvol
+            );
             if ctrl.minconn != 0 {
                 print!(
                     ", Doms: [{:3} {:4}]",
@@ -1062,12 +1404,11 @@ pub extern "C" fn Greedy_KWayVolOptimize(
         }
 
         if nmoved == 0
-        || (omode == OMODE_REFINE && graph.minvol == oldvol && graph.mincut == oldcut)
+            || (omode == OMODE_REFINE && graph.minvol == oldvol && graph.mincut == oldcut)
         {
             break;
         }
     }
-
 
     // WCOREPOP;
 }
@@ -1093,7 +1434,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     niter: idx_t,
-    ffactor: real_t,
+    _ffactor: real_t,
     omode: idx_t,
 ) {
     let ctrl = ctrl.as_mut().unwrap();
@@ -1125,12 +1466,12 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
         BNDTYPE_BALANCE
     };
 
-
     /* Link the graph fields */
     let nvtxs = graph.nvtxs as usize;
     let ncon = graph.ncon as usize;
     let nparts = ctrl.nparts as usize;
-    get_graph_slices!(ctrl, graph => xadj adjncy vwgt adjwgt bndind bndptr where_ pwgts ckrinfo);
+    get_graph_slices!(ctrl, graph => xadj adjncy vwgt adjwgt);
+    get_graph_slices_mut!(ctrl, graph => bndind bndptr pwgts where_);
 
     mkslice_mut!(ctrl->pijbm, nparts * ncon);
 
@@ -1139,7 +1480,12 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
     When OMODE_REFINE, the ubfactors are the max of the current partition
     and the user-specified ones. */
     let mut ubfactors: Vec<real_t> = vec![0.0; ncon as usize];
-    mcutil::ComputeLoadImbalanceVec(graph, nparts as idx_t, pijbm.as_ptr(), ubfactors.as_mut_ptr());
+    mcutil::ComputeLoadImbalanceVec(
+        graph,
+        nparts as idx_t,
+        pijbm.as_ptr(),
+        ubfactors.as_mut_ptr(),
+    );
     let origbal = mcutil::rvecmaxdiff(ncon as idx_t, ubfactors.as_mut_ptr(), ctrl.ubfactors);
 
     {
@@ -1151,8 +1497,8 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 ubfactors[i as usize] = if ubfactors[i as usize] > ctrl_ubfactors[i as usize] {
                     ubfactors[i as usize]
                 } else {
-                        ctrl_ubfactors[i as usize]
-                    };
+                    ctrl_ubfactors[i as usize]
+                };
             }
         }
     }
@@ -1184,14 +1530,14 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
 
     let mut nads = &mut [][..];
     let mut adids = &mut [][..];
-    let mut adwgts = &mut [][..];
+    let mut _adwgts = &mut [][..];
     let mut doms = &mut [][..];
     if ctrl.minconn != 0 {
         minconn::ComputeSubDomainGraph(ctrl, graph);
 
         nads = std::slice::from_raw_parts_mut(ctrl.nads, nparts);
         adids = std::slice::from_raw_parts_mut(ctrl.adids, nparts);
-        adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
+        _adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
         doms = std::slice::from_raw_parts_mut(ctrl.pvec1, nparts);
         doms.fill(0);
     }
@@ -1217,12 +1563,20 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
     }
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!("{}: [{:6} {:6} {:6}], Bal: {:5.3}({:.3}), \
+        print!(
+            "{}: [{:6} {:6} {:6}], Bal: {:5.3}({:.3}), \
             Nv-Nb[{:6} {:6}], Cut: {:6}, ({:})",
             (if omode == OMODE_REFINE { "GRC" } else { "GBC" }),
-            imin(nparts*ncon, pwgts,1), imax(nparts*ncon, pwgts,1), imax(nparts*ncon, &maxpwgts, 1),
-            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm), origbal,
-            graph.nvtxs, graph.nbnd, graph.mincut, niter);
+            imin(nparts * ncon, pwgts, 1),
+            imax(nparts * ncon, pwgts, 1),
+            imax(nparts * ncon, &maxpwgts, 1),
+            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()),
+            origbal,
+            graph.nvtxs,
+            graph.nbnd,
+            graph.mincut,
+            niter
+        );
         if ctrl.minconn != 0 {
             print!(
                 ", Doms: [({:3} {:4}) as usize]",
@@ -1238,7 +1592,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
     /*=====================================================================
      * The top-level refinement loop
      *======================================================================*/
-    for pass in (0)..(niter) {
+    for _pass in (0)..(niter) {
         debug_assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
         if omode == OMODE_REFINE {
             debug_assert!(debug::CheckBnd2(graph) != 0);
@@ -1250,8 +1604,8 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
         }
 
         let oldcut = graph.mincut;
-        let nbnd = graph.nbnd as usize;
-        let mut nupd = 0;
+        let mut nbnd = graph.nbnd as usize;
+        let mut nupd: usize = 0;
 
         let mut maxndoms;
         if ctrl.minconn != 0 {
@@ -1264,6 +1618,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
         irandArrayPermute(nbnd as idx_t, perm.as_mut_ptr(), nbnd as idx_t / 4, 1);
         for ii in (0)..(nbnd) {
             let i = bndind[perm[ii] as usize] as usize;
+            get_graph_slices!(graph => ckrinfo);
             let rgain = (if ckrinfo[i].nnbrs > 0 {
                 1.0 * ckrinfo[i].ed as f64 / (ckrinfo[i].nnbrs as f64).sqrt()
             } else {
@@ -1281,19 +1636,19 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
             let i = i as usize;
             vstatus[i as usize] = VPQSTATUS_EXTRACTED;
 
-            let (myrinfo, mynbrs) = crinfos(graph.ckrinfo, ctrl.cnbrpool, i);
+            let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
             let from = where_[i as usize] as usize;
 
             /* Prevent moves that make 'from' domain underbalanced */
             if omode == OMODE_REFINE {
                 if myrinfo.id > 0
-                && !util::ivecaxpygez(
-                    -1,
-                    &vwgt[cntrng!(i * ncon, ncon)],
-                    &pwgts[cntrng!(from * ncon, ncon)],
-                    &minpwgts[cntrng!(from * ncon, ncon)],
-                )
+                    && !util::ivecaxpygez(
+                        -1,
+                        &vwgt[cntrng!(i * ncon, ncon)],
+                        &pwgts[cntrng!(from * ncon, ncon)],
+                        &minpwgts[cntrng!(from * ncon, ncon)],
+                    )
                 {
                     continue;
                 }
@@ -1309,18 +1664,36 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 }
             }
 
-            if ctrl.contig != 0 && IsArticulationNode(nvtxs as idx_t, i as idx_t, xadj.as_ptr(), adjncy.as_ptr(), where_.as_ptr(), bfslvl.as_mut_ptr(), bfsind.as_mut_ptr(), bfsmrk.as_mut_ptr()) != 0
+            if ctrl.contig != 0
+                && IsArticulationNode(
+                    nvtxs as idx_t,
+                    i as idx_t,
+                    xadj.as_ptr(),
+                    adjncy.as_ptr(),
+                    where_.as_ptr(),
+                    bfslvl.as_mut_ptr(),
+                    bfsind.as_mut_ptr(),
+                    bfsmrk.as_mut_ptr(),
+                ) != 0
             {
                 continue;
             }
 
             if ctrl.minconn != 0 {
-                SelectSafeTargetSubdomains(myrinfo, mynbrs, nads, adids, maxndoms, safetos, doms);
+                SelectSafeTargetSubdomains_cut(
+                    myrinfo,
+                    mynbrs,
+                    nads,
+                    adids,
+                    maxndoms,
+                    &mut safetos,
+                    doms,
+                );
             }
 
             /* Find the most promising subdomain to move to */
-            let mut to = -1;
-            let k = if (omode == OMODE_REFINE) {
+            let to: usize;
+            let k = if omode == OMODE_REFINE {
                 // for k in (0..=(myrinfo.nnbrs - 1)).rev() {
                 //     if (!safetos[to = mynbrs[k as usize].pid]) {
                 //         continue;
@@ -1341,50 +1714,49 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 // if (k < 0) {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
-                let Some(mut k) = (0..myrinfo.nnbrs as usize).filter(|k| {
-                    to = mynbrs[k as usize].pid as usize;
-                    safetos[to] != 0
-                }).rfind(|&k| {
-                    to = mynbrs[k as usize].pid as usize;
-                    let gain = mynbrs[k as usize].ed - myrinfo.id;
-                    gain >= 0
-                    && util::ivecaxpylez(
-                        1,
-                        &vwgt[cntrng!(i * ncon, ncon)],
-                        &pwgts[cntrng!(to * ncon, ncon)],
-                        &maxpwgts[cntrng!(to * ncon, ncon)],
-                    )
-                    }) else {
+                let Some(mut k) = (0..myrinfo.nnbrs as usize)
+                    .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
+                    .rfind(|&k| {
+                        let to = mynbrs[k].pid as usize;
+                        let gain = mynbrs[k as usize].ed - myrinfo.id;
+                        gain >= 0
+                            && util::ivecaxpylez(
+                                1,
+                                &vwgt[cntrng!(i * ncon, ncon)],
+                                &pwgts[cntrng!(to * ncon, ncon)],
+                                &maxpwgts[cntrng!(to * ncon, ncon)],
+                            )
+                    })
+                else {
                     // break out if you did not find a candidate
-                    continue
+                    continue;
                 };
 
-                let mut cto = to;
+                let mut cto = mynbrs[k].pid as usize;
                 for j in (0..k).rev() {
                     let to = mynbrs[j as usize].pid as usize;
                     if safetos[to] == 0 {
                         continue;
                     }
                     if (mynbrs[j].ed > mynbrs[k].ed
-                    && util::ivecaxpylez(
-                        1,
-                        &vwgt[cntrng!(i * ncon, ncon)],
-                        &pwgts[cntrng!(to * ncon, ncon)],
-                        &maxpwgts[cntrng!(to * ncon, ncon)],
-                    ))
-                    || (mynbrs[j as usize].ed == mynbrs[k as usize].ed
-                    && mcutil::BetterBalanceKWay(
-                        ncon as idx_t,
-                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                        ubfactors.as_ptr(),
-                        1,
-                        pwgts[cntrng!(cto * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(cto * ncon, ncon)].as_ptr(),
-                        1,
-                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0)
+                        && util::ivecaxpylez(
+                            1,
+                            &vwgt[cntrng!(i * ncon, ncon)],
+                            &pwgts[cntrng!(to * ncon, ncon)],
+                            &maxpwgts[cntrng!(to * ncon, ncon)],
+                        ))
+                        || (mynbrs[j as usize].ed == mynbrs[k as usize].ed
+                            && mcutil::BetterBalanceKWay(
+                                ncon as idx_t,
+                                vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                                ubfactors.as_ptr(),
+                                1,
+                                pwgts[cntrng!(cto * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(cto * ncon, ncon)].as_ptr(),
+                                1,
+                                pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                            ) != 0)
                     {
                         k = j;
                         cto = to;
@@ -1394,18 +1766,19 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
 
                 let gain = mynbrs[k as usize].ed - myrinfo.id;
                 if !(gain > 0
-                || (gain == 0
-                && (mcutil::BetterBalanceKWay(
-                    ncon,
-                    vwgt + i * ncon,
-                    ubfactors,
-                    -1,
-                    pwgts + from * ncon,
-                    pijbm + from * ncon,
-                    1,
-                    pwgts + to * ncon,
-                    pijbm + to * ncon,
-                ) != 0 || (iii % 2 == 0 && safetos[to as usize] == 2))))
+                    || (gain == 0
+                        && (mcutil::BetterBalanceKWay(
+                            ncon as idx_t,
+                            vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                            ubfactors.as_ptr(),
+                            -1,
+                            pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                            1,
+                            pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                        ) != 0
+                            || (iii % 2 == 0 && safetos[to as usize] == 2))))
                 {
                     continue;
                 }
@@ -1440,12 +1813,10 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 // if (k < 0) {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
-                let Some(k) = (0..myrinfo.nnbrs as usize).filter(|k| {
-                    to = mynbrs[k].pid as usize;
-                    safetos[to] != 0
-                }).rfind(|k| {
-                    to = mynbrs[k].pid as usize;
+                let Some(mut k) = (0..myrinfo.nnbrs as usize)
+                    .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
+                    .rfind(|&k| {
+                        let to = mynbrs[k].pid as usize;
                         util::ivecaxpylez(
                             1,
                             &vwgt[cntrng!(i * ncon, ncon)],
@@ -1454,7 +1825,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                         ) || mcutil::BetterBalanceKWay(
                             ncon as idx_t,
                             vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                            ubfactors,
+                            ubfactors.as_ptr(),
                             -1,
                             pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
                             pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
@@ -1462,29 +1833,30 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                             pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
                             pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
                         ) != 0
-                    }
-                    ) else {
+                    })
+                else {
                     // break out if you did not find a candidate
-                    continue
+                    continue;
                 };
 
-                let mut cto = to;
+                let mut cto = mynbrs[k].pid as usize;
                 for j in (0..k).rev() {
-                    let to = mynbrs[j as usize].pid;
+                    let to = mynbrs[j as usize].pid as usize;
                     if safetos[to] == 0 {
                         continue;
                     }
                     if mcutil::BetterBalanceKWay(
                         ncon as idx_t,
                         vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                        ubfactors,
+                        ubfactors.as_ptr(),
                         1,
                         pwgts[cntrng!(cto * ncon, ncon)].as_ptr(),
                         pijbm[cntrng!(cto * ncon, ncon)].as_ptr(),
                         1,
                         pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
                         pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0 {
+                    ) != 0
+                    {
                         k = j;
                         cto = to;
                     }
@@ -1492,17 +1864,17 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 to = cto;
 
                 if mynbrs[k as usize].ed - myrinfo.id < 0
-                && !BetterBalanceKWay(
-                    ncon,
-                    vwgt + i * ncon,
-                    ubfactors,
-                    -1,
-                    pwgts + from * ncon,
-                    pijbm + from * ncon,
-                    1,
-                    pwgts + to * ncon,
-                    pijbm + to * ncon,
-                )
+                    && !mcutil::BetterBalanceKWay(
+                        ncon as idx_t,
+                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                        ubfactors.as_ptr(),
+                        -1,
+                        pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                        pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                        1,
+                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                    ) != 0
                 {
                     continue;
                 }
@@ -1529,12 +1901,12 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
             );
 
             /* Update the subdomain connectivity information */
-            if ctrl.minconn {
+            if ctrl.minconn != 0 {
                 /* take care of i's move itself */
                 minconn::UpdateEdgeSubDomainGraph(
                     ctrl,
-                    from,
-                    to,
+                    from as idx_t,
+                    to as idx_t,
                     myrinfo.id - mynbrs[k as usize].ed,
                     &mut maxndoms,
                 );
@@ -1543,24 +1915,50 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                     let me = where_[adjncy[j as usize] as usize] as usize;
                     if me != from && me != to {
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, from as idx_t, me as idx_t, -adjwgt[j as usize], &mut maxndoms);
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, to as idx_t, me as idx_t, adjwgt[j as usize], &mut maxndoms);
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            from as idx_t,
+                            me as idx_t,
+                            -adjwgt[j as usize],
+                            &mut maxndoms,
+                        );
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            to as idx_t,
+                            me as idx_t,
+                            adjwgt[j as usize],
+                            &mut maxndoms,
+                        );
                     }
                 }
             }
 
             /* Update ID/ED and BND related information for the moved vertex */
-            blas::iaxpy(ncon, 1, vwgt + i * ncon, 1, pwgts + to * ncon, 1);
-            blas::iaxpy(ncon, -1, vwgt + i * ncon, 1, pwgts + from * ncon, 1);
+            blas::iaxpy(
+                ncon,
+                1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(to * ncon, ncon)],
+                1,
+            );
+            blas::iaxpy(
+                ncon,
+                -1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(from * ncon, ncon)],
+                1,
+            );
             UpdateMovedVertexInfoAndBND!(
                 i, from, k, to, myrinfo, mynbrs, where_, nbnd, bndptr, bndind, bndtype,
             );
 
             /* Update the degrees of adjacent vertices */
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-                let ii = adjncy[j as usize];
-                let me = where_[ii as usize] as usize;
-                myrinfo = graph.ckrinfo + ii;
+                let ii = adjncy[j as usize] as usize;
+                let me = where_[ii] as usize;
+                let myrinfo = &mut *graph.ckrinfo.add(ii);
 
                 let oldnnbrs = myrinfo.nnbrs;
 
@@ -1573,14 +1971,24 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                     to,
                     myrinfo,
                     adjwgt[j as usize],
-                    nbnd,
+                    &mut nbnd,
                     bndptr,
                     bndind,
                     bndtype,
                 );
 
                 UpdateQueueInfo(
-                    queue, vstatus, ii, me, from, to, myrinfo, oldnnbrs, nupd, updptr, updind,
+                    &mut queue,
+                    &mut vstatus,
+                    ii,
+                    me,
+                    from,
+                    to,
+                    myrinfo,
+                    oldnnbrs,
+                    &mut nupd,
+                    &mut updptr,
+                    &mut updind,
                     bndtype,
                 );
 
@@ -1588,7 +1996,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
             }
         }
 
-        graph.nbnd = nbnd;
+        graph.nbnd = nbnd as idx_t;
 
         /* Reset the vstatus and associated data structures */
         for i in (0)..(nupd) {
@@ -1599,12 +2007,18 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
         }
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!("\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
+            print!(
+                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
               Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
-              imin(nparts*ncon, pwgts,1), imax(nparts*ncon, pwgts,1), 
-              ComputeLoadImbalance(graph, nparts, pijbm), 
-              graph.nbnd, nmoved, graph.mincut, ComputeVolume(graph, where_));
-            if ctrl.minconn {
+                imin(nparts * ncon, pwgts, 1),
+                imax(nparts * ncon, pwgts, 1),
+                mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()),
+                graph.nbnd,
+                nmoved,
+                graph.mincut,
+                debug::ComputeVolume(graph, where_.as_ptr())
+            );
+            if ctrl.minconn != 0 {
                 print!(
                     ", Doms: [({:3} {:4}) as usize]",
                     imax(nparts, nads, 1),
@@ -1640,7 +2054,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
     ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     niter: idx_t,
-    ffactor: real_t,
+    _ffactor: real_t,
     omode: idx_t,
 ) {
     let graph = graph.as_mut().unwrap();
@@ -1672,11 +2086,11 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         BNDTYPE_BALANCE
     };
 
-
     /* Link the graph fields */
     let nvtxs = graph.nvtxs as usize;
     let ncon = graph.ncon as usize;
-    get_graph_slices!(ctrl, graph => xadj vwgt adjncy bndptr bndind where_ pwgts vsize);
+    get_graph_slices!(ctrl, graph => xadj vwgt adjncy bndind vsize);
+    get_graph_slices_mut!(ctrl, graph => pwgts where_);
 
     let nparts = ctrl.nparts as usize;
 
@@ -1687,7 +2101,12 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
     When OMODE_REFINE, the ubfactors are the max of the current partition
     and the user-specified ones. */
     let mut ubfactors: Vec<real_t> = vec![0.0; ncon as usize];
-    mcutil::ComputeLoadImbalanceVec(graph, nparts as idx_t, pijbm.as_ptr(), ubfactors.as_mut_ptr());
+    mcutil::ComputeLoadImbalanceVec(
+        graph,
+        nparts as idx_t,
+        pijbm.as_ptr(),
+        ubfactors.as_mut_ptr(),
+    );
     let origbal = mcutil::rvecmaxdiff(ncon as idx_t, ubfactors.as_mut_ptr(), ctrl.ubfactors);
     {
         mkslice!(ctrl_ubfactors: ctrl->ubfactors, ncon);
@@ -1698,8 +2117,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 ubfactors[i as usize] = if ubfactors[i as usize] > ctrl_ubfactors[i as usize] {
                     ubfactors[i as usize]
                 } else {
-                        ctrl_ubfactors[i as usize]
-                    };
+                    ctrl_ubfactors[i as usize]
+                };
             }
         }
     }
@@ -1712,12 +2131,12 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         mkslice!(graph->tvwgt, ncon);
         mkslice!(ctrl->tpwgts, ncon * nparts);
         for j in (0)..(ncon) {
-            maxpwgts[(i * ncon + j) as usize] = tpwgts[(i * ncon + j) as usize]
-                * tvwgt[j as usize]
-                * ubfactors[j as usize];
+            maxpwgts[(i * ncon + j) as usize] = (tpwgts[(i * ncon + j) as usize]
+                * tvwgt[j as usize] as real_t
+                * ubfactors[j as usize]) as idx_t;
             /*minpwgts[(i*ncon+j) as usize]  = ctrl.tpwgts[(i*ncon+j) as usize]*graph.tvwgt[j as usize]*(.9/ubfactors[j as usize]); */
             minpwgts[(i * ncon + j) as usize] =
-                tpwgts[(i * ncon + j) as usize] * tvwgt[j as usize] * 0.2;
+                (tpwgts[(i * ncon + j) as usize] * tvwgt[j as usize] as real_t * 0.2) as idx_t;
         }
     }
 
@@ -1731,14 +2150,14 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
 
     let mut nads = &mut [][..];
     let mut adids = &mut [][..];
-    let mut adwgts = &mut [][..];
+    let mut _adwgts = &mut [][..];
     let mut doms = &mut [][..];
     if ctrl.minconn != 0 {
         minconn::ComputeSubDomainGraph(ctrl, graph);
 
         nads = std::slice::from_raw_parts_mut(ctrl.nads, nparts);
         adids = std::slice::from_raw_parts_mut(ctrl.adids, nparts);
-        adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
+        _adwgts = std::slice::from_raw_parts_mut(ctrl.adwgts, nparts);
         doms = std::slice::from_raw_parts_mut(ctrl.pvec1, nparts);
         doms.fill(0);
     }
@@ -1769,12 +2188,21 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
     let mut pmarker: Vec<idx_t> = vec![-1; nparts as usize];
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!("{}: [{:6} {:6} {:6}], Bal: {:5.3}({:.3}), \
+        print!(
+            "{}: [{:6} {:6} {:6}], Bal: {:5.3}({:.3}), \
             Nv-Nb[{:6} {:6}], Cut: {:5}, Vol: {:5}, ({:})",
             (if omode == OMODE_REFINE { "GRV" } else { "GBV" }),
-            imin(nparts*ncon, pwgts,1), imax(nparts*ncon, pwgts,1), imax(nparts*ncon, &maxpwgts, 1),
-            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()), origbal,
-            graph.nvtxs, graph.nbnd, graph.mincut, graph.minvol, niter);
+            imin(nparts * ncon, pwgts, 1),
+            imax(nparts * ncon, pwgts, 1),
+            imax(nparts * ncon, &maxpwgts, 1),
+            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()),
+            origbal,
+            graph.nvtxs,
+            graph.nbnd,
+            graph.mincut,
+            graph.minvol,
+            niter
+        );
         if ctrl.minconn != 0 {
             print!(
                 ", Doms: [{:3} {:4}]",
@@ -1790,7 +2218,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
     /*=====================================================================
      * The top-level refinement loop
      *======================================================================*/
-    for pass in (0)..(niter) {
+    for _pass in (0)..(niter) {
         debug_assert!(debug::ComputeVolume(graph, where_.as_ptr()) == graph.minvol);
 
         /* In balancing mode, exit as soon as balance is reached */
@@ -1802,7 +2230,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         let oldvol = graph.minvol;
         let mut nupd = 0;
 
-        let maxndoms;
+        let mut maxndoms: idx_t; // has to be idx since passed by pointer to other funcs
         if ctrl.minconn != 0 {
             maxndoms = imax(nparts, nads, 1);
         } else {
@@ -1828,19 +2256,22 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
             vstatus[i] = VPQSTATUS_EXTRACTED;
 
             let myrinfo = &*graph.vkrinfo.add(i);
-            let mynbrs = std::slice::from_raw_parts(ctrl.vnbrpool.add(myrinfo.inbr as usize), myrinfo.nnbrs as usize);
+            let mynbrs = std::slice::from_raw_parts(
+                ctrl.vnbrpool.add(myrinfo.inbr as usize),
+                myrinfo.nnbrs as usize,
+            );
 
             let from = where_[i as usize] as usize;
 
             /* Prevent moves that make 'from' domain underbalanced */
             if omode == OMODE_REFINE {
                 if myrinfo.nid > 0
-                && !util::ivecaxpygez(
-                    -1,
-                    &vwgt[cntrng!(i * ncon, ncon)],
-                    &pwgts[cntrng!(from * ncon, ncon)],
-                    &minpwgts[cntrng!(from * ncon, ncon)],
-                )
+                    && !util::ivecaxpygez(
+                        -1,
+                        &vwgt[cntrng!(i * ncon, ncon)],
+                        &pwgts[cntrng!(from * ncon, ncon)],
+                        &minpwgts[cntrng!(from * ncon, ncon)],
+                    )
                 {
                     continue;
                 }
@@ -1856,23 +2287,41 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 }
             }
 
-            if ctrl.contig != 0 && IsArticulationNode(nvtxs as idx_t, i as idx_t, xadj.as_ptr(), adjncy.as_ptr(), where_.as_ptr(), bfslvl.as_mut_ptr(), bfsind.as_mut_ptr(), bfsmrk.as_mut_ptr()) != 0
+            if ctrl.contig != 0
+                && IsArticulationNode(
+                    nvtxs as idx_t,
+                    i as idx_t,
+                    xadj.as_ptr(),
+                    adjncy.as_ptr(),
+                    where_.as_ptr(),
+                    bfslvl.as_mut_ptr(),
+                    bfsind.as_mut_ptr(),
+                    bfsmrk.as_mut_ptr(),
+                ) != 0
             {
                 continue;
             }
 
-            if ctrl.minconn {
-                SelectSafeTargetSubdomains(myrinfo, mynbrs, nads, adids, maxndoms, safetos, doms);
+            if ctrl.minconn != 0 {
+                SelectSafeTargetSubdomains_vol(
+                    myrinfo,
+                    mynbrs,
+                    nads,
+                    adids,
+                    maxndoms,
+                    &mut safetos,
+                    doms,
+                );
             }
 
             let xgain = if myrinfo.nid == 0 && myrinfo.ned > 0 {
-                graph.vsize[i as usize]
+                vsize[i as usize]
             } else {
                 0
             };
 
             /* Find the most promising subdomain to move to */
-            let mut to;
+            let mut to = usize::MAX; // shouldn't actually need to be assigned
             let k = if omode == OMODE_REFINE {
                 // for k in (0..=(myrinfo.nnbrs - 1)).rev() {
                 //     if !safetos[to = mynbrs[k as usize].pid] {
@@ -1894,20 +2343,22 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 // if k < 0 {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
                 let Some(mut k) = (0..myrinfo.nnbrs as usize)
                     .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
                     .rfind(|&k| {
                         to = mynbrs[k].pid as usize;
                         let gain = mynbrs[k as usize].gv + xgain;
                         gain >= 0
-                        && util::ivecaxpylez(
-                            1,
-                            &vwgt[cntrng!(i * ncon, ncon)],
-                            &pwgts[cntrng!(to * ncon, ncon)],
-                            &maxpwgts[cntrng!(to * ncon, ncon)],
-                        )
-                    }) else { break };
+                            && util::ivecaxpylez(
+                                1,
+                                &vwgt[cntrng!(i * ncon, ncon)],
+                                &pwgts[cntrng!(to * ncon, ncon)],
+                                &maxpwgts[cntrng!(to * ncon, ncon)],
+                            )
+                    })
+                else {
+                    break;
+                };
 
                 let mut cto = to;
                 for j in (0..k).rev() {
@@ -1915,35 +2366,35 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                     if safetos[to] == 0 {
                         continue;
                     }
-                    let gain = mynbrs[j as usize].gv + xgain;
+                    // let gain = mynbrs[j as usize].gv + xgain;
                     if (mynbrs[j as usize].gv > mynbrs[k as usize].gv
-                    && util::ivecaxpylez(
-                        1,
-                        &vwgt[cntrng!(i * ncon, ncon)],
-                        &pwgts[cntrng!(to * ncon, ncon)],
-                        &maxpwgts[cntrng!(to * ncon, ncon)],
-                    ))
-                    || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
-                    && mynbrs[j as usize].ned > mynbrs[k as usize].ned
-                    && util::ivecaxpylez(
-                        1,
-                        &vwgt[cntrng!(i * ncon, ncon)],
-                        &pwgts[cntrng!(to * ncon, ncon)],
-                        &maxpwgts[cntrng!(to * ncon, ncon)],
-                    ))
-                    || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
-                    && mynbrs[j as usize].ned == mynbrs[k as usize].ned
-                    && mcutil::BetterBalanceKWay(
-                        ncon as idx_t,
-                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                        ubfactors,
-                        1,
-                        pwgts[cntrng!(cto * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(cto * ncon, ncon)].as_ptr(),
-                        1,
-                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0)
+                        && util::ivecaxpylez(
+                            1,
+                            &vwgt[cntrng!(i * ncon, ncon)],
+                            &pwgts[cntrng!(to * ncon, ncon)],
+                            &maxpwgts[cntrng!(to * ncon, ncon)],
+                        ))
+                        || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
+                            && mynbrs[j as usize].ned > mynbrs[k as usize].ned
+                            && util::ivecaxpylez(
+                                1,
+                                &vwgt[cntrng!(i * ncon, ncon)],
+                                &pwgts[cntrng!(to * ncon, ncon)],
+                                &maxpwgts[cntrng!(to * ncon, ncon)],
+                            ))
+                        || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
+                            && mynbrs[j as usize].ned == mynbrs[k as usize].ned
+                            && mcutil::BetterBalanceKWay(
+                                ncon as idx_t,
+                                vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                                ubfactors.as_ptr(),
+                                1,
+                                pwgts[cntrng!(cto * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(cto * ncon, ncon)].as_ptr(),
+                                1,
+                                pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                            ) != 0)
                     {
                         k = j;
                         cto = to;
@@ -1954,19 +2405,19 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 let mut j = 0;
                 if xgain + mynbrs[k as usize].gv > 0 || mynbrs[k as usize].ned - myrinfo.nid > 0 {
                     j = 1;
-                } else if (mynbrs[k as usize].ned - myrinfo.nid == 0) {
+                } else if mynbrs[k as usize].ned - myrinfo.nid == 0 {
                     if (iii % 2 == 0 && safetos[to as usize] == 2)
-                    || mcutil::BetterBalanceKWay(
-                        ncon as idx_t,
-                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                        ubfactors,
-                        -1,
-                        pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
-                        1,
-                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0
+                        || mcutil::BetterBalanceKWay(
+                            ncon as idx_t,
+                            vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                            ubfactors.as_ptr(),
+                            -1,
+                            pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                            1,
+                            pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                        ) != 0
                     {
                         j = 1;
                     }
@@ -2005,27 +2456,30 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 // if k < 0 {
                 //     continue;
                 // } /* break out if you did not find a candidate */
-
                 let Some(mut k) = (0..myrinfo.nnbrs as usize)
                     .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
                     .rfind(|&k| {
+                        to = mynbrs[k].pid as usize;
                         util::ivecaxpylez(
-                        1,
-                        &vwgt[cntrng!(i * ncon, ncon)],
-                        &pwgts[cntrng!(to * ncon, ncon)],
-                        &maxpwgts[cntrng!(to * ncon, ncon)],
-                    ) || mcutil::BetterBalanceKWay(
-                        ncon as idx_t,
-                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                        ubfactors.as_ptr(),
-                        -1,
-                        pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
-                        1,
-                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0
-                    }) else { continue };
+                            1,
+                            &vwgt[cntrng!(i * ncon, ncon)],
+                            &pwgts[cntrng!(to * ncon, ncon)],
+                            &maxpwgts[cntrng!(to * ncon, ncon)],
+                        ) || mcutil::BetterBalanceKWay(
+                            ncon as idx_t,
+                            vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                            ubfactors.as_ptr(),
+                            -1,
+                            pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                            1,
+                            pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                            pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                        ) != 0
+                    })
+                else {
+                    continue;
+                };
 
                 let mut cto = to;
                 for j in (0..=(k - 1)).rev() {
@@ -2043,7 +2497,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                         1,
                         pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
                         pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0 {
+                    ) != 0
+                    {
                         k = j;
                         cto = to;
                     }
@@ -2051,19 +2506,19 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 to = cto;
 
                 if (xgain + mynbrs[k as usize].gv < 0
-                || (xgain + mynbrs[k as usize].gv == 0
-                && mynbrs[k as usize].ned - myrinfo.nid < 0))
-                && mcutil::BetterBalanceKWay(
-                    ncon as idx_t,
-                    vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                    ubfactors.as_ptr(),
-                    -1,
-                    pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
-                    pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
-                    1,
-                    pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                    pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                ) == 0
+                    || (xgain + mynbrs[k as usize].gv == 0
+                        && mynbrs[k as usize].ned - myrinfo.nid < 0))
+                    && mcutil::BetterBalanceKWay(
+                        ncon as idx_t,
+                        vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                        ubfactors.as_ptr(),
+                        -1,
+                        pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                        pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                        1,
+                        pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                        pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                    ) == 0
                 {
                     continue;
                 }
@@ -2075,17 +2530,24 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
              * If we got here, we can now move the vertex from 'from' to 'to'
              *======================================================================*/
             graph.mincut -= mynbrs[k as usize].ned - myrinfo.nid;
-            graph.minvol -= (xgain + mynbrs[k as usize].gv);
-            where_[i as usize] = to;
+            graph.minvol -= xgain + mynbrs[k as usize].gv;
+            where_[i as usize] = to as idx_t;
             nmoved += 1;
 
             ifset!(
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
-                print!("\t\tMoving {:6} from {:3} to {:3}. \
-                Gain: [({:4} {:4}) as usize]. Cut: {:6}, Vol: {:6}\n", 
-              i, from, to, xgain+mynbrs[k as usize].gv, mynbrs[k as usize].ned-myrinfo.nid, 
-              graph.mincut, graph.minvol)
+                print!(
+                    "\t\tMoving {:6} from {:3} to {:3}. \
+                Gain: [({:4} {:4}) as usize]. Cut: {:6}, Vol: {:6}\n",
+                    i,
+                    from,
+                    to,
+                    xgain + mynbrs[k as usize].gv,
+                    mynbrs[k as usize].ned - myrinfo.nid,
+                    graph.mincut,
+                    graph.minvol
+                )
             );
 
             /* Update the subdomain connectivity information */
@@ -2093,30 +2555,68 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 /* take care of i's move itself */
                 minconn::UpdateEdgeSubDomainGraph(
                     ctrl,
-                    from,
-                    to,
+                    from as idx_t,
+                    to as idx_t,
                     myrinfo.nid - mynbrs[k as usize].ned,
-                    &maxndoms,
+                    &mut maxndoms,
                 );
 
                 /* take care of the adjacent vertices */
                 for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                     let me = where_[adjncy[j as usize] as usize] as usize;
                     if me != from && me != to {
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, from as idx_t, me as idx_t, -1, &mut maxndoms);
-                        minconn::UpdateEdgeSubDomainGraph(ctrl, to as idx_t, me as idx_t, 1, &mut maxndoms);
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            from as idx_t,
+                            me as idx_t,
+                            -1,
+                            &mut maxndoms,
+                        );
+                        minconn::UpdateEdgeSubDomainGraph(
+                            ctrl,
+                            to as idx_t,
+                            me as idx_t,
+                            1,
+                            &mut maxndoms,
+                        );
                     }
                 }
             }
 
             /* Update pwgts */
-            blas::iaxpy(ncon, 1, &vwgt[cntrng!(i * ncon, ncon)], 1, &mut pwgts[cntrng!(to * ncon, ncon)], 1);
-            blas::iaxpy(ncon, -1, &vwgt[cntrng!(i * ncon, ncon)], 1, &mut pwgts[cntrng!(from * ncon, ncon)], 1);
+            blas::iaxpy(
+                ncon,
+                1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(to * ncon, ncon)],
+                1,
+            );
+            blas::iaxpy(
+                ncon,
+                -1,
+                &vwgt[cntrng!(i * ncon, ncon)],
+                1,
+                &mut pwgts[cntrng!(from * ncon, ncon)],
+                1,
+            );
 
             /* Update the id/ed/gains/bnd/queue of potentially affected nodes */
             KWayVolUpdate(
-                ctrl, graph, i, from, to, queue, vstatus, &nupd, updptr, updind, bndtype, vmarker,
-                pmarker, modind,
+                ctrl,
+                graph,
+                i,
+                from,
+                to,
+                Some(&mut queue),
+                Some(&mut vstatus),
+                Some(&mut nupd),
+                Some(&mut updptr),
+                Some(&mut updind),
+                bndtype,
+                &mut vmarker,
+                &mut pmarker,
+                &mut modind,
             );
 
             /*CheckKWayVolPartitionParams(ctrl, graph); */
@@ -2131,11 +2631,17 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         }
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!("\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
+            print!(
+                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
               Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
-              imin(nparts*ncon, pwgts,1), imax(nparts*ncon, pwgts,1), 
-              mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()), 
-              graph.nbnd, nmoved, graph.mincut, graph.minvol);
+                imin(nparts * ncon, pwgts, 1),
+                imax(nparts * ncon, pwgts, 1),
+                mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()),
+                graph.nbnd,
+                nmoved,
+                graph.mincut,
+                graph.minvol
+            );
             if ctrl.minconn != 0 {
                 print!(
                     ", Doms: [({:3} {:4}) as usize]",
@@ -2147,7 +2653,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         }
 
         if nmoved == 0
-        || (omode == OMODE_REFINE && graph.minvol == oldvol && graph.mincut == oldcut)
+            || (omode == OMODE_REFINE && graph.minvol == oldvol && graph.mincut == oldcut)
         {
             break;
         }
@@ -2213,7 +2719,7 @@ pub extern "C" fn IsArticulationNode(
     debug_assert!(bfslvl[i as usize] == 0);
     bfslvl[i as usize] = 1;
 
-    bfsind[0] = k; /* That was the last one from the previous loop */
+    bfsind[0] = k as idx_t; /* That was the last one from the previous loop */
     bfslvl[k as usize] = 1;
     bfsmrk[k as usize] = 0;
     let mut head = 1;
@@ -2323,7 +2829,7 @@ pub unsafe fn KWayVolUpdate(
 
     get_graph_slices!(graph => xadj adjncy vsize where_);
 
-    let (myrinfo, mynbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, v);
+    let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, v);
 
     /*======================================================================
      * Remove the contributions on the gain made by 'v'.
@@ -2334,12 +2840,12 @@ pub unsafe fn KWayVolUpdate(
     pmarker[from as usize] = myrinfo.nnbrs;
 
     // has to be signed
-    let myidx: idx_t = pmarker[to as usize]; /* Keep track of the index in mynbrs of the 'to' domain */
+    let mut myidx: idx_t = pmarker[to as usize]; /* Keep track of the index in mynbrs of the 'to' domain */
 
     for j in (xadj[v as usize])..(xadj[(v + 1) as usize]) {
         let ii = adjncy[j as usize] as usize;
         let other = where_[ii as usize] as usize;
-        let (orinfo, onbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, ii);
+        let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
 
         if other == from {
             for k in (0)..(orinfo.nnbrs) {
@@ -2385,7 +2891,7 @@ pub unsafe fn KWayVolUpdate(
     std::mem::swap(&mut myrinfo.nid, &mut mynbrs[myidx as usize].ned);
     if mynbrs[myidx as usize].ned == 0 {
         myrinfo.nnbrs -= 1;
-        mynbrs[myidx as usize] = mynbrs[myrinfo.nnbrs as usize];
+        mynbrs[myidx as usize] = mynbrs[myrinfo.nnbrs as usize].clone();
     } else {
         mynbrs[myidx as usize].pid = from as idx_t;
     }
@@ -2425,13 +2931,12 @@ pub unsafe fn KWayVolUpdate(
                 if mynbrs[k as usize].pid == from as idx_t {
                     if mynbrs[k as usize].ned == 1 {
                         myrinfo.nnbrs -= 1;
-                        mynbrs[k as usize] = mynbrs[myrinfo.nnbrs as usize];
+                        mynbrs[k as usize] = mynbrs[myrinfo.nnbrs as usize].clone();
                         vmarker[ii] = 1; /* You do a complete .gv calculation */
 
                         /* All vertices adjacent to 'ii' need to be updated */
                         for jj in (xadj[ii])..(xadj[(ii + 1) as usize]) {
                             let u = adjncy[jj as usize] as usize;
-                            let other = where_[u as usize] as usize;
                             let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
 
                             for kk in (0)..(orinfo.nnbrs) {
@@ -2458,7 +2963,8 @@ pub unsafe fn KWayVolUpdate(
                                 let other = where_[u as usize] as usize;
 
                                 if other == from {
-                                    let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
+                                    let (_orinfo, onbrs) =
+                                        vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
 
                                     /* The following is correct because domains in common
                                     between ii and u will lead to a reduction over the
@@ -2511,7 +3017,6 @@ pub unsafe fn KWayVolUpdate(
                                     modind[nmod as usize] = u as idx_t;
                                     nmod += 1;
                                 }
-                                found = true;
                                 break;
                             }
                         }
@@ -2530,7 +3035,6 @@ pub unsafe fn KWayVolUpdate(
                 /* All vertices adjacent to 'ii' need to be updated */
                 for jj in (xadj[ii as usize])..(xadj[(ii + 1) as usize]) {
                     let u = adjncy[jj as usize] as usize;
-                    let other = where_[u];
                     let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
 
                     for kk in (0)..(orinfo.nnbrs) {
@@ -2772,7 +3276,8 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ubfactor = *ctrl.ubfactors;
     for i in (0)..(nparts) {
         maxpwgts[i as usize] = (tpwgts[i as usize] * *graph.tvwgt as f32 * ubfactor) as idx_t;
-        minpwgts[i as usize] = (tpwgts[i as usize] * *graph.tvwgt as f32 * (0.95 / ubfactor)) as idx_t;
+        minpwgts[i as usize] =
+            (tpwgts[i as usize] * *graph.tvwgt as f32 * (0.95 / ubfactor)) as idx_t;
     }
 
     /* go and determine the positive gain valid swaps */
@@ -2795,7 +3300,7 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             }
 
             if pwgts[uw as usize] - vwgt[u as usize] + vwgt[v as usize] > maxpwgts[uw as usize]
-            || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize] > maxpwgts[vw as usize]
+                || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize] > maxpwgts[vw as usize]
             {
                 continue;
             }
@@ -2806,13 +3311,13 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
             let Some(unbr) = unbrs.iter().rfind(|unbr| unbr.pid == vw as idx_t) else {
                 println!("Something went wrong!");
-                continue
+                continue;
             };
             let mut gain = unbr.ed - urinfo.id;
 
             let Some(vnbr) = vnbrs.iter().rfind(|vnbr| vnbr.pid == uw as idx_t) else {
                 println!("Something went wrong!");
-                continue
+                continue;
             };
             gain += vnbr.ed - vrinfo.id;
 
@@ -2863,38 +3368,51 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
     /* Link the graph fields */
     let nvtxs = graph.nvtxs as usize;
     let nparts = ctrl.nparts as usize;
-    get_graph_slices!(ctrl, graph => xadj adjncy adjwgt vwgt bndind bndptr where_ pwgts tvwgt);
+    get_graph_slices!(ctrl, graph => xadj adjncy adjwgt vwgt tvwgt);
+    get_graph_slices_mut!(ctrl, graph => pwgts bndptr bndind where_);
     mkslice!(ctrl->tpwgts, nparts);
 
     /* Setup the weight intervals of the various subdomains */
     let mut minpwgts: Vec<idx_t> = vec![0; nparts as usize];
     let mut maxpwgts: Vec<idx_t> = vec![0; nparts as usize];
 
-    let ubfactor = (*ctrl.ubfactors).max(mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm));
+    let ubfactor = (*ctrl.ubfactors).max(mcutil::ComputeLoadImbalance(
+        graph,
+        nparts as idx_t,
+        ctrl.pijbm,
+    ));
     for k in (0)..(nparts) {
         maxpwgts[k as usize] = (tpwgts[k as usize] * tvwgt[0] as real_t * ubfactor) as idx_t;
-        minpwgts[k as usize] = (tpwgts[k as usize] * tvwgt[0] as real_t * (1.0 / ubfactor)) as idx_t;
+        minpwgts[k as usize] =
+            (tpwgts[k as usize] * tvwgt[0] as real_t * (1.0 / ubfactor)) as idx_t;
     }
 
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!("GRE: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
+        print!(
+            "GRE: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
             Nv-Nb[({:6} {:6}) as usize], Cut: {:6}\n",
-            pwgts[(util::iargmin(pwgts, 1)) as usize], imax(nparts, pwgts,1), minpwgts[0], maxpwgts[0], 
-            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm), 
-            graph.nvtxs, graph.nbnd, graph.mincut);
+            pwgts[(util::iargmin(pwgts, 1)) as usize],
+            imax(nparts, pwgts, 1),
+            minpwgts[0],
+            maxpwgts[0],
+            mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+            graph.nvtxs,
+            graph.nbnd,
+            graph.mincut
+        );
     }
 
     /*=====================================================================
      * The top-level refinement loop
      *======================================================================*/
-    for pass in (0)..(niter) {
+    for _pass in (0)..(niter) {
         // this is a GKASSERT (always runs) in the original
         assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
 
         let oldcut = graph.mincut;
-        let nbnd = graph.nbnd as usize;
+        let mut nbnd = graph.nbnd as usize;
         let mut nmoved = 0;
 
         /* Insert the boundary vertices in the priority queue */
@@ -2908,28 +3426,26 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 
             let uw = where_[u as usize] as usize;
 
-            let (urinfo, unbrs) = crinfos(graph.ckrinfo, ctrl.cnbrpool, u);
+            let (urinfo, unbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, u);
 
             let mut bestgain = 0;
             let mut jbest = None;
             for j in (xadj[u as usize])..(xadj[(u + 1) as usize]) {
                 let v = adjncy[j as usize] as usize;
-                let vw = where_[v as usize] as usize ;
+                let vw = where_[v as usize] as usize;
 
                 if uw == vw {
                     continue;
                 }
-                if pwgts[uw as usize] - vwgt[u as usize] + vwgt[v as usize]
-                > maxpwgts[uw as usize]
-                || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize]
-                > maxpwgts[vw as usize]
+                if pwgts[uw as usize] - vwgt[u as usize] + vwgt[v as usize] > maxpwgts[uw as usize]
+                    || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize]
+                        > maxpwgts[vw as usize]
                 {
                     continue;
                 }
-                if pwgts[uw as usize] - vwgt[u as usize] + vwgt[v as usize]
-                < minpwgts[uw as usize]
-                || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize]
-                < minpwgts[vw as usize]
+                if pwgts[uw as usize] - vwgt[u as usize] + vwgt[v as usize] < minpwgts[uw as usize]
+                    || pwgts[vw as usize] - vwgt[v as usize] + vwgt[u as usize]
+                        < minpwgts[vw as usize]
                 {
                     continue;
                 }
@@ -2937,7 +3453,6 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
                 let (vrinfo, vnbrs) = crinfos(graph.ckrinfo, ctrl.cnbrpool, v);
 
                 let mut gain = -2 * adjwgt[j as usize];
-
 
                 let Some(unbr) = unbrs.iter().rfind(|unbr| unbr.pid == vw as idx_t) else {
                     // original debug_assert message is "k >= 0"
@@ -2968,7 +3483,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
             let v = adjncy[jbest as usize] as usize;
             let vw = where_[v as usize] as usize;
 
-            let (vrinfo, vnbrs) = crinfos(graph.ckrinfo, ctrl.cnbrpool, v);
+            let (vrinfo, vnbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, v);
 
             /* move u to v's partition */
             let Some(k) = unbrs.iter().rposition(|nbr| nbr.pid == vw as idx_t) else {
@@ -3009,8 +3524,6 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
                 let me = where_[ii as usize] as usize;
                 let myrinfo = &mut *graph.ckrinfo.add(ii);
 
-                let oldnnbrs = myrinfo.nnbrs;
-
                 UpdateAdjacentVertexInfoAndBND(
                     ctrl,
                     ii,
@@ -3048,8 +3561,8 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
             //       }
             // #endif
 
-            from = vw;
-            to = uw;
+            let from = vw;
+            let to = uw;
 
             graph.mincut -= vnbrs[k as usize].ed - vrinfo.id;
             nmoved += 1;
@@ -3078,10 +3591,8 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
             /* Update the degrees of adjacent vertices */
             for j in (xadj[v as usize])..(xadj[(v + 1) as usize]) {
                 let ii = adjncy[j as usize] as usize;
-                let me = where_[ii as usize];
+                let me = where_[ii as usize] as usize;
                 let myrinfo = &mut *graph.ckrinfo.add(ii);
-
-                let oldnnbrs = myrinfo.nnbrs;
 
                 UpdateAdjacentVertexInfoAndBND(
                     ctrl,
@@ -3092,7 +3603,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
                     to,
                     myrinfo,
                     adjwgt[j as usize],
-                    nbnd,
+                    &mut nbnd,
                     bndptr,
                     bndind,
                     bndtype,
@@ -3105,11 +3616,17 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
         graph.nbnd = nbnd as idx_t;
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!("\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
-              Nmoves: {:5}, Cut: {:6}, Vol: {:6}\n",
-              pwgts[(util::iargmin(pwgts, 1)) as usize], imax(nparts, pwgts,1),
-              mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm), 
-              graph.nbnd, nmoved, graph.mincut, debug::ComputeVolume(graph, where_.as_ptr()));
+            print!(
+                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
+                    Nmoves: {:5}, Cut: {:6}, Vol: {:6}\n",
+                pwgts[(util::iargmin(pwgts, 1)) as usize],
+                imax(nparts, pwgts, 1),
+                mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
+                graph.nbnd,
+                nmoved,
+                graph.mincut,
+                debug::ComputeVolume(graph, where_.as_ptr())
+            );
         }
 
         if nmoved == 0 || graph.mincut == oldcut {

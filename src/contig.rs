@@ -866,7 +866,7 @@ pub extern "C" fn MoveGroupContigForCut(
             );
         }
 
-        assert!(CheckRInfo(ctrl, graph.ckrinfo.add(i as usize)) != 0);
+        assert!(debug::CheckRInfo(ctrl, graph.ckrinfo.add(i as usize)) != 0);
     }
 
     graph.nbnd = nbnd as idx_t;
@@ -1028,17 +1028,20 @@ pub extern "C" fn MoveGroupContigForVol(
         }
 
         /* Update the id/ed/gains/bnd of potentially affected nodes */
-        KWayVolUpdate(
+        mkslice_mut!(vmarker, nvtxs);
+        mkslice_mut!(pmarker, ctrl.nparts);
+        mkslice_mut!(modind, nvtxs);
+        kwayfm::KWayVolUpdate(
             ctrl,
             graph,
-            i as idx_t,
-            from,
-            to,
-            ptr::null_mut(),
-            ptr::null_mut(),
-            ptr::null_mut(),
-            ptr::null_mut(),
-            ptr::null_mut(),
+            i,
+            from as usize,
+            to as usize,
+            None,
+            None,
+            None,
+            None,
+            None,
             BNDTYPE_REFINE,
             vmarker,
             pmarker,

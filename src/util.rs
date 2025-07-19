@@ -661,7 +661,7 @@ macro_rules! UpdateMovedVertexInfoAndBND {
         std::mem::swap(&mut $myrinfo.id, &mut $mynbrs[$k as usize].ed);
         if ($mynbrs[$k as usize].ed == 0) {
             $myrinfo.nnbrs -= 1;
-            $mynbrs[$k as usize] = $mynbrs[$myrinfo.nnbrs as usize];
+            $mynbrs[$k as usize] = $mynbrs[$myrinfo.nnbrs as usize].clone();
         } else {
             $mynbrs[$k as usize].pid = $from as idx_t;
         }

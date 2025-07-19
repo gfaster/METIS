@@ -906,7 +906,7 @@ pub extern "C" fn MMDOrder(
     let mut marker = vec![0; nvtxs + 5];
 
     let mut nofsub = 0;
-    genmmd(
+    mmd::genmmd(
         nvtxs as idx_t,
         xadj.as_mut_ptr(),
         adjncy.as_mut_ptr(),

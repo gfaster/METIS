@@ -9,6 +9,7 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 
@@ -17,7 +18,9 @@
    calls the appropriate refinement routine based on the objectives and
    constraints. */
 /*************************************************************************/
-void Greedy_KWayOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+IFUNC(void, Greedy_KWayOptimize, (ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+         real_t ffactor, idx_t omode));
+void c__libmetis__Greedy_KWayOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode)
 {
   switch (ctrl->objtype) {
@@ -56,7 +59,9 @@ void Greedy_KWayOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
          
 */
 /**************************************************************************/
-void Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+IFUNC(void, Greedy_KWayCutOptimize, (ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+         real_t ffactor, idx_t omode));
+void c__libmetis__Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
@@ -390,7 +395,9 @@ void Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
 
 */
 /**************************************************************************/
-void Greedy_KWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+IFUNC(void, Greedy_KWayVolOptimize,(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+         real_t ffactor, idx_t omode));
+void c__libmetis__Greedy_KWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
@@ -704,7 +711,9 @@ void Greedy_KWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
 
 */
 /**************************************************************************/
-void Greedy_McKWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+IFUNC(void, Greedy_McKWayCutOptimize,(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+         real_t ffactor, idx_t omode));
+void c__libmetis__Greedy_McKWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
@@ -1048,7 +1057,9 @@ void Greedy_McKWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
 
 */
 /**************************************************************************/
-void Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+IFUNC(void, Greedy_McKWayVolOptimize,(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
+         real_t ffactor, idx_t omode))
+void c__libmetis__Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
@@ -1383,7 +1394,9 @@ void Greedy_McKWayVolOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter,
     It assumes that the bfslvl, bfsind, and bfsmrk arrays are initialized
     appropriately. */
 /*************************************************************************/
-idx_t IsArticulationNode(idx_t nvtxs, idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
+IFUNC(idx_t, IsArticulationNode, (idx_t nvtxs, idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
+          idx_t *bfslvl, idx_t *bfsind, idx_t *bfsmrk));
+idx_t c__libmetis__IsArticulationNode(idx_t nvtxs, idx_t i, idx_t *xadj, idx_t *adjncy, idx_t *where,
           idx_t *bfslvl, idx_t *bfsind, idx_t *bfsmrk)
 {
   idx_t ii, j, k=0, head, tail, nhits, tnhits, from, BFSDEPTH=5;
@@ -1899,7 +1912,8 @@ void KWayVolUpdate(ctrl_t *ctrl, graph_t *graph, idx_t v, idx_t from,
 
 */
 /**************************************************************************/
-void Greedy_KWayEdgeStats(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, Greedy_KWayEdgeStats, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Greedy_KWayEdgeStats(ctrl_t *ctrl, graph_t *graph)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
   idx_t i, ii, iii, j, k, l, nvtxs, nparts, gain, u, v, uw, vw; 
@@ -1998,7 +2012,8 @@ void Greedy_KWayEdgeStats(ctrl_t *ctrl, graph_t *graph)
          
 */
 /**************************************************************************/
-void Greedy_KWayEdgeCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter)
+IFUNC(void, Greedy_KWayEdgeCutOptimize, (ctrl_t *ctrl, graph_t *graph, idx_t niter));
+void c__libmetis__Greedy_KWayEdgeCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter)
 {
   /* Common variables to all types of kway-refinement/balancing routines */
   idx_t ii, j, k, pass, nvtxs, nparts, u, v, uw, vw, gain, bestgain, jbest; 
