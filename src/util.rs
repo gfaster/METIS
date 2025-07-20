@@ -205,7 +205,7 @@ pub fn iargmax(x: &[idx_t], incx: usize) -> usize {
 ///
 /// ```
 /// # use metis::util::iargmin;
-/// let vals = &[2, 3, 4, 3, 1];
+/// let vals = &[3, 2, 1, 2, 4];
 /// assert_eq!(iargmin(vals, 1), 2);
 /// assert_eq!(iargmin(vals, 2), 1);
 /// assert_eq!(iargmin(vals, 3), 1);
@@ -215,7 +215,7 @@ pub fn iargmin(x: &[idx_t], incx: usize) -> usize {
     let mut min = 0;
 
     for j in (incx..x.len()).step_by(incx) {
-        if x[j] > x[min] {
+        if x[j] < x[min] {
             min = j;
         }
     }
@@ -633,7 +633,7 @@ macro_rules! ListDelete {
 #[macro_export]
 macro_rules! BNDInsert {
     ($n:expr, $bndind:expr, $bndptr:expr, $i:expr) => {
-        assert_eq!($bndptr[$i], -1);
+        debug_assert_eq!($bndptr[$i], -1);
         $bndind[$n as usize] = $i as _;
         $bndptr[$i as usize] = $n as _;
         $n += 1;
@@ -643,7 +643,7 @@ macro_rules! BNDInsert {
 #[macro_export]
 macro_rules! BNDDelete {
     ($nbnd:expr, $bndind:expr, $bndptr:expr, $i:expr) => {
-        assert_ne!($bndptr[$i], -1);
+        debug_assert_ne!($bndptr[$i], -1);
         $nbnd -= 1;
         $bndind[$bndptr[$i as usize] as usize] = $bndind[$nbnd as usize];
         $bndptr[$bndind[$nbnd as usize] as usize] = $bndptr[$i as usize];

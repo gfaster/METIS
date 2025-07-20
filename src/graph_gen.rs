@@ -37,6 +37,7 @@ impl Csr {
 
 #[derive(Clone)]
 pub struct GraphBuilder {
+    dbg_lvl: u32,
     op: GraphOpSettings,
     seed: idx_t,
     xadj: Vec<idx_t>,
@@ -190,6 +191,7 @@ impl GraphBuilder {
                 Optype::Kmetis => Iptype::Rb,
                 Optype::Ometis => Iptype::Edge,
             },
+            dbg_lvl: 0,
         }
     }
 
@@ -567,6 +569,10 @@ impl GraphBuilder {
         self.seed = seed;
     }
 
+    pub fn enable_dbg(&mut self, lvl: DbgLvl) {
+        self.dbg_lvl |= lvl as u32
+    }
+
     pub fn set_from_options_arr(&mut self, options: &[idx_t; METIS_NOPTIONS as usize]) {
         macro_rules! match_setting {
             ($options:ident[$idx:ident] == $base:ident::{$($var:ident),* $(,)?}) => {
@@ -618,6 +624,7 @@ impl GraphBuilder {
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as idx_t;
         options[METIS_OPTION_ONDISK as usize] = 1;
         options[METIS_OPTION_SEED as usize] = self.seed;
+        options[METIS_OPTION_DBGLVL as usize] = self.dbg_lvl as idx_t;
 
         let res = match &mut self.op {
             GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, adjwgt } => unsafe {

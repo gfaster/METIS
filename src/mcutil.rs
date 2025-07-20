@@ -200,14 +200,9 @@ pub extern "C" fn BetterBalance2Way(
     // return nrm2 < nrm1;
 }
 
-/*************************************************************************/
-/* Given a vertex and two weights, this function returns 1, if the second
-    partition will be more balanced than the first after the weighted
-    additional of that vertex.
-    The balance determination takes into account the ideal target weights
-    of the two partitions.
-*/
-/*************************************************************************/
+/// Given a vertex and two weights, this function returns 1 if the second partition will be more
+/// balanced than the first after the weighted additional of that vertex. The balance determination
+/// takes into account the ideal target weights of the two partitions.
 #[metis_func]
 pub extern "C" fn BetterBalanceKWay(
     ncon: idx_t,

@@ -321,6 +321,21 @@ pub const METIS_OBJTYPE_VOL: mobjtype_et = 1;
 pub const METIS_OBJTYPE_NODE: mobjtype_et = 2;
 pub type mobjtype_et = ::std::os::raw::c_uint;
 
+#[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DbgLvl {
+    Info = METIS_DBG_INFO, 
+    Time = METIS_DBG_TIME, 
+    Coarsen = METIS_DBG_COARSEN, 
+    Refine = METIS_DBG_REFINE, 
+    Ipart = METIS_DBG_IPART, 
+    MoveInfo = METIS_DBG_MOVEINFO, 
+    SepInfo = METIS_DBG_SEPINFO, 
+    ConnInfo = METIS_DBG_CONNINFO, 
+    ContigInfo = METIS_DBG_CONTIGINFO, 
+    Memory = METIS_DBG_MEMORY, 
+}
+
 // interals
 pub(crate) const BNDTYPE_REFINE: std::ffi::c_int = 1;
 pub(crate) const BNDTYPE_BALANCE: std::ffi::c_int = 2;

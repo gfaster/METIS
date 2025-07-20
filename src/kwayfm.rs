@@ -17,11 +17,8 @@ const VPQSTATUS_EXTRACTED: idx_t = 2;
 /// The vertex is not present in the queue and has not been extracted before
 const VPQSTATUS_NOTPRESENT: idx_t = 3;
 
-/*************************************************************************/
-/* Top-level routine for k-way partitioning refinement. This routine just
-calls the appropriate refinement routine based on the objectives and
-constraints. */
-/*************************************************************************/
+/// Top-level routine for k-way partitioning refinement. This routine just calls the appropriate
+/// refinement routine based on the objectives and constraints.
 #[metis_func]
 pub extern "C" fn Greedy_KWayOptimize(
     ctrl: *mut ctrl_t,
@@ -80,12 +77,17 @@ fn isum(n: usize, slice: &[idx_t], step: usize) -> idx_t {
 
 /// little helper to replace all the times we get a `ckrinfo_t` + `&[cnbr_t]`
 #[inline]
+#[track_caller]
 unsafe fn crinfos<'a>(
     graph_ckrinfo: *const ckrinfo_t,
     ctrl_cnbrpool: *const cnbr_t,
     idx: usize,
 ) -> (&'a ckrinfo_t, &'a [cnbr_t]) {
     let info = &*graph_ckrinfo.add(idx);
+    if info.nnbrs == 0 {
+        // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
+        return (info, &[]);
+    }
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
@@ -96,12 +98,17 @@ unsafe fn crinfos<'a>(
 /// want to modify `ckrinfo_t.nnbrs`, then we have to reconstruct in order to access that new
 /// element (or to not oob the old in case of removal)
 #[inline]
+#[track_caller]
 unsafe fn crinfos_mut<'a>(
     graph_ckrinfo: *mut ckrinfo_t,
     ctrl_cnbrpool: *mut cnbr_t,
     idx: usize,
 ) -> (&'a mut ckrinfo_t, &'a mut [cnbr_t]) {
     let info = &mut *graph_ckrinfo.add(idx);
+    if info.nnbrs == 0 {
+        // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
+        return (info, &mut []);
+    }
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts_mut(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
@@ -110,12 +117,17 @@ unsafe fn crinfos_mut<'a>(
 
 /// little helper to replace all the times we get a `vkrinfo_t` `&[vnbr_t]`
 #[inline]
+#[track_caller]
 unsafe fn vrinfos<'a>(
     graph_vkrinfo: *const vkrinfo_t,
     ctrl_vnbrpool: *const vnbr_t,
     idx: usize,
 ) -> (&'a vkrinfo_t, &'a [vnbr_t]) {
     let info = &*graph_vkrinfo.add(idx);
+    if info.nnbrs == 0 {
+        // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
+        return (info, &[]);
+    }
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
@@ -126,12 +138,17 @@ unsafe fn vrinfos<'a>(
 /// want to modify `vkrinfo_t.nnbrs`, then we have to reconstruct in order to access that new
 /// element (or to not oob the old in case of removal)
 #[inline]
+#[track_caller]
 unsafe fn vrinfos_mut<'a>(
     graph_vkrinfo: *mut vkrinfo_t,
     ctrl_vnbrpool: *mut vnbr_t,
     idx: usize,
 ) -> (&'a mut vkrinfo_t, &'a mut [vnbr_t]) {
     let info = &mut *graph_vkrinfo.add(idx);
+    if info.nnbrs == 0 {
+        // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
+        return (info, &mut []);
+    }
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts_mut(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
@@ -334,6 +351,7 @@ fn SelectSafeTargetSubdomains_vol(
     }
 }
 
+/// replacement for the identically named macro
 #[allow(non_snake_case)]
 fn UpdateQueueInfo(
     queue: &mut pqueue::RPQueue,
@@ -391,21 +409,15 @@ fn UpdateQueueInfo(
     }
 }
 
-/*************************************************************************/
-/* K-way partitioning optimization in which the vertices are visited in
-    decreasing ed/sqrt(nnbrs)-id order. Note this is just an
-    approximation, as the ed is often split across different subdomains
-    and the sqrt(nnbrs) is just a crude approximation.
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-  \param ffactor is the \em fudge-factor for allowing positive gain moves
-         to violate the max-pwgt constraint.
-  \param omode is the type of optimization that will performed among
-         OMODE_REFINE and OMODE_BALANCE
-
-*/
-/**************************************************************************/
+/// K-way partitioning optimization in which the vertices are visited in decreasing
+/// `ed/sqrt(nnbrs)-id` order. Note this is just an approximation, as the ed is often split across
+/// different subdomains and the `sqrt(nnbrs)` is just a crude approximation.
+///
+/// - `graph` is the graph that is being refined.
+/// - `niter` is the number of refinement iterations.
+/// - `ffactor` is the *fudge-factor* for allowing positive gain moves to violate the max-pwgt
+///   constraint.
+/// - `omode` is the type of optimization that will performed among OMODE_REFINE and OMODE_BALANCE
 #[metis_func]
 pub extern "C" fn Greedy_KWayCutOptimize(
     ctrl: *mut ctrl_t,
@@ -434,7 +446,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     // ckrinfo_t *myrinfo;
     // cnbr_t *mynbrs;
 
-    let bndtype = if omode == OMODE_BALANCE {
+    let bndtype = if omode == OMODE_REFINE {
         BNDTYPE_REFINE
     } else {
         BNDTYPE_BALANCE
@@ -509,10 +521,10 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
         print!(
-            "{}: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
-            Nv-Nb[({:6} {:6}) as usize], Cut: {:6}",
+            "{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}, \
+            Nv-Nb[{:6} {:6}], Cut: {:6}",
             (if omode == OMODE_REFINE { "GRC" } else { "GBC" }),
-            pwgts[util::iargmin(pwgts, 1) as usize],
+            pwgts[util::iargmin(pwgts, 1)],
             imax(nparts, pwgts, 1),
             minpwgts[0],
             maxpwgts[0],
@@ -523,7 +535,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
         );
         if ctrl.minconn != 0 {
             print!(
-                ", Doms: [({:3} {:4}) as usize]",
+                ", Doms: [{:3} {:4}]",
                 imax(nparts, nads, 1),
                 isum(nparts, nads, 1)
             );
@@ -789,7 +801,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
                 print!(
-                    "\t\tMoving {:6} from {:3}/{:} to {:3}/{:} [({:6} {:6}) as usize]. Gain: {:4}. Cut: {:6}\n",
+                    "\t\tMoving {:6} from {:3}/{:} to {:3}/{:} [{:6} {:6}]. Gain: {:4}. Cut: {:6}\n",
                     i,
                     from,
                     safetos[from as usize],
@@ -925,17 +937,14 @@ pub extern "C" fn Greedy_KWayCutOptimize(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* K-way refinement that minimizes the communication volume. This is a
-    greedy routine and the vertices are visited in decreasing gv order.
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-  \param ffactor is the \em fudge-factor for allowing positive gain moves
-         to violate the max-pwgt constraint.
-
-*/
-/**************************************************************************/
+/// K-way refinement that minimizes the communication volume. This is a greedy routine and the
+/// vertices are visited in decreasing `gv` order.
+///
+/// - graph is the graph that is being refined.
+/// - niter is the number of refinement iterations.
+/// - ffactor is the *fudge-factor* for allowing positive gain moves to violate the max-pwgt
+///   constraint.
+///
 #[metis_func]
 pub extern "C" fn Greedy_KWayVolOptimize(
     ctrl: *mut ctrl_t,
@@ -964,7 +973,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     // vkrinfo_t *myrinfo;
     // vnbr_t *mynbrs;
 
-    let bndtype = if omode == OMODE_BALANCE {
+    let bndtype = if omode == OMODE_REFINE {
         BNDTYPE_REFINE
     } else {
         BNDTYPE_BALANCE
@@ -1037,8 +1046,8 @@ pub extern "C" fn Greedy_KWayVolOptimize(
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
         print!(
-            "{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}\
-            , Nv-Nb[{:6} {:6}], Cut: {:5}, Vol: {:5}",
+            "{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}, \
+                Nv-Nb[{:6} {:6}], Cut: {:5}, Vol: {:5}",
             (if omode == OMODE_REFINE { "GRV" } else { "GBV" }),
             pwgts[(util::iargmin(&pwgts, 1)) as usize],
             imax(nparts, pwgts, 1),
@@ -1052,7 +1061,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
         );
         if ctrl.minconn != 0 {
             print!(
-                ", Doms: [({:3} {:4}) as usize]",
+                ", Doms: [{:3} {:4}]",
                 imax(nparts, nads, 1),
                 isum(nparts, nads, 1)
             );
@@ -1308,7 +1317,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 METIS_DBG_MOVEINFO,
                 print!(
                     "\t\tMoving {:6} from {:3} to {:3}. \
-                Gain: [{:4} {:4}]. Cut: {:6}, Vol: {:6}\n",
+                        Gain: [{:4} {:4}]. Cut: {:6}, Vol: {:6}\n",
                     i,
                     from,
                     to,
@@ -1384,7 +1393,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
             print!(
                 "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
-              Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
+                    Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
                 pwgts[util::iargmin(&pwgts, 1) as usize],
                 imax(nparts, pwgts, 1),
                 mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
@@ -1413,22 +1422,15 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* K-way partitioning optimization in which the vertices are visited in
-    decreasing ed/sqrt(nnbrs)-id order. Note this is just an
-    approximation, as the ed is often split across different subdomains
-    and the sqrt(nnbrs) is just a crude approximation.
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-  \param ffactor is the \em fudge-factor for allowing positive gain moves
-         to violate the max-pwgt constraint.
-  \param omode is the type of optimization that will performed among
-         OMODE_REFINE and OMODE_BALANCE
-
-
-*/
-/**************************************************************************/
+/// K-way partitioning optimization in which the vertices are visited in decreasing
+/// `ed/sqrt(nnbrs)-id order`. Note this is just an approximation, as the `ed` is often split
+/// across different subdomains and the `sqrt(nnbrs)` is just a crude approximation.
+///
+/// - graph is the graph that is being refined.
+/// - niter is the number of refinement iterations.
+/// - ffactor is the *fudge-factor* for allowing positive gain moves to violate the max-pwgt
+///   constraint.
+/// - omode is the type of optimization that will performed among OMODE_REFINE and OMODE_BALANCE
 #[metis_func]
 pub extern "C" fn Greedy_McKWayCutOptimize(
     ctrl: *mut ctrl_t,
@@ -1460,7 +1462,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
 
     // WCOREPUSH;
 
-    let bndtype = if omode == OMODE_BALANCE {
+    let bndtype = if omode == OMODE_REFINE {
         BNDTYPE_REFINE
     } else {
         BNDTYPE_BALANCE
@@ -1579,7 +1581,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
         );
         if ctrl.minconn != 0 {
             print!(
-                ", Doms: [({:3} {:4}) as usize]",
+                ", Doms: [{:3} {:4}]",
                 imax(nparts, nads, 1),
                 isum(nparts, nads, 1)
             );
@@ -1864,7 +1866,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 to = cto;
 
                 if mynbrs[k as usize].ed - myrinfo.id < 0
-                    && !mcutil::BetterBalanceKWay(
+                    && mcutil::BetterBalanceKWay(
                         ncon as idx_t,
                         vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
                         ubfactors.as_ptr(),
@@ -1874,7 +1876,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                         1,
                         pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
                         pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                    ) != 0
+                    ) == 0
                 {
                     continue;
                 }
@@ -2008,7 +2010,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
             print!(
-                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
+                "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
               Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
                 imin(nparts * ncon, pwgts, 1),
                 imax(nparts * ncon, pwgts, 1),
@@ -2020,7 +2022,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
             );
             if ctrl.minconn != 0 {
                 print!(
-                    ", Doms: [({:3} {:4}) as usize]",
+                    ", Doms: [{:3} {:4}]",
                     imax(nparts, nads, 1),
                     isum(nparts, nads, 1)
                 );
@@ -2038,17 +2040,13 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* K-way refinement that minimizes the communication volume. This is a
-    greedy routine and the vertices are visited in decreasing gv order.
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-  \param ffactor is the \em fudge-factor for allowing positive gain moves
-         to violate the max-pwgt constraint.
-
-*/
-/**************************************************************************/
+/// K-way refinement that minimizes the communication volume. This is a greedy routine and the
+/// vertices are visited in decreasing `gv` order.
+///
+/// - graph is the graph that is being refined.
+/// - niter is the number of refinement iterations.
+/// - ffactor is the *fudge-factor* for allowing positive gain moves to violate the max-pwgt
+///   constraint.
 #[metis_func]
 pub extern "C" fn Greedy_McKWayVolOptimize(
     ctrl: *mut ctrl_t,
@@ -2080,7 +2078,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
 
     // WCOREPUSH;
 
-    let bndtype = if omode == OMODE_BALANCE {
+    let bndtype = if omode == OMODE_REFINE {
         BNDTYPE_REFINE
     } else {
         BNDTYPE_BALANCE
@@ -2241,9 +2239,9 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
         irandArrayPermute(graph.nbnd, perm.as_mut_ptr(), graph.nbnd / 4, 1);
         for ii in (0)..(graph.nbnd) {
             let i = bndind[perm[ii as usize] as usize] as usize;
-            get_graph_slices!(graph => vkrinfo);
-            queue.insert(i as idx_t, vkrinfo[i].gv);
-            vstatus[i as usize] = VPQSTATUS_PRESENT;
+            let (vkrinfo, _) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, i);
+            queue.insert(i as idx_t, vkrinfo.gv);
+            vstatus[i] = VPQSTATUS_PRESENT;
             ListInsert!(nupd, updind, updptr, i);
         }
 
@@ -2255,11 +2253,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
 
             vstatus[i] = VPQSTATUS_EXTRACTED;
 
-            let myrinfo = &*graph.vkrinfo.add(i);
-            let mynbrs = std::slice::from_raw_parts(
-                ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                myrinfo.nnbrs as usize,
-            );
+            let (myrinfo, mynbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, i);
 
             let from = where_[i as usize] as usize;
 
@@ -2321,7 +2315,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
             };
 
             /* Find the most promising subdomain to move to */
-            let mut to = usize::MAX; // shouldn't actually need to be assigned
+            let to;
             let k = if omode == OMODE_REFINE {
                 // for k in (0..=(myrinfo.nnbrs - 1)).rev() {
                 //     if !safetos[to = mynbrs[k as usize].pid] {
@@ -2346,8 +2340,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 let Some(mut k) = (0..myrinfo.nnbrs as usize)
                     .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
                     .rfind(|&k| {
-                        to = mynbrs[k].pid as usize;
-                        let gain = mynbrs[k as usize].gv + xgain;
+                        let to = mynbrs[k].pid as usize;
+                        let gain = mynbrs[k].gv + xgain;
                         gain >= 0
                             && util::ivecaxpylez(
                                 1,
@@ -2357,33 +2351,34 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                             )
                     })
                 else {
-                    break;
+                    // break out if you did not find a candidate
+                    continue;
                 };
 
-                let mut cto = to;
+                let mut cto = mynbrs[k].pid as usize;
                 for j in (0..k).rev() {
-                    let to = mynbrs[j as usize].pid as usize;
+                    let to = mynbrs[j].pid as usize;
                     if safetos[to] == 0 {
                         continue;
                     }
                     // let gain = mynbrs[j as usize].gv + xgain;
-                    if (mynbrs[j as usize].gv > mynbrs[k as usize].gv
+                    if (mynbrs[j].gv > mynbrs[k].gv
                         && util::ivecaxpylez(
                             1,
                             &vwgt[cntrng!(i * ncon, ncon)],
                             &pwgts[cntrng!(to * ncon, ncon)],
                             &maxpwgts[cntrng!(to * ncon, ncon)],
                         ))
-                        || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
-                            && mynbrs[j as usize].ned > mynbrs[k as usize].ned
+                        || (mynbrs[j].gv == mynbrs[k].gv
+                            && mynbrs[j].ned > mynbrs[k].ned
                             && util::ivecaxpylez(
                                 1,
                                 &vwgt[cntrng!(i * ncon, ncon)],
                                 &pwgts[cntrng!(to * ncon, ncon)],
                                 &maxpwgts[cntrng!(to * ncon, ncon)],
                             ))
-                        || (mynbrs[j as usize].gv == mynbrs[k as usize].gv
-                            && mynbrs[j as usize].ned == mynbrs[k as usize].ned
+                        || (mynbrs[j].gv == mynbrs[k].gv
+                            && mynbrs[j].ned == mynbrs[k].ned
                             && mcutil::BetterBalanceKWay(
                                 ncon as idx_t,
                                 vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
@@ -2403,9 +2398,9 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 to = cto;
 
                 let mut j = 0;
-                if xgain + mynbrs[k as usize].gv > 0 || mynbrs[k as usize].ned - myrinfo.nid > 0 {
+                if xgain + mynbrs[k].gv > 0 || mynbrs[k].ned - myrinfo.nid > 0 {
                     j = 1;
-                } else if mynbrs[k as usize].ned - myrinfo.nid == 0 {
+                } else if mynbrs[k].ned - myrinfo.nid == 0 {
                     if (iii % 2 == 0 && safetos[to as usize] == 2)
                         || mcutil::BetterBalanceKWay(
                             ncon as idx_t,
@@ -2459,7 +2454,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 let Some(mut k) = (0..myrinfo.nnbrs as usize)
                     .filter(|&k| safetos[mynbrs[k].pid as usize] != 0)
                     .rfind(|&k| {
-                        to = mynbrs[k].pid as usize;
+                        let to = mynbrs[k].pid as usize;
                         util::ivecaxpylez(
                             1,
                             &vwgt[cntrng!(i * ncon, ncon)],
@@ -2481,8 +2476,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                     continue;
                 };
 
-                let mut cto = to;
-                for j in (0..=(k - 1)).rev() {
+                let mut cto = mynbrs[k].pid as usize;
+                for j in (0..k).rev() {
                     let to = mynbrs[j as usize].pid as usize;
                     if safetos[to] == 0 {
                         continue;
@@ -2539,7 +2534,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 METIS_DBG_MOVEINFO,
                 print!(
                     "\t\tMoving {:6} from {:3} to {:3}. \
-                Gain: [({:4} {:4}) as usize]. Cut: {:6}, Vol: {:6}\n",
+                        Gain: [{:4} {:4}]. Cut: {:6}, Vol: {:6}\n",
                     i,
                     from,
                     to,
@@ -2632,8 +2627,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
             print!(
-                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
-              Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
+                "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
+                    Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
                 imin(nparts * ncon, pwgts, 1),
                 imax(nparts * ncon, pwgts, 1),
                 mcutil::ComputeLoadImbalance(graph, nparts as idx_t, pijbm.as_ptr()),
@@ -2644,7 +2639,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
             );
             if ctrl.minconn != 0 {
                 print!(
-                    ", Doms: [({:3} {:4}) as usize]",
+                    ", Doms: [{:3} {:4}]",
                     imax(nparts, nads, 1),
                     isum(nparts, nads, 1)
                 );
@@ -2664,11 +2659,8 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* This function performs an approximate articulation vertex test.
-It assumes that the bfslvl, bfsind, and bfsmrk arrays are initialized
-appropriately. */
-/*************************************************************************/
+/// This function performs an approximate articulation vertex test. It assumes that the bfslvl,
+/// bfsind, and bfsmrk arrays are initialized appropriately.
 #[metis_func]
 pub extern "C" fn IsArticulationNode(
     nvtxs: idx_t,
@@ -2722,7 +2714,7 @@ pub extern "C" fn IsArticulationNode(
     bfsind[0] = k as idx_t; /* That was the last one from the previous loop */
     bfslvl[k as usize] = 1;
     bfsmrk[k as usize] = 0;
-    let mut head = 1;
+    let mut head = 0;
     let mut tail = 1;
 
     /* Do a limited BFS traversal to see if you can get to all the other nodes */
@@ -2770,34 +2762,30 @@ pub extern "C" fn IsArticulationNode(
     return (nhits != tnhits) as idx_t;
 }
 
-/*************************************************************************/
-/*
- This function updates the edge and volume gains due to a vertex movement.
- v from 'from' to 'to'.
-
- \param ctrl is the control structure.
- \param graph is the graph being partitioned.
- \param v is the vertex that is moving.
- \param from is the original partition of v.
- \param to is the new partition of v.
- \param queue is the priority queue. If the queue is std::ptr::null_mut(), no priority-queue
-        related updates are performed.
- \param vstatus is an array that marks the status of the vertex in terms
-        of the priority queue. If queue is std::ptr::null_mut(), this parameter is ignored.
- \param r_nqupd is the number of vertices that have been inserted/removed
-        from the queue. If queue is std::ptr::null_mut(), this parameter is ignored.
- \param updptr stores the index of each vertex in updind. If queue is std::ptr::null_mut(),
-        this parameter is ignored.
- \param updind is the list of vertices that have been inserted/removed from
-        the queue. If queue is std::ptr::null_mut(), this parameter is ignored.
- \param vmarker is of size nvtxs and is used internally as a temporary array.
-        On entry and return all of its entries are 0.
- \param pmarker is of size nparts and is used internally as a temporary marking
-        array. On entry and return all of its entries are -1.
- \param modind is an array of size nvtxs and is used to keep track of the
-        list of vertices whose gains need to be updated.
-*/
-/*************************************************************************/
+/// This function updates the edge and volume gains due to a vertex movement.
+/// v from 'from' to 'to'.
+///
+/// - `ctrl` is the control structure.
+/// - `graph` is the graph being partitioned.
+/// - `v` is the vertex that is moving.
+/// - `from` is the original partition of v.
+/// - `to` is the new partition of v.
+/// - `queue` is the priority queue. If the queue is `None`, no priority-queue related updates are
+///   performed.
+/// - `vstatus` is an array that marks the status of the vertex in terms of the priority queue. If
+///   queue is `None`, this parameter is ignored.
+/// - `r_nqupd` is the number of vertices that have been inserted/removed from the queue. If queue
+///   is `None`, this parameter is ignored.
+/// - `updptr` stores the index of each vertex in updind. If queue is `None`, this parameter is
+///   ignored.
+/// - `updind` is the list of vertices that have been inserted/removed from the queue. If queue is
+///   `None`, this parameter is ignored.
+/// - `vmarker` is of size nvtxs and is used internally as a temporary array. On entry and return
+///   all of its entries are 0.
+/// - `pmarker` is of size nparts and is used internally as a temporary marking array. On entry and
+///   return all of its entries are -1.
+/// - `modind` is an array of size nvtxs and is used to keep track of the list of vertices whose
+///   gains need to be updated.
 // NOTE(porting): this can't be a metis_func since I don't want to have to make queue abi
 // compatible
 #[allow(non_snake_case)]
@@ -2917,7 +2905,7 @@ pub unsafe fn KWayVolUpdate(
         if (*myrinfo).inbr == -1 {
             (*myrinfo).inbr = vnbrpoolGetNext(ctrl, xadj[(ii + 1) as usize] - xadj[ii]);
         }
-        let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
+        let (mut myrinfo, mut mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
 
         if me == from {
             inc_dec!(myrinfo.ned, myrinfo.nid, 1);
@@ -3027,9 +3015,11 @@ pub unsafe fn KWayVolUpdate(
             }
 
             if !found {
-                mynbrs[myrinfo.nnbrs as usize].pid = to as idx_t;
-                mynbrs[(myrinfo.nnbrs) as usize].ned = 1;
+                // adding nbr, so need to re-construct nbrs slice
                 myrinfo.nnbrs += 1;
+                (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
+                mynbrs[myrinfo.nnbrs as usize - 1].pid = to as idx_t;
+                mynbrs[myrinfo.nnbrs as usize - 1].ned = 1;
                 vmarker[ii as usize] = 1; /* You do a complete .gv calculation */
 
                 /* All vertices adjacent to 'ii' need to be updated */
@@ -3232,22 +3222,15 @@ pub unsafe fn KWayVolUpdate(
     }
 }
 
-/*************************************************************************/
-/* K-way partitioning optimization in which the vertices are visited in
-    decreasing ed/sqrt(nnbrs)-id order. Note this is just an
-    approximation, as the ed is often split across different subdomains
-    and the sqrt(nnbrs) is just a crude approximation.
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-  \param ffactor is the \em fudge-factor for allowing positive gain moves
-         to violate the max-pwgt constraint.
-  \param omode is the type of optimization that will performed among
-         OMODE_REFINE and OMODE_BALANCE
-
-
-*/
-/**************************************************************************/
+/// K-way partitioning optimization in which the vertices are visited in decreasing
+/// `ed/sqrt(nnbrs)-id` order. Note this is just an approximation, as the ed is often split across
+/// different subdomains and the sqrt(nnbrs) is just a crude approximation.
+///
+/// - `graph` is the graph that is being refined.
+/// - `niter` is the number of refinement iterations.
+/// - `ffactor` is the *fudge-factor* for allowing positive gain moves to violate the 
+///   max-pwgt constraint.
+/// - `omode` is the type of optimization that will performed among OMODE_REFINE and OMODE_BALANCE
 #[metis_func]
 pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
@@ -3335,15 +3318,11 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     // WCOREPOP;
 }
 
-/*************************************************************************/
-/* K-way partitioning optimization in which the vertices are visited in
-    random order and the best edge is selected to swap its incident vertices
-
-  \param graph is the graph that is being refined.
-  \param niter is the number of refinement iterations.
-
-*/
-/**************************************************************************/
+/// (UNUSED) K-way partitioning optimization in which the vertices are visited in random order and
+/// the best edge is selected to swap its incident vertices
+///
+/// - `graph` is the graph that is being refined.
+/// - `niter` is the number of refinement iterations.
 #[metis_func]
 pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut graph_t, niter: idx_t) {
     let graph = graph.as_mut().unwrap();
@@ -3391,8 +3370,8 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
         print!(
-            "GRE: [({:6} {:6}) as usize]-[({:6} {:6}) as usize], Bal: {:5.3}, \
-            Nv-Nb[({:6} {:6}) as usize], Cut: {:6}\n",
+            "GRE: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}, \
+                Nv-Nb[{:6} {:6}], Cut: {:6}\n",
             pwgts[(util::iargmin(pwgts, 1)) as usize],
             imax(nparts, pwgts, 1),
             minpwgts[0],
@@ -3501,7 +3480,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
                 print!(
-                    "\t\tMoving {:6} from {:3} to {:3} [({:6} {:6}) as usize]. Gain: {:4}. Cut: {:6}\n",
+                    "\t\tMoving {:6} from {:3} to {:3} [{:6} {:6}]. Gain: {:4}. Cut: {:6}\n",
                     u,
                     from,
                     to,
@@ -3571,7 +3550,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
                 print!(
-                    "\t\tMoving {:6} from {:3} to {:3} [({:6} {:6}) as usize]. Gain: {:4}. Cut: {:6}\n",
+                    "\t\tMoving {:6} from {:3} to {:3} [{:6} {:6}]. Gain: {:4}. Cut: {:6}\n",
                     v,
                     from,
                     to,
@@ -3617,7 +3596,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
             print!(
-                "\t[({:6} {:6}) as usize], Bal: {:5.3}, Nb: {:6}. \
+                "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
                     Nmoves: {:5}, Cut: {:6}, Vol: {:6}\n",
                 pwgts[(util::iargmin(pwgts, 1)) as usize],
                 imax(nparts, pwgts, 1),
@@ -3635,4 +3614,224 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
     }
 
     // WCOREPOP;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::tests::ab_test_partition_test_graphs;
+
+    #[test]
+    fn ab_Greedy_KWayOptimize() {
+        ab_test_partition_test_graphs("Greedy_KWayOptimize:rs", Optype::Kmetis, 30, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_Greedy_KWayCutOptimize() {
+        ab_test_partition_test_graphs(
+            "Greedy_KWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g.random_adjwgt();
+                g
+            },
+        );
+    }
+
+    #[test]
+    #[ignore = "fails on original"]
+    fn ab_Greedy_KWayCutOptimize_minconn() {
+        ab_test_partition_test_graphs(
+            "Greedy_KWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g.random_adjwgt();
+                g.set_minconn(true);
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_Greedy_McKWayCutOptimize() {
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            2,
+            |mut g| {
+                // g.enable_dbg(DbgLvl::Refine);
+                g.random_vwgt();
+                g.random_adjwgt();
+                g
+            },
+        );
+
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            3,
+            |mut g| {
+                g.random_vwgt();
+                g.random_adjwgt();
+                g
+            },
+        );
+    }
+
+    // FIXME: I would really like to be able to test this before tearing out dyncall
+    #[test]
+    #[ignore = "fails on original"]
+    fn ab_Greedy_McKWayCutOptimize_minconn() {
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            2,
+            |mut g| {
+                // g.enable_dbg(DbgLvl::Refine);
+                g.random_vwgt();
+                g.random_adjwgt();
+                g.set_minconn(true);
+                g
+            },
+        );
+
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            3,
+            |mut g| {
+                g.random_vwgt();
+                g.random_adjwgt();
+                g.set_minconn(true);
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_Greedy_KWayVolOptimize() {
+        ab_test_partition_test_graphs(
+            "Greedy_KWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g.random_vsize();
+                g
+            },
+        );
+    }
+
+    #[test]
+    #[ignore = "fails on original"]
+    fn ab_Greedy_KWayVolOptimize_minconn() {
+        ab_test_partition_test_graphs(
+            "Greedy_KWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |mut g| {
+                g.set_minconn(true);
+                g.random_vwgt();
+                g.random_vsize();
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_Greedy_McKWayVolOptimize() {
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            2,
+            |mut g| {
+                g.random_vwgt();
+                g.random_vsize();
+                g
+            },
+        );
+
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            3,
+            |mut g| {
+                g.random_vwgt();
+                g.random_vsize();
+                g
+            },
+        );
+    }
+
+    #[test]
+    #[ignore = "fails on original"]
+    fn ab_Greedy_McKWayVolOptimize_minconn() {
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            2,
+            |mut g| {
+                g.set_minconn(true);
+                g.random_vwgt();
+                g.random_vsize();
+                g
+            },
+        );
+
+        ab_test_partition_test_graphs(
+            "Greedy_McKWayVolOptimize:rs",
+            Optype::Kmetis,
+            30,
+            3,
+            |mut g| {
+                g.random_vwgt();
+                g.set_minconn(true);
+                g.random_vsize();
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_IsArticulationNode() {
+        ab_test_partition_test_graphs("IsArticulationNode:rs", Optype::Kmetis, 30, 1, |mut g| {
+            g.random_vwgt();
+            g.set_contig(true);
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "unused"]
+    fn ab_Greedy_KWayEdgeCutOptimize() {
+        ab_test_partition_test_graphs(
+            "Greedy_KWayEdgeCutOptimize:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g
+            },
+        );
+    }
 }
