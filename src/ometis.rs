@@ -77,7 +77,7 @@ pub extern "C" fn METIS_NodeND(
     // }
 
     /* set up the run time parameters */
-    let ctrl = SetupCtrl(
+    let ctrl = options::SetupCtrl(
         METIS_OP_OMETIS,
         options,
         1,
@@ -228,7 +228,7 @@ pub extern "C" fn METIS_NodeND(
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    FreeCtrl((&raw mut ctrl).cast());
+    options::FreeCtrl((&raw mut ctrl).cast());
 
     // SIGTHROW:
     /* if required, change the numbering back to 1 */

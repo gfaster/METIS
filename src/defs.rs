@@ -32,7 +32,7 @@ pub const HTLENGTH: idx_t = (1 << 13) - 1;
 pub const MMDSWITCH: idx_t = 120;
 
 /* Default ufactors for the various operational modes */
-// #define PMETIS_DEFAULT_UFACTOR          1
-// #define MCPMETIS_DEFAULT_UFACTOR        10
-// #define KMETIS_DEFAULT_UFACTOR          30
-// #define OMETIS_DEFAULT_UFACTOR          200
+pub const PMETIS_DEFAULT_UFACTOR: idx_t = 1;
+pub const MCPMETIS_DEFAULT_UFACTOR: idx_t = 10;
+pub const KMETIS_DEFAULT_UFACTOR: idx_t = 30;
+pub const OMETIS_DEFAULT_UFACTOR: idx_t = 200;

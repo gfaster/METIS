@@ -60,7 +60,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     // }
 
     /* set up the run parameters */
-    let ctrl: *mut ctrl_t = SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
+    let ctrl: *mut ctrl_t = options::SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
     if ctrl.is_null() {
         // gk_siguntrap();
         return METIS_ERROR_INPUT;
@@ -77,7 +77,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
         graph::SetupGraph(ctrl, *nvtxs, *ncon, xadj, adjncy, vwgt, vsize, adjwgt);
 
     /* set up multipliers for making balance computations easier */
-    SetupKWayBalMultipliers(ctrl, graph);
+    options::SetupKWayBalMultipliers(ctrl, graph);
 
     /* set various run parameters that depend on the graph */
     ctrl.CoarsenTo = ((*nvtxs) / (40 * (*nparts).ilog2() as idx_t)).max(30 * (*nparts));
@@ -121,7 +121,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
+    options::FreeCtrl(&mut (ctrl as *mut ctrl_t));
     gk_malloc_cleanup(0);
 
     util::metis_rcode(sigrval)

@@ -9,12 +9,16 @@
   */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function creates and sets the run parameters (ctrl_t) */
 /*************************************************************************/
-ctrl_t *SetupCtrl(moptype_et optype, idx_t *options, idx_t ncon, idx_t nparts, 
+
+IFUNC(ctrl_t *, SetupCtrl, (moptype_et optype, idx_t *options, idx_t ncon, idx_t nparts, 
+            real_t *tpwgts, real_t *ubvec));
+ctrl_t *c__libmetis__SetupCtrl(moptype_et optype, idx_t *options, idx_t ncon, idx_t nparts, 
             real_t *tpwgts, real_t *ubvec)
 {
   idx_t i, j;
@@ -142,7 +146,8 @@ ctrl_t *SetupCtrl(moptype_et optype, idx_t *options, idx_t ncon, idx_t nparts,
 /*************************************************************************/
 /*! Computes the per-partition/constraint balance multipliers */
 /*************************************************************************/
-void SetupKWayBalMultipliers(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, SetupKWayBalMultipliers, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__SetupKWayBalMultipliers(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j;
 
@@ -156,7 +161,8 @@ void SetupKWayBalMultipliers(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! Computes the per-partition/constraint balance multipliers */
 /*************************************************************************/
-void Setup2WayBalMultipliers(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
+IFUNC(void, Setup2WayBalMultipliers, (ctrl_t *ctrl, graph_t *graph, real_t *tpwgts));
+void c__libmetis__Setup2WayBalMultipliers(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
 {
   idx_t i, j;
 
@@ -170,7 +176,8 @@ void Setup2WayBalMultipliers(ctrl_t *ctrl, graph_t *graph, real_t *tpwgts)
 /*************************************************************************/
 /*! This function prints the various control fields */
 /*************************************************************************/
-void PrintCtrl(ctrl_t *ctrl)
+IFUNC(void, PrintCtrl, (ctrl_t *ctrl));
+void c__libmetis__PrintCtrl(ctrl_t *ctrl)
 {
   idx_t i, j, modnum;
 
@@ -293,7 +300,8 @@ void PrintCtrl(ctrl_t *ctrl)
 /*************************************************************************/
 /*! This function checks the validity of user-supplied parameters */
 /*************************************************************************/
-int CheckParams(ctrl_t *ctrl)
+IFUNC(int, CheckParams, (ctrl_t *ctrl));
+int c__libmetis__CheckParams(ctrl_t *ctrl)
 {
   idx_t i, j;
   real_t sum;
@@ -526,7 +534,8 @@ int CheckParams(ctrl_t *ctrl)
 /*************************************************************************/
 /*! This function frees the memory associated with a ctrl_t */
 /*************************************************************************/
-void FreeCtrl(ctrl_t **r_ctrl)
+IFUNC(void, FreeCtrl, (ctrl_t **r_ctrl));
+void c__libmetis__FreeCtrl(ctrl_t **r_ctrl)
 {
   ctrl_t *ctrl = *r_ctrl;
 

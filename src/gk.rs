@@ -83,6 +83,12 @@ pub unsafe fn rsmalloc(nmemb: usize, val: real_t, msg: &'static CStr) -> NonNull
     wrap_xsmalloc(nmemb, val, msg)
 }
 
+/// wrapper over `gk_free` that is polymorphic
+pub unsafe fn free_ref<T: 'static + Sized>(p: &mut *mut T) {
+    assert!(size_of_val(p) == size_of::<*mut ()>());
+    let p: *mut *mut T = p;
+    gk_free_one(p.cast());
+}
 
 pub struct FreeGuard<'a>(PhantomData<&'a mut ()>);
 

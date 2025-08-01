@@ -2,15 +2,6 @@
 
 #[metis_decl]
 extern "C" {
-    pub fn SetupCtrl(
-        optype: moptype_et,
-        options: *const idx_t, // manually verified const
-        ncon: idx_t,
-        nparts: idx_t,
-        tpwgts: *const real_t, // manually verified const
-        ubvec: *const real_t,  // manually verified const
-    ) -> *mut ctrl_t;
-
     pub fn AllocateRefinementWorkSpace(
         ctrl: *mut ctrl_t,
         nbrpoolsize_max: idx_t,
@@ -39,11 +30,9 @@ extern "C" {
         nmemb: usize,
         msg: *const std::ffi::c_char,
     ) -> *mut std::ffi::c_void;
-    pub fn FreeCtrl(r_ctrl: *mut *mut ctrl_t) -> std::ffi::c_void;
     pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
     pub fn isrand(seed: idx_t) -> std::ffi::c_void;
-    pub fn SetupKWayBalMultipliers(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
     pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
     pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
@@ -55,11 +44,6 @@ extern "C" {
     ) -> std::ffi::c_void;
     pub fn irandInRange(r: idx_t) -> idx_t;
 
-    pub fn Setup2WayBalMultipliers(
-        ctrl: *mut ctrl_t,
-        graph: *mut graph_t,
-        tpwgts: *mut real_t,
-    ) -> std::ffi::c_void;
     pub fn Compute2WayNodePartitionParams(
         ctrl: *mut ctrl_t,
         graph: *mut graph_t,

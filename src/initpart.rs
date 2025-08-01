@@ -103,7 +103,7 @@ pub fn InitSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t, niparts: idx_t) {
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.InitPartTmr));
 
     /* this is required for the cut-based part of the refinement */
-    Setup2WayBalMultipliers(ctrl, graph, ntpwgts.as_mut_ptr());
+    options::Setup2WayBalMultipliers(ctrl, graph, ntpwgts.as_mut_ptr());
 
     match ctrl.iptype {
         METIS_IPTYPE_EDGE => {

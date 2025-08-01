@@ -264,7 +264,7 @@ graph_t **SplitGraphOrderCC(ctrl_t *ctrl, graph_t *graph, idx_t ncmps,
 void MMDOrder(ctrl_t *ctrl, graph_t *graph, idx_t *order, idx_t lastvtx);
 
 
-/* options.c */
+/* options.c - ported */
 ctrl_t *SetupCtrl(moptype_et optype, idx_t *options, idx_t ncon, idx_t nparts, 
             real_t *tpwgts, real_t *ubvec);
 void SetupKWayBalMultipliers(ctrl_t *ctrl, graph_t *graph);

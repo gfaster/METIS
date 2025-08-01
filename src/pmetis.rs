@@ -112,7 +112,7 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     }
 
     /* set up the run parameters */
-    let ctrl = SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
+    let ctrl = options::SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
     if ctrl.is_null() {
         eprintln!("input error");
         return METIS_ERROR_INPUT;
@@ -151,7 +151,7 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
+    options::FreeCtrl(&mut (ctrl as *mut ctrl_t) as *mut *mut ctrl_t);
 
     gk_malloc_cleanup(0);
 
@@ -314,7 +314,7 @@ pub extern "C" fn MultilevelBisect(
     // graph_t *cgraph;
     // real_t bestbal=0.0, curbal=0.0;
 
-    Setup2WayBalMultipliers(ctrl, graph, tpwgts);
+    options::Setup2WayBalMultipliers(ctrl, graph, tpwgts);
 
     // WCOREPUSH;
 
