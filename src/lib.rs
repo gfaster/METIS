@@ -36,6 +36,7 @@ pub mod mmd;
 pub mod separator;
 pub mod kwayfm;
 pub mod options;
+pub mod parmetis;
 
 pub mod gklib_replace;
 pub mod graphio;
