@@ -103,8 +103,8 @@ v ':g/WCORE\%\(PUSH\|POP\)/norm gcc' || true
 # misc
 s 's/-> void//' || true
 s 's/NULL/std::ptr::null_mut()/g' || true
-s 's/ASSERTP/assert!/'
-s 's/ASSERT/assert!/'
+s 's/ASSERTP/debug_assert!/'
+s 's/ASSERT/debug_assert!/'
 s 's/IFSET/ifset!/'
 
 
