@@ -53,7 +53,7 @@ pub extern "C" fn CompressGraph(
 
     mkslice!(xadj, nvtxs + 1);
     mkslice!(adjncy, xadj[nvtxs]);
-    mkslice_mut!(cptr, nvtxs);
+    mkslice_mut!(cptr, nvtxs + 1);
     mkslice_mut!(cind, nvtxs);
 
     let mut graph: *mut graph_t = ptr::null_mut();
@@ -224,7 +224,7 @@ pub extern "C" fn PruneGraph(
     mkslice!(adjncy, xadj[nvtxs]);
     mkslice_mut!(iperm, nvtxs);
 
-    let factor = factor * (xadj[nvtxs] / nvtxs as idx_t) as real_t;
+    let factor = factor * xadj[nvtxs] as real_t / nvtxs as real_t;
 
     let mut pnvtxs: usize = 0;
     let mut pnedges: usize = 0;
@@ -237,7 +237,7 @@ pub extern "C" fn PruneGraph(
             pnedges += xadj[i + 1] as usize - xadj[i] as usize;
         } else {
             nlarge += 1;
-            perm[i] = nvtxs as idx_t - nlarge as idx_t;
+            perm[i] = (nvtxs - nlarge) as idx_t;
             iperm[nvtxs - nlarge] = i as idx_t;
         }
     }
@@ -261,8 +261,11 @@ pub extern "C" fn PruneGraph(
         graph.adjwgt = imalloc(pnedges, c"PruneGraph: adjwgt".as_ptr()) as _;
         mkslice_mut!(pxadj: graph->xadj, pnvtxs + 1);
         mkslice_mut!(pvwgt: graph->vwgt, pnvtxs);
-        pvwgt.fill(1);
         mkslice_mut!(padjncy: graph->adjncy, pnedges);
+        {
+            mkslice_mut!(padjwgt: graph->adjwgt, pnedges);
+            padjwgt.fill(1);
+        }
 
         pxadj[0] = 0;
         pnedges = 0;
@@ -302,4 +305,40 @@ pub extern "C" fn PruneGraph(
     // gk_free((void **)&perm, LTERM);
 
     return graph;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+
+    use super::*;
+    use crate::tests::ab_test_partition_test_graphs;
+
+    #[test]
+    fn ab_CompressGraph() {
+        ab_test_partition_test_graphs("CompressGraph:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_compress(true);
+            g
+        });
+    }
+
+    #[test]
+    fn ab_PruneGraph() {
+        ab_test_partition_test_graphs("PruneGraph:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_pfactor(2);
+            g
+        });
+        ab_test_partition_test_graphs("PruneGraph:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_pfactor(30);
+            g
+        });
+        ab_test_partition_test_graphs("PruneGraph:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_pfactor(200);
+            g
+        });
+    }
 }

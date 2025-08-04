@@ -551,8 +551,6 @@ impl GraphBuilder {
 
     /// sets `compress` for ometis (default `true`)
     pub fn set_compress(&mut self, do_compress: bool) {
-        // TODO: make ometis tests without compress
-        // TODO: write tests for compression routines
         match &mut self.op {
             GraphOpSettings::Pmetis { ..} |
             GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
@@ -562,8 +560,6 @@ impl GraphBuilder {
 
     /// call [`parmetis::METIS_ComputeVertexSeparator`] instead of [`ometis::METIS_NodeND`]
     pub fn compute_vertex_separator(&mut self, do_vtx_sep: bool) {
-        // TODO: make ometis tests without compress
-        // TODO: write tests for compression routines
         match &mut self.op {
             GraphOpSettings::Pmetis { ..} |
             GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),

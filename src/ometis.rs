@@ -174,7 +174,7 @@ pub extern "C" fn METIS_NodeND(
 
     let graph = graph.as_mut().unwrap();
 
-    assert!(checkgraph::CheckGraph(graph, ctrl.numflag, 1) != 0);
+    debug_assert!(checkgraph::CheckGraph(graph, ctrl.numflag, 1) != 0);
 
     /* allocate workspace memory */
     AllocateWorkSpace(ctrl, graph);
@@ -190,8 +190,7 @@ pub extern "C" fn METIS_NodeND(
         /* Order any prunned vertices */
         /* Use perm as an auxiliary array */
         let perm = &mut perm[..nnvtxs];
-        let iperm = &mut iperm[..nnvtxs];
-        perm.copy_from_slice(iperm);
+        perm.copy_from_slice(&iperm[..nnvtxs]);
 
         for i in (0)..(nnvtxs) {
             iperm[piperm[i as usize] as usize] = perm[i as usize];
@@ -947,6 +946,29 @@ mod tests {
     #[test]
     fn ab_METIS_NodeND() {
         ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_METIS_NodeND_nocompress() {
+        ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_compress(false);
+            g
+        });
+    }
+
+    #[test]
+    fn ab_METIS_NodeND_prune() {
+        ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.set_pfactor(1);
+            g.random_vwgt();
+            g
+        });
+        ab_test_partition_test_graphs("METIS_NodeND:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.set_pfactor(5);
             g.random_vwgt();
             g
         });

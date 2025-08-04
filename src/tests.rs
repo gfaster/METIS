@@ -574,3 +574,10 @@ fn identical_to_c_kmetis_multiconstraint() {
         g
     });
 }
+
+#[test]
+fn debug_assertions_enabled() {
+    if !cfg!(debug_assertions) {
+        panic!("debug assertions are disabled")
+    }
+}
