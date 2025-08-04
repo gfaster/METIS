@@ -93,40 +93,6 @@ extern "C" {
 }
 
 // these don't need metis_decl attrib since they are the public API
-// extern "C" {
-//     pub fn METIS_PartGraphRecursive(
-//         nvtxs: *mut idx_t,
-//         ncon: *mut idx_t,
-//         xadj: *mut idx_t,
-//         adjncy: *mut idx_t,
-//         vwgt: *mut idx_t,
-//         vsize: *mut idx_t,
-//         adjwgt: *mut idx_t,
-//         nparts: *mut idx_t,
-//         tpwgts: *mut real_t,
-//         ubvec: *const real_t, // only copied to internal ubfactors array
-//         options: *mut idx_t,
-//         edgecut: *mut idx_t,
-//         part: *mut idx_t,
-//     ) -> ::std::os::raw::c_int;
-// }
-// extern "C" {
-//     pub fn METIS_PartGraphKway(
-//         nvtxs: *mut idx_t,
-//         ncon: *mut idx_t,
-//         xadj: *mut idx_t,
-//         adjncy: *mut idx_t,
-//         vwgt: *mut idx_t,
-//         vsize: *mut idx_t,
-//         adjwgt: *mut idx_t,
-//         nparts: *mut idx_t,
-//         tpwgts: *mut real_t,
-//         ubvec: *mut real_t,
-//         options: *mut idx_t,
-//         edgecut: *mut idx_t,
-//         part: *mut idx_t,
-//     ) -> ::std::os::raw::c_int;
-// }
 extern "C" {
     pub fn METIS_MeshToDual(
         ne: *mut idx_t,
@@ -189,41 +155,7 @@ extern "C" {
 extern "C" {
     pub fn METIS_SetDefaultOptions(options: *mut idx_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
-    pub fn METIS_NodeNDP(
-        nvtxs: idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        npes: idx_t,
-        options: *mut idx_t,
-        perm: *mut idx_t,
-        iperm: *mut idx_t,
-        sizes: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_ComputeVertexSeparator(
-        nvtxs: *mut idx_t,
-        xadj: *mut idx_t,
-        adjncy: *mut idx_t,
-        vwgt: *mut idx_t,
-        options: *mut idx_t,
-        sepsize: *mut idx_t,
-        part: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_NodeRefine(
-        nvtxs: idx_t,
-        xadj: *mut idx_t,
-        vwgt: *mut idx_t,
-        adjncy: *mut idx_t,
-        where_: *mut idx_t,
-        hmarker: *mut idx_t,
-        ubfactor: real_t,
-    ) -> ::std::os::raw::c_int;
-}
+
 /// SIGABRT
 pub const SIGMEM: std::os::raw::c_int = 6;
 

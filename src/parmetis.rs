@@ -33,15 +33,15 @@ pub extern "C" fn METIS_NodeNDP(
     adjncy: *mut idx_t,
     vwgt: *mut idx_t,
     npes: idx_t,
-    options: *mut idx_t,
+    options: *const idx_t,
     perm: *mut idx_t,
     iperm: *mut idx_t,
     sizes: *mut idx_t,
 ) -> c_int {
     let nvtxs = nvtxs as usize;
     mkslice_mut!(perm, nvtxs);
-    mkslice_mut!(sizes, nvtxs);
     mkslice_mut!(iperm, nvtxs);
+    mkslice_mut!(sizes, 2 * npes - 1);
     // idx_t i, ii, j, l, nnvtxs=0;
     // graph_t *graph;
     // ctrl_t *ctrl;
@@ -63,7 +63,7 @@ pub extern "C" fn METIS_NodeNDP(
     let mut graph = std::ptr::null_mut();
     let mut nnvtxs = 0;
 
-    /* compress the graph; not that compression only happens if not prunning
+    /* compress the graph; note that compression only happens if no prunning
     has taken place. */
     let mut cptr = vec![];
     let mut cind = vec![];
@@ -159,6 +159,8 @@ pub extern "C" fn METIS_NodeNDP(
 /* This function is similar to MlevelNestedDissection with the difference
 that it also records separator sizes for the top log2(npes) levels */
 /**************************************************************************/
+// NOTE(porting): I think this may be removed as this port is not meant to replace ParMETIS (as it
+// is not Free Software). That being said, NodeNDP seems like it might be worth keeping?
 #[metis_func]
 pub extern "C" fn MlevelNestedDissectionP(
     ctrl: *mut ctrl_t,
@@ -185,14 +187,13 @@ pub extern "C" fn MlevelNestedDissectionP(
 
     ometis::MlevelNodeBisectionMultiple(ctrl, graph);
     get_graph_slices!(ctrl, graph => pwgts);
-    mkslice_mut!(sizes, nvtxs);
-    mkslice_mut!(order, nvtxs);
+    mkslice_mut!(sizes, 2 * npes - 1);
 
     ifset!(
         ctrl.dbglvl,
         METIS_DBG_SEPINFO,
         print!(
-            "Nvtxs: {:6}, [({:6} {:6} {:6})]\n",
+            "Nvtxs: {:6}, [{:6} {:6} {:6}]\n",
             graph.nvtxs, pwgts[0], pwgts[1], pwgts[2]
         )
     );
@@ -209,7 +210,9 @@ pub extern "C" fn MlevelNestedDissectionP(
     get_graph_slices!(graph => bndind label);
     for i in (0)..(nbnd) {
         lastvtx -= 1;
-        order[label[bndind[i as usize] as usize] as usize] = lastvtx;
+        let ind = bndind[i as usize] as usize;
+        let label = label[ind] as usize;
+        *order.add(label) = lastvtx;
     }
 
     let mut lgraph = std::ptr::null_mut();
@@ -224,28 +227,28 @@ pub extern "C" fn MlevelNestedDissectionP(
         MlevelNestedDissectionP(
             ctrl,
             lgraph,
-            order.as_mut_ptr(),
+            order,
             lastvtx - (*rgraph).nvtxs,
             npes,
             2 * cpos + 2,
             sizes.as_mut_ptr(),
         );
     } else {
-        ometis::MMDOrder(ctrl, lgraph, order.as_mut_ptr(), lastvtx - (*rgraph).nvtxs);
+        ometis::MMDOrder(ctrl, lgraph, order, lastvtx - (*rgraph).nvtxs);
         graph::FreeGraph(&mut lgraph);
     }
     if ((*rgraph).nvtxs > MMDSWITCH || 2 * cpos + 1 < npes - 1) && (*rgraph).nedges > 0 {
         MlevelNestedDissectionP(
             ctrl,
             rgraph,
-            order.as_mut_ptr(),
+            order,
             lastvtx,
             npes,
             2 * cpos + 1,
             sizes.as_mut_ptr(),
         );
     } else {
-        ometis::MMDOrder(ctrl, rgraph, order.as_mut_ptr(), lastvtx);
+        ometis::MMDOrder(ctrl, rgraph, order, lastvtx);
         graph::FreeGraph(&mut rgraph);
     }
 }
@@ -317,6 +320,8 @@ pub extern "C" fn METIS_ComputeVertexSeparator(
 /* This function is the entry point of a node-based separator refinement
 of the nodes with an hmarker[] of 0. */
 /*************************************************************************/
+// NOTE(porting): I think this will be removed as this port is not meant to replace ParMETIS (as it
+// is not Free Software). It is also not called by any other routine.
 #[metis_func(no_pfx)]
 pub extern "C" fn METIS_NodeRefine(
     nvtxs: idx_t,
@@ -381,6 +386,8 @@ pub extern "C" fn METIS_NodeRefine(
 /* This function performs a node-based 1-sided FM refinement that moves
 only nodes whose hmarker[] == -1. It is used by Parmetis. */
 /*************************************************************************/
+// NOTE(porting): I think this will be removed as this port is not meant to replace ParMETIS (as it
+// is not Free Software). It is only called by METIS_NodeRefine
 #[metis_func]
 pub extern "C" fn FM_2WayNodeRefine1SidedP(
     ctrl: *mut ctrl_t,
@@ -659,6 +666,8 @@ pub extern "C" fn FM_2WayNodeRefine1SidedP(
 /* This function performs a node-based (two-sided) FM refinement that
 moves only nodes whose hmarker[] == -1. It is used by Parmetis. */
 /*************************************************************************/
+// NOTE(porting): I think this will be removed as this port is not meant to replace ParMETIS (as it
+// is not Free Software). It is only called by METIS_NodeRefine
 #[metis_func]
 pub extern "C" fn FM_2WayNodeRefine2SidedP(
     ctrl: *mut ctrl_t,
@@ -985,8 +994,8 @@ pub extern "C" fn FM_2WayNodeRefine2SidedP(
 #[metis_func(no_pfx)]
 pub extern "C" fn METIS_CacheFriendlyReordering(
     nvtxs: idx_t,
-    xadj: *mut idx_t,
-    adjncy: *mut idx_t,
+    xadj: *const idx_t,
+    adjncy: *const idx_t,
     part: *mut idx_t,
     old2new: *mut idx_t,
 ) -> c_int {
@@ -1112,4 +1121,71 @@ pub extern "C" fn METIS_CacheFriendlyReordering(
     // gk_free((void **)&cot, &pos, &levels, &pwgts, LTERM);
 
     return METIS_OK;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::{dyncall::ab_test_single_eq, tests::{ab_test_partition_test_graphs, for_test_suite}};
+    use super::*;
+
+
+    #[test]
+    fn ab_METIS_CacheFriendlyReordering() {
+        for_test_suite(Optype::Kmetis, 8, 1, |mut g| {
+            g.random_adjwgt();
+            let (_objval, mut part) = g.call().unwrap();
+            let csr = g.into_csr();
+            let nvtxs = csr.nvtxs();
+            let (xadj, adjncy) = csr.as_parts();
+
+            ab_test_single_eq("METIS_CacheFriendlyReordering:rs", || {
+                let mut old2new = vec![idx_t::MAX; nvtxs];
+                unsafe {
+                    METIS_CacheFriendlyReordering(nvtxs as idx_t, xadj.as_ptr(), adjncy.as_ptr(), part.as_mut_ptr(), old2new.as_mut_ptr());
+                }
+                old2new
+            });
+        });
+    }
+
+    #[test]
+    fn ab_METIS_NodeNDP() {
+        // TODO: I realized I didn't do tests with varying nseps in ometis
+        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_nseps(3);
+            ab_test_single_eq("METIS_NodeNDP:rs", || {
+                g.call_ndp(8)
+            });
+        });
+
+        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            ab_test_single_eq("METIS_NodeNDP:rs", || {
+                g.call_ndp(16)
+            });
+        });
+    }
+
+    #[test]
+    fn ab_METIS_NodeNDP_nocompress() {
+        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_compress(false);
+            g.set_nseps(3);
+            ab_test_single_eq("METIS_NodeNDP:rs", || {
+                g.call_ndp(8)
+            });
+        });
+    }
+
+    #[test]
+    fn ab_METIS_ComputeVertexSeparator() {
+        ab_test_partition_test_graphs("METIS_ComputeVertexSeparator:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.compute_vertex_separator(true);
+            g
+        });
+    }
 }

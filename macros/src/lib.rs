@@ -178,6 +178,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
 
         // #[export_name = #rs_link_func]
         #[allow(non_snake_case, clippy::too_many_arguments)]
+        #[doc(hidden)]
         #impl_fn
     }
     .into();

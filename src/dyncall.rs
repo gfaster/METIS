@@ -541,10 +541,10 @@ where
 }
 
 /// runs the provided function twice. The first time with all C functions, and the second with all
-/// C functions except the override, it then asserts the returned values are the same. Panics if
-/// the override isn't used
+/// C functions except the override, it then asserts the returned values are the same.
 ///
-/// Will panic if the provided override isn't used
+/// Will panic if the provided override isn't used, or if `T` is a ZST (we're not supporting
+/// pathological cases here. `T` being a ZST is a bug in the test)
 #[cfg(test)]
 pub(crate) fn ab_test_single_eq<F, T>(overrides: &str, f: F)
 where
@@ -552,6 +552,7 @@ where
     T: Eq + std::fmt::Debug,
 {
     let (no_override, with_overrides) = ab_test_single(overrides, f);
+    assert_ne!(size_of_val(&no_override), 0, "T is a ZST - you probably wanted to return something");
     ab_assert_eq(no_override, with_overrides)
 }
 

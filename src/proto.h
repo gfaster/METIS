@@ -274,7 +274,7 @@ int CheckParams(ctrl_t *ctrl);
 void FreeCtrl(ctrl_t **r_ctrl);
 
 
-/* parmetis.c */
+/* parmetis.c - ported */
 void MlevelNestedDissectionP(ctrl_t *ctrl, graph_t *graph, idx_t *order,
          idx_t lastvtx, idx_t npes, idx_t cpos, idx_t *sizes);
 void FM_2WayNodeRefine1SidedP(ctrl_t *ctrl, graph_t *graph, idx_t *hmarker, 

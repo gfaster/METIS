@@ -31,9 +31,9 @@ struct KeyVal {
 pub extern "C" fn CompressGraph(
     ctrl: *mut ctrl_t,
     nvtxs: idx_t,
-    xadj: *mut idx_t,
-    adjncy: *mut idx_t,
-    vwgt: *mut idx_t,
+    xadj: *const idx_t,
+    adjncy: *const idx_t,
+    vwgt: *const idx_t,
     cptr: *mut idx_t,
     cind: *mut idx_t,
 ) -> *mut graph_t {

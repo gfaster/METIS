@@ -13,6 +13,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -25,7 +26,9 @@
       sizes array.
 */
 /*************************************************************************/
-int METIS_NodeNDP(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
+IFUNC(int, METIS_NodeNDP,(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
+           idx_t npes, idx_t *options, idx_t *perm, idx_t *iperm, idx_t *sizes));
+int c__METIS_NodeNDP(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
            idx_t npes, idx_t *options, idx_t *perm, idx_t *iperm, idx_t *sizes) 
 {
   idx_t i, ii, j, l, nnvtxs=0;
@@ -102,7 +105,9 @@ int METIS_NodeNDP(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
 /*! This function is similar to MlevelNestedDissection with the difference
     that it also records separator sizes for the top log2(npes) levels */
 /**************************************************************************/
-void MlevelNestedDissectionP(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+IFUNC(void, MlevelNestedDissectionP,(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
+         idx_t lastvtx, idx_t npes, idx_t cpos, idx_t *sizes));
+void c__libmetis__MlevelNestedDissectionP(ctrl_t *ctrl, graph_t *graph, idx_t *order, 
          idx_t lastvtx, idx_t npes, idx_t cpos, idx_t *sizes)
 {
   idx_t i, j, nvtxs, nbnd;
@@ -159,7 +164,9 @@ void MlevelNestedDissectionP(ctrl_t *ctrl, graph_t *graph, idx_t *order,
 /*! This function bisects a graph by computing a vertex separator 
 */
 /**************************************************************************/
-int METIS_ComputeVertexSeparator(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, 
+IFUNC(int, METIS_ComputeVertexSeparator, (idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, 
+           idx_t *vwgt, idx_t *options, idx_t *r_sepsize, idx_t *part));
+int c__METIS_ComputeVertexSeparator(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, 
            idx_t *vwgt, idx_t *options, idx_t *r_sepsize, idx_t *part) 
 {
   idx_t i, j;
@@ -197,7 +204,9 @@ int METIS_ComputeVertexSeparator(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy,
 /*! This function is the entry point of a node-based separator refinement
     of the nodes with an hmarker[] of 0. */
 /*************************************************************************/
-int METIS_NodeRefine(idx_t nvtxs, idx_t *xadj, idx_t *vwgt, idx_t *adjncy, 
+IFUNC(int, METIS_NodeRefine, (idx_t nvtxs, idx_t *xadj, idx_t *vwgt, idx_t *adjncy, 
+           idx_t *where, idx_t *hmarker, real_t ubfactor));
+int c__METIS_NodeRefine(idx_t nvtxs, idx_t *xadj, idx_t *vwgt, idx_t *adjncy, 
            idx_t *where, idx_t *hmarker, real_t ubfactor)
 {
   graph_t *graph;
@@ -235,7 +244,9 @@ int METIS_NodeRefine(idx_t nvtxs, idx_t *xadj, idx_t *vwgt, idx_t *adjncy,
 /*! This function performs a node-based 1-sided FM refinement that moves
     only nodes whose hmarker[] == -1. It is used by Parmetis. */
 /*************************************************************************/
-void FM_2WayNodeRefine1SidedP(ctrl_t *ctrl, graph_t *graph, 
+IFUNC(void, FM_2WayNodeRefine1SidedP,(ctrl_t *ctrl, graph_t *graph, 
+          idx_t *hmarker, real_t ubfactor, idx_t npasses));
+void c__libmetis__FM_2WayNodeRefine1SidedP(ctrl_t *ctrl, graph_t *graph, 
           idx_t *hmarker, real_t ubfactor, idx_t npasses)
 {
   idx_t i, ii, j, k, jj, kk, nvtxs, nbnd, nswaps, nmind, nbad, qsize;
@@ -465,7 +476,9 @@ void FM_2WayNodeRefine1SidedP(ctrl_t *ctrl, graph_t *graph,
 /*! This function performs a node-based (two-sided) FM refinement that 
     moves only nodes whose hmarker[] == -1. It is used by Parmetis. */
 /*************************************************************************/
-void FM_2WayNodeRefine2SidedP(ctrl_t *ctrl, graph_t *graph, 
+IFUNC(void, FM_2WayNodeRefine2SidedP, (ctrl_t *ctrl, graph_t *graph, 
+          idx_t *hmarker, real_t ubfactor, idx_t npasses));
+void c__libmetis__FM_2WayNodeRefine2SidedP(ctrl_t *ctrl, graph_t *graph, 
           idx_t *hmarker, real_t ubfactor, idx_t npasses)
 {
   idx_t i, ii, j, k, jj, kk, nvtxs, nbnd, nswaps, nmind;
@@ -729,7 +742,9 @@ void FM_2WayNodeRefine2SidedP(ctrl_t *ctrl, graph_t *graph,
     size nvtxs such for vertex i, old2new[i] is its new vertex number. 
 */
 /**************************************************************************/
-int METIS_CacheFriendlyReordering(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
+IFUNC(int, METIS_CacheFriendlyReordering, (idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
+           idx_t *part, idx_t *old2new));
+int c__METIS_CacheFriendlyReordering(idx_t nvtxs, idx_t *xadj, idx_t *adjncy, 
            idx_t *part, idx_t *old2new) 
 {
   idx_t i, j, k, first, last, lastlevel, maxdegree, nparts;

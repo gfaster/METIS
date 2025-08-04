@@ -25,6 +25,12 @@ impl Csr {
     }
 
     #[cfg(test)]
+    pub fn as_parts(&self) -> (&[idx_t], &[idx_t]) {
+        let Csr { xadj, adjncy } = self;
+        (&xadj, &adjncy)
+    }
+
+    #[cfg(test)]
     pub fn nvtxs(&self) -> usize {
         self.xadj.len() - 1
     }
@@ -101,6 +107,8 @@ enum GraphOpSettings {
         nseps: idx_t,
         pfactor: idx_t,
         ccorder: bool,
+        compress: bool,
+        compute_vertex_separator: bool,
         rtype: OmetisRtype,
     },
 }
@@ -175,6 +183,8 @@ impl GraphBuilder {
                     niparts: -1,
                 },
                 Optype::Ometis => GraphOpSettings::Ometis { 
+                    compute_vertex_separator: false,
+                    compress: true,
                     nseps: 1,
                     pfactor: 0,
                     ccorder: false,
@@ -539,6 +549,28 @@ impl GraphBuilder {
         }
     }
 
+    /// sets `compress` for ometis (default `true`)
+    pub fn set_compress(&mut self, do_compress: bool) {
+        // TODO: make ometis tests without compress
+        // TODO: write tests for compression routines
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Ometis { compress, .. } => *compress = do_compress,
+        }
+    }
+
+    /// call [`parmetis::METIS_ComputeVertexSeparator`] instead of [`ometis::METIS_NodeND`]
+    pub fn compute_vertex_separator(&mut self, do_vtx_sep: bool) {
+        // TODO: make ometis tests without compress
+        // TODO: write tests for compression routines
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Ometis { compute_vertex_separator, .. } => *compute_vertex_separator = do_vtx_sep,
+        }
+    }
+
     pub fn set_pfactor(&mut self, p: idx_t) {
         match &mut self.op {
             GraphOpSettings::Pmetis { ..} |
@@ -681,7 +713,8 @@ impl GraphBuilder {
                     part.as_mut_ptr(),
                 )
             },
-            GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype } => unsafe {
+            GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype, compress, compute_vertex_separator } => unsafe {
+                options[METIS_OPTION_COMPRESS as usize] = *compress as idx_t;
                 options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
                 options[METIS_OPTION_PFACTOR as usize] = *pfactor as idx_t;
                 options[METIS_OPTION_RTYPE as usize] = match rtype {
@@ -690,23 +723,83 @@ impl GraphBuilder {
                 } as idx_t;
                 options[METIS_OPTION_NSEPS as usize] = *nseps as idx_t;
                 let mut iperm = vec![0; nvtxs as usize];
-                let ret = ometis::METIS_NodeND(
-                    &mut nvtxs,
-                    self.xadj.as_mut_ptr(),
-                    self.adjncy.as_mut_ptr(),
-                    vec_ptr(&mut self.vwgt),
-                    options.as_mut_ptr(),
-                    part.as_mut_ptr(), // use part as permutation vector
-                    iperm.as_mut_ptr()
-                );
-                part.extend_from_slice(&iperm);
+                let ret;
+                if *compute_vertex_separator {
+                    ret = parmetis::METIS_ComputeVertexSeparator(
+                        &mut nvtxs,
+                        self.xadj.as_mut_ptr(),
+                        self.adjncy.as_mut_ptr(),
+                        vec_ptr(&mut self.vwgt),
+                        options.as_mut_ptr(),
+                        &mut objval,
+                        part.as_mut_ptr()
+                    );
+                } else {
+                    ret = ometis::METIS_NodeND(
+                        &mut nvtxs,
+                        self.xadj.as_mut_ptr(),
+                        self.adjncy.as_mut_ptr(),
+                        vec_ptr(&mut self.vwgt),
+                        options.as_mut_ptr(),
+                        part.as_mut_ptr(), // use part as permutation vector
+                        iperm.as_mut_ptr()
+                    );
+                    part.extend_from_slice(&iperm);
+                }
                 ret
             },
         };
-        if res == METIS_ERROR {
+        if res != METIS_OK {
             Err(())
         } else {
             Ok((objval, part))
+        }
+    }
+
+    /// Calls [`parmetis::METIS_NodeNDP`]. Must be set to [`Optype::Ometis`]. Returns `(perm,
+    /// iperm, sizes)`
+    pub fn call_ndp(&mut self, npes: idx_t) -> Result<(Vec<idx_t>, Vec<idx_t>, Vec<idx_t>), ()> {
+        assert_eq!(self.adjncy.len(), *self.xadj.last().unwrap_or(&0) as usize);
+        let mut nvtxs = self.nvtxs() as idx_t;
+        let mut ncon = self.ncon() as idx_t;
+        let mut part = vec![0; self.nvtxs()];
+        let mut objval = 0;
+        let mut options = [-1; METIS_NOPTIONS as usize];
+        options[METIS_OPTION_CTYPE as usize] = self.edge_match as idx_t;
+        options[METIS_OPTION_IPTYPE as usize] = self.initial_part as idx_t;
+        options[METIS_OPTION_ONDISK as usize] = 1;
+        options[METIS_OPTION_SEED as usize] = self.seed;
+        options[METIS_OPTION_DBGLVL as usize] = self.dbg_lvl as idx_t;
+
+        let Self { dbg_lvl, op: GraphOpSettings::Ometis {
+            nseps,
+            pfactor,
+            ccorder,
+            rtype,
+            compress,
+            compute_vertex_separator
+        }, seed, xadj, adjncy, vwgt, edge_match, initial_part } = self else { panic!("not ometis") };
+        assert!(!*compute_vertex_separator, "cannot use compute vertex separator when calling NodeNDP");
+        options[METIS_OPTION_COMPRESS as usize] = *compress as idx_t;
+        options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
+        options[METIS_OPTION_PFACTOR as usize] = *pfactor as idx_t;
+        options[METIS_OPTION_RTYPE as usize] = match rtype {
+            OmetisRtype::Sep1Sided => Rtype::Sep1Sided,
+            OmetisRtype::Sep2Sided => Rtype::Sep2Sided,
+        } as idx_t;
+        options[METIS_OPTION_NSEPS as usize] = *nseps as idx_t;
+        let mut perm = vec![0; nvtxs as usize];
+        let mut iperm = vec![0; nvtxs as usize];
+        let mut sizes = vec![0; 2 * npes as usize - 1];
+
+        let res = unsafe {
+            parmetis::METIS_NodeNDP(nvtxs, xadj.as_mut_ptr(), adjncy.as_mut_ptr(), vec_ptr(vwgt),
+                npes, options.as_ptr(), perm.as_mut_ptr(), iperm.as_mut_ptr(), sizes.as_mut_ptr())
+        };
+        if res != METIS_OK {
+            Err(())
+        } else {
+            Ok((perm, iperm, sizes))
         }
     }
 
@@ -730,7 +823,7 @@ impl GraphBuilder {
             match &self.op {
                 GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ..}, .. } => todo!(),
                 GraphOpSettings::Kmetis { common, objtype, minconn, contig, niparts } => todo!(),
-                GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype } => todo!(),
+                GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype, compress, compute_vertex_separator } => todo!(),
             }
 
             {
