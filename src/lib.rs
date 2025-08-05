@@ -5,6 +5,24 @@
     unused_imports
 )]
 
+// will need to fix these all at once
+#![allow(clippy::needless_parens_on_range_literals)]
+
+// will need to fix these all at once
+#![allow(clippy::range_plus_one, clippy::range_minus_one)]
+
+// I don't know the differences between C and Rust precedence to be instantly confident
+#![warn(clippy::precedence_bits)]
+
+// #![warn(
+//     clippy::as_pointer_underscore,
+// )]
+// #![deny(
+//     clippy::as_ptr_cast_mut,
+//     clippy::ref_as_ptr,
+//     clippy::ref_as_ptr,
+// )]
+
 // use logging_allocator::LoggingAllocator;
 // #[global_allocator]
 // static ALLOC: LoggingAllocator = LoggingAllocator::new(true);

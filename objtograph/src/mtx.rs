@@ -37,6 +37,8 @@ pub fn edges(mut r: impl BufRead) -> io::Result<Vec<(idx_t, idx_t)>> {
         return Err(invalid_format())
     };
 
+    drop(buf);
+
     let ret = match format {
         Format::Coord => parse_coordinate(r, symm),
         Format::Array => parse_array(r, field),

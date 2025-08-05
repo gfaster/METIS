@@ -617,6 +617,11 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
   adjncy = graph->adjncy;
   where  = graph->where;
 
+  ASSERTP(ComputeCut(graph, where) == graph->mincut,
+      ("%"PRIDX" %"PRIDX"\n", ComputeCut(graph, where), graph->mincut));
+  ASSERTP(ComputeVolume(graph, where) == graph->minvol,
+      ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
+
   for (iii=ptr[gid]; iii<ptr[gid+1]; iii++) {
     i    = ind[iii];
     from = where[i];

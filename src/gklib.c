@@ -75,12 +75,15 @@ void rsortd(size_t n, real_t *base)
 #undef r_gt
 }
 
+/*
+ * replaced in gklib_replace.rs
 void ikvsorti(size_t n, ikv_t *base)
 {
 #define ikey_lt(a, b) ((a)->key < (b)->key)
   GK_MKQSORT(ikv_t, base, n, ikey_lt);
 #undef ikey_lt
 }
+*/
 
 /* Sorts based both on key and val */
 void ikvsortii(size_t n, ikv_t *base)
@@ -90,12 +93,15 @@ void ikvsortii(size_t n, ikv_t *base)
 #undef ikeyval_lt
 }
 
+/*
+ * replaced in gklib_replace.rs
 void ikvsortd(size_t n, ikv_t *base)
 {
 #define ikey_gt(a, b) ((a)->key > (b)->key)
   GK_MKQSORT(ikv_t, base, n, ikey_gt);
 #undef ikey_gt
 }
+*/
 
 void rkvsorti(size_t n, rkv_t *base)
 {

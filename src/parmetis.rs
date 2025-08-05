@@ -1132,7 +1132,7 @@ mod tests {
 
     #[test]
     fn ab_METIS_CacheFriendlyReordering() {
-        for_test_suite(Optype::Kmetis, 8, 1, |mut g| {
+        for_test_suite(Optype::Kmetis, 8, 1, |_tg, mut g| {
             g.random_adjwgt();
             let (_objval, mut part) = g.call().unwrap();
             let csr = g.into_csr();
@@ -1152,7 +1152,7 @@ mod tests {
     #[test]
     fn ab_METIS_NodeNDP() {
         // TODO: I realized I didn't do tests with varying nseps in ometis
-        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+        for_test_suite(Optype::Ometis, 3, 1, |_tg, mut g| {
             g.random_vwgt();
             g.set_nseps(3);
             ab_test_single_eq("METIS_NodeNDP:rs", || {
@@ -1160,7 +1160,7 @@ mod tests {
             });
         });
 
-        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+        for_test_suite(Optype::Ometis, 3, 1, |_tg, mut g| {
             g.random_vwgt();
             ab_test_single_eq("METIS_NodeNDP:rs", || {
                 g.call_ndp(16)
@@ -1170,7 +1170,7 @@ mod tests {
 
     #[test]
     fn ab_METIS_NodeNDP_nocompress() {
-        for_test_suite(Optype::Ometis, 3, 1, |mut g| {
+        for_test_suite(Optype::Ometis, 3, 1, |_tg, mut g| {
             g.random_vwgt();
             g.set_compress(false);
             g.set_nseps(3);

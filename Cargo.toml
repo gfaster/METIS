@@ -13,13 +13,14 @@ autobins = false
 [features]
 dual_link = []
 extra_tests = []
+extra_debug_assertions = []
 
 [lib]
 name = "metis"
 path = "src/lib.rs"
 
-[[bin]]
-name = "gpmetis"
+# [[bin]]
+# name = "gpmetis"
 
 [dependencies]
 macros = {path = "./macros"}

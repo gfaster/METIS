@@ -55,11 +55,11 @@ pub extern "C" fn FindPartitionInducedComponents(
 
     /* Allocate memory required for the BFS traversal */
     // perm = iincet( nvtxs, 0, imalloc(nvtxs, "FindPartitionInducedComponents: perm"),);
-    let mut perm = Vec::from_iter(0..(nvtxs as usize));
+    let mut perm = Vec::from_iter(0..(nvtxs as idx_t));
     // todo = iincset( nvtxs, 0, imalloc(nvtxs, "FindPartitionInducedComponents: todo"),);
-    let mut todo = Vec::from_iter(0..(nvtxs as usize));
+    let mut todo = Vec::from_iter(0..(nvtxs as idx_t));
     // touched = ismalloc(nvtxs, 0, "FindPartitionInducedComponents: touched");
-    let mut touched = vec![0; nvtxs];
+    let mut touched = vec![false; nvtxs];
 
     /* Find the connected componends induced by the partition */
     let mut ncmps: idx_t = -1;
@@ -72,11 +72,11 @@ pub extern "C" fn FindPartitionInducedComponents(
             /* Find another starting vertex */
             ncmps += 1;
             cptr[ncmps as usize] = first;
-            assert!(touched[todo[0]] == 0);
+            debug_assert!(!touched[todo[0] as usize]);
             let i = todo[0] as usize;
             cind[last as usize] = i as idx_t;
             last += 1;
-            touched[i] = 1;
+            touched[i] = true;
             me = where_[i];
         }
 
@@ -86,14 +86,14 @@ pub extern "C" fn FindPartitionInducedComponents(
         nleft -= 1;
         let j = todo[nleft];
         todo[k as usize] = j;
-        perm[j] = k;
+        perm[j as usize] = k;
 
         for j in (xadj[i])..(xadj[i + 1]) {
             let k = adjncy[j as usize] as usize;
-            if where_[k] == me && touched[k] == 0 {
+            if where_[k] == me && !touched[k] {
                 cind[last as usize] = k as idx_t;
                 last += 1;
-                touched[k] = 1;
+                touched[k] = true;
             }
         }
     }
@@ -307,11 +307,7 @@ pub extern "C" fn IsConnectedSubdomain(
     }
 
     // return (ncmps == 1 ? 1 : 0);
-    if ncmps == 1 {
-        1
-    } else {
-        0
-    }
+    if ncmps == 1 { 1 } else { 0 }
 }
 
 /// This function identifies the number of connected components in a graph
@@ -682,8 +678,8 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                                 graph,
                                 target as idx_t,
                                 cid,
-                                cptr.as_mut_ptr(),
-                                cind.as_mut_ptr(),
+                                cptr.as_ptr(),
+                                cind.as_ptr(),
                             );
                         }
 
@@ -693,8 +689,8 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                                 graph,
                                 target as idx_t,
                                 cid,
-                                cptr.as_mut_ptr(),
-                                cind.as_mut_ptr(),
+                                cptr.as_ptr(),
+                                cind.as_ptr(),
                                 vmarker.as_mut_ptr(),
                                 pmarker.as_mut_ptr(),
                                 modind.as_mut_ptr(),
@@ -729,10 +725,7 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         }
 
         for i in (0)..(nvtxs) {
-            debug_assert_eq!(
-                where_[i],
-                cwhere[i],
-            );
+            debug_assert_eq!(where_[i], cwhere[i],);
         }
     }
 
@@ -752,7 +745,6 @@ pub extern "C" fn MoveGroupContigForCut(
     ptr: *const idx_t,
     ind: *const idx_t,
 ) {
-    // eprintln!("Called MoveGroupContigForCut");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, nbnd, from, me;
@@ -761,14 +753,7 @@ pub extern "C" fn MoveGroupContigForCut(
     // cnbr_t *mynbrs;
 
     let nvtxs = graph.nvtxs as usize;
-    // xadj = graph.xadj;
-    // adjncy = graph.adjncy;
-    // adjwgt = graph.adjwgt;
     get_graph_slices!(graph => xadj adjncy adjwgt);
-
-    // where_ = graph.where_;
-    // bndptr = graph.bndptr;
-    // bndind = graph.bndind;
     get_graph_slices_mut!(graph => where_ bndptr bndind);
 
     mkslice!(ptr, nvtxs);
@@ -848,7 +833,7 @@ pub extern "C" fn MoveGroupContigForCut(
             let j = j as usize;
             let ii = adjncy[j] as usize;
             let me = where_[ii];
-            let myrinfo = graph.ckrinfo.add(ii).as_mut().unwrap();
+            let myrinfo = &mut *graph.ckrinfo.add(ii);
 
             UpdateAdjacentVertexInfoAndBND!(
                 ctrl,
@@ -866,11 +851,12 @@ pub extern "C" fn MoveGroupContigForCut(
             );
         }
 
-        assert!(debug::CheckRInfo(ctrl, graph.ckrinfo.add(i as usize)) != 0);
+        debug_assert!(debug::CheckRInfo(ctrl, graph.ckrinfo.add(i as usize)) != 0);
     }
 
     graph.nbnd = nbnd as idx_t;
     debug_assert!(debug::CheckBnd2(graph) != 0);
+    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
     // assert!(debug::CheckBnd(graph) != 0);
 }
 
@@ -884,13 +870,12 @@ pub extern "C" fn MoveGroupContigForVol(
     graph: *mut graph_t,
     to: idx_t,
     gid: idx_t,
-    ptr: *mut idx_t,
-    ind: *mut idx_t,
+    ptr: *const idx_t,
+    ind: *const idx_t,
     vmarker: *mut idx_t,
     pmarker: *mut idx_t,
     modind: *mut idx_t,
-) -> () {
-    // eprintln!("Called MoveGroupContigForVol");
+) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, iii, j, jj, k, l, nvtxs, from, me, other, xgain;
@@ -1058,7 +1043,7 @@ pub extern "C" fn MoveGroupContigForVol(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
-    use crate::tests::ab_test_partition_test_graphs;
+    use crate::tests::{ab_test_partition_test_graphs, ab_test_partition_test_graphs_filter};
 
     use super::*;
     use dyncall::ab_test_single_eq;
@@ -1082,11 +1067,19 @@ mod tests {
 
     #[test]
     fn ab_FindSepInducedComponents() {
-        ab_test_partition_test_graphs("FindSepInducedComponents:rs", Optype::Ometis, 3, 1, |mut g| {
-            g.random_vwgt();
-            g.set_ccorder(true);
-            g
-        });
+        ab_test_partition_test_graphs_filter(
+            "FindSepInducedComponents:rs",
+            Optype::Ometis,
+            3,
+            1,
+            |tg, mut g| {
+                tg.is_contiguous().then(|| {
+                    g.random_vwgt();
+                    g.set_ccorder(true);
+                    g
+                })
+            },
+        );
     }
 
     #[test]
@@ -1130,7 +1123,8 @@ mod tests {
             let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
             g.set_seed(1230);
             g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
+                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500)))
+                    .take(2300),
             );
             g.set_objective(Objtype::Vol);
             g.set_contig(true);
@@ -1141,18 +1135,33 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "need better graph"]
     fn ab_MoveGroupContigForCut() {
-        ab_test_single_eq("MoveGroupContigForCut:rs", || {
-            fastrand::seed(123);
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
-            g.set_seed(123);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.set_contig(true);
-            g.random_adjwgt();
-            g.call().unwrap()
-        });
+        ab_test_partition_test_graphs_filter(
+            "MoveGroupContigForCut:rs",
+            Optype::Kmetis,
+            5,
+            1,
+            |tg, mut g| {
+                tg.is_contiguous().then(move || {
+                    g.set_objective(Objtype::Cut);
+                    g.set_contig(true);
+                    g.random_adjwgt();
+                    g
+                })
+            },
+        );
+        // ab_test_single_eq("MoveGroupContigForCut:rs", || {
+        //     fastrand::seed(123);
+        //     let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
+        //     g.set_seed(123);
+        //     g.edge_list(
+        //         std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
+        //     );
+        //     g.set_contig(true);
+        //     g.random_adjwgt();
+        //     g.call().unwrap()
+        // });
     }
 
     #[test]

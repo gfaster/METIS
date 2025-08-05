@@ -16,7 +16,6 @@ use std::slice;
 /// This function is the entry point of cut-based refinement
 #[metis_func]
 pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *mut graph_t) {
-    // eprintln!("Called RefineKWay");
     let mut nlevels;
     let contig = (*ctrl).contig;
     let mut ptr: *mut graph_t;
@@ -202,7 +201,7 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             /* This is to let the cut-based -minconn and -contig large-scale graph
             changes to go through */
             // wtf this is terrible??? they aren't even the same size??
-            // TODO: figure out tf is happening here
+            // FIXME: figure out wtf is happening here
             graph.ckrinfo = graph.vkrinfo as *mut _;
         }
 
@@ -217,7 +216,6 @@ pub fn AllocateKWayPartitionMemory(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 /// I suspect bug in this function (volume)
 #[metis_func]
 pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    // eprintln!("Called ComputeKWayPartitionParams");
     let ctrl = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
@@ -409,7 +407,6 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
 /// This function projects a partition, and at the same time computes the parameters for refinement.
 #[metis_func]
 pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    // eprintln!("Called ProjectKWayPartition");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
 
@@ -420,8 +417,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let nparts: idx_t = ctrl.nparts;
 
     let cgraph: *mut graph_t = graph.coarser;
-    // TODO: I think this may be should be cgraph.nvtxs
-    mkslice_mut!(cwhere: cgraph->where_, graph.nvtxs as usize);
+    // TODO: I think this maybe should be cgraph.nvtxs
+    mkslice_mut!(cwhere: cgraph->where_, (*cgraph).nvtxs);
 
     if ctrl.objtype == METIS_OBJTYPE_CUT {
         assert!(debug::CheckBnd2(cgraph) != 0);
@@ -645,7 +642,6 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 /// This function computes the boundary definition for balancing.
 #[metis_func]
 pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bndtype: idx_t) {
-    // eprintln!("Called ComputeKWayBoundary");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     let mut nbnd;
@@ -705,7 +701,6 @@ pub extern "C" fn ComputeKWayBoundary(ctrl: *mut ctrl_t, graph: *mut graph_t, bn
 /// This function computes the initial gains in the communication volume
 #[metis_func]
 pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    // eprintln!("Called ComputeKWayVolGains");
     let ctrl: &mut ctrl_t = ctrl.as_mut().unwrap();
     let graph = graph.as_mut().unwrap();
 
@@ -733,6 +728,7 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         if vkrinfo[i].nnbrs > 0 {
             let myrinfo = &vkrinfo[i];
             let me = where_[i];
+            debug_assert!(myrinfo.inbr != -1);
             // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
             let mynbrs = slice::from_raw_parts_mut(
                 ctrl.vnbrpool.add(myrinfo.inbr as usize),
@@ -748,12 +744,14 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                 let ii = adjncy[j] as usize;
                 let other = where_[ii];
                 let orinfo = vkrinfo[ii].clone();
-                let onbrs = slice::from_raw_parts_mut(
-                    ctrl.vnbrpool.add(orinfo.inbr as usize),
-                    orinfo.nnbrs as usize,
-                );
 
                 for k in 0..orinfo.nnbrs {
+                    // FIX: move construction into here to prevent invalid pointer arithmetic
+                    debug_assert!(orinfo.inbr != -1);
+                    let onbrs = slice::from_raw_parts_mut(
+                        ctrl.vnbrpool.add(orinfo.inbr as usize),
+                        orinfo.nnbrs as usize,
+                    );
                     ophtable[onbrs[k as usize].pid as usize] = k;
                 }
                 ophtable[other as usize] = 1; /* this is to simplify coding */
@@ -767,6 +765,11 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                         }
                     }
                 } else {
+                    debug_assert!(orinfo.inbr != -1);
+                    let onbrs = slice::from_raw_parts_mut(
+                        ctrl.vnbrpool.add(orinfo.inbr as usize),
+                        orinfo.nnbrs as usize,
+                    );
                     let me = me as usize;
                     assert!(
                         ophtable[me] != -1,
@@ -804,6 +807,10 @@ pub extern "C" fn ComputeKWayVolGains(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
                 /* Reset the marker vector */
                 for k in 0..orinfo.nnbrs {
+                    let onbrs = slice::from_raw_parts_mut(
+                        ctrl.vnbrpool.add(orinfo.inbr as usize),
+                        orinfo.nnbrs as usize,
+                    );
                     ophtable[onbrs[k as usize].pid as usize] = -1;
                 }
                 ophtable[other as usize] = -1;
@@ -845,8 +852,11 @@ pub extern "C" fn IsBalanced(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
+    use std::convert::identity;
+
     use super::*;
     use dyncall::ab_test_single_eq;
+    use crate::tests::{ab_test_partition_test_graphs, ab_test_partition_test_graphs_filter};
     use graph_gen::GraphBuilder;
 
     #[test]
@@ -862,5 +872,89 @@ mod tests {
         g.set_contig(true);
         g.random_adjwgt();
         g.call().unwrap();
+    }
+
+    #[test]
+    fn ab_RefineKWay() {
+        ab_test_partition_test_graphs("RefineKWay:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_RefineKWay_contig() {
+        ab_test_partition_test_graphs_filter("RefineKWay:rs", Optype::Kmetis, 20, 1, |tg, mut g| {
+            tg.is_contiguous().then(|| {
+                g.set_contig(true);
+                g.random_vwgt();
+                g
+            })
+        });
+    }
+
+    #[test]
+    fn ab_AllocateKWayPartitionMemory() {
+        // this is a test since there's weird things happening in this function right now
+        let func = "AllocateKWayPartitionMemory:rs";
+        ab_test_partition_test_graphs(func, Optype::Kmetis, 2, 1, identity);
+        ab_test_partition_test_graphs(func, Optype::Kmetis, 2, 1, |mut g| {
+            g.set_objective(Objtype::Vol);
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeKWayPartitionParams() {
+        ab_test_partition_test_graphs("ComputeKWayPartitionParams:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ProjectKWayPartition_cut() {
+        ab_test_partition_test_graphs("ProjectKWayPartition:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.set_objective(Objtype::Cut);
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ProjectKWayPartition_vol() {
+        ab_test_partition_test_graphs("ProjectKWayPartition:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.set_objective(Objtype::Vol);
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeKWayBoundary_vol() {
+        ab_test_partition_test_graphs("ComputeKWayBoundary:rs", Optype::Kmetis, 20, 1, |mut g| {
+            // g.set_contig(true);
+            g.set_objective(Objtype::Vol);
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeKWayBoundary_cut() {
+        ab_test_partition_test_graphs("ComputeKWayBoundary:rs", Optype::Kmetis, 40, 1, |mut g| {
+            g.set_ufactor(5);
+            // g.set_contig(true);
+            g.set_objective(Objtype::Cut);
+            g
+        });
+    }
+
+    #[test]
+    fn ab_ComputeKWayVolGains() {
+        ab_test_partition_test_graphs("ComputeKWayVolGains:rs", Optype::Kmetis, 5, 1, |mut g| {
+            g.set_objective(Objtype::Vol);
+            g.random_vwgt();
+            g
+        });
     }
 }

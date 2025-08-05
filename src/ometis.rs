@@ -936,7 +936,7 @@ mod tests {
     #![allow(non_snake_case)]
 
     use super::*;
-    use crate::{dyncall::ab_test_single_eq, graph_gen::GraphBuilder, tests::{ab_test_partition_test_graphs, TestGraph}};
+    use crate::{dyncall::{ab_test_eq, ab_test_single_eq}, graph_gen::{Csr, GraphBuilder}, tests::{ab_test_partition_test_graphs, TestGraph}};
 
     #[test]
     fn ab_basic_METIS_NodeND() {
@@ -1037,6 +1037,45 @@ mod tests {
         ab_test_partition_test_graphs("MMDOrder:rs", Optype::Ometis, 3, 1, |mut g| {
             g.random_vwgt();
             g
+        });
+    }
+
+    #[test]
+    fn metis_issue_26() {
+        // https://github.com/KarypisLab/METIS/issues/26
+        // these are directly the values in the issue, but they contain self-loops
+        // I'm not sure if the self-loops caused the issue reported, but I can't seem to reproduce
+        // it even with ASAN
+        #[rustfmt::skip]
+        let base_xadj = [
+            0, 8, 13, 21, 32, 37, 48, 55, 61, 62, 63, 67, 71, 83, 84, 91, 101, 102, 108, 113, 125,
+            130, 135, 136, 141, 153, 158, 166, 170, 171, 178
+        ];
+
+        #[rustfmt::skip]
+        let base_adjncy = [
+            0, 3, 5, 10, 17, 26, 27, 29, 1, 4, 18, 20, 25, 2, 6, 7, 12, 14, 15, 19, 24, 0, 3, 5,
+            11, 12, 15, 17, 19, 24, 26, 29, 1, 4, 18, 20, 25, 0, 3, 5, 11, 12, 15, 17, 19, 24, 26,
+            29, 2, 6, 12, 14, 15, 19, 24, 2, 7, 12, 15, 19, 24, 8, 9, 0, 10, 26, 27, 3, 5, 11, 29,
+            2, 3, 5, 6, 7, 12, 14, 15, 19, 21, 23, 24, 13, 2, 6, 12, 14, 15, 19, 24, 2, 3, 5, 6, 7,
+            12, 14, 15, 19, 24, 16, 0, 3, 5, 17, 26, 29, 1, 4, 18, 20, 25, 2, 3, 5, 6, 7, 12, 14,
+            15, 19, 21, 23, 24, 1, 4, 18, 20, 25, 12, 19, 21, 23, 24, 22, 12, 19, 21, 23, 24, 2, 3,
+            5, 6, 7, 12, 14, 15, 19, 21, 23, 24, 1, 4, 18, 20, 25, 0, 3, 5, 10, 17, 26, 27, 29, 0,
+            10, 26, 27, 28, 0, 3, 5, 11, 17, 26, 29
+        ];
+
+        let mut xadj = Vec::with_capacity(base_xadj.len());
+        let mut adjncy = Vec::with_capacity(base_adjncy.len());
+        for (i, w) in base_xadj.windows(2).enumerate() {
+            xadj.push(adjncy.len() as idx_t);
+            adjncy.extend(base_adjncy[w[0] as usize .. w[1] as usize].iter().copied().filter(|&e| e as usize != i));
+        }
+        xadj.push(adjncy.len() as idx_t);
+
+        let graph = GraphBuilder::from_csr(Csr::from_parts(xadj, adjncy), Optype::Ometis, 3, 1);
+        // graph.enable_dbg(DbgLvl::Info);
+        ab_test_single_eq("CompressGraph:rs", || {
+            graph.clone().call().unwrap()
         });
     }
 }

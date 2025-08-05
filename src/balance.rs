@@ -469,9 +469,9 @@ pub extern "C" fn McGeneral2WayBalance(
     let mut mincutorder: idx_t = -1;
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        println!("Parts: [");
+        print!("Parts: [");
         for l in 0..(ncon) {
-            println!(
+            print!(
                 "({:6} {:6} {:.3} {:.3}) ",
                 pwgts[l],
                 pwgts[ncon + l],

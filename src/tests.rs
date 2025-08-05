@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
-use crate::bindings::{idx_t, real_t, METIS_NOPTIONS, METIS_OK};
-use crate::dyncall::{ab_test, ab_test_multi, ab_test_eq};
+use crate::bindings::{METIS_NOPTIONS, METIS_OK, idx_t, real_t};
+use crate::dyncall::{ab_test, ab_test_eq, ab_test_multi};
 use crate::graph_gen::{Csr, GraphBuilder};
 use crate::kmetis::METIS_PartGraphKway;
 use crate::pmetis::METIS_PartGraphRecursive;
@@ -22,34 +22,45 @@ pub(crate) enum TestGraph {
     WebSpam,
     Luxembourg,
     Orani,
+    CitDblp,
 }
 
 impl TestGraph {
-    const fn is_smallish(self) -> bool {
-        matches!(self, Self::Elt4 | Self::WebSpam | Self::Webbase2004)
+    #![deny(clippy::wildcard_enum_match_arm)]
+
+    pub const fn is_smallish(self) -> bool {
+        match self {
+            TestGraph::Elt4 |
+            TestGraph::Webbase2004 |
+            TestGraph::WebSpam |
+            TestGraph::CitDblp => true,
+            TestGraph::Orani |
+            TestGraph::Youtube |
+            TestGraph::Luxembourg => false,
+        }
     }
 
     const fn rev_idx(idx: usize) -> Self {
-        match idx {
+        Self::try_rev_idx(idx).expect("invalid index")
+    }
+
+    const fn try_rev_idx(idx: usize) -> Option<Self> {
+        let ret = match idx {
             0 => TestGraph::Elt4,
             1 => TestGraph::Youtube,
             2 => TestGraph::Webbase2004,
             3 => TestGraph::WebSpam,
             4 => TestGraph::Luxembourg,
             5 => TestGraph::Orani,
-            _ => panic!("invalid index")
-        }
+            6 => TestGraph::CitDblp,
+            _ => return None,
+        };
+        debug_assert!(ret.idx() == idx);
+        Some(ret)
     }
 
     const fn idx(self) -> usize {
-        match self {
-            TestGraph::Elt4 => 0,
-            TestGraph::Youtube => 1,
-            TestGraph::Webbase2004 => 2,
-            TestGraph::WebSpam => 3,
-            TestGraph::Luxembourg => 4,
-            TestGraph::Orani => 5,
-        }
+        self as usize
     }
 
     const fn file(self) -> &'static str {
@@ -60,18 +71,32 @@ impl TestGraph {
             TestGraph::WebSpam => "web-spam.graph",
             TestGraph::Luxembourg => "road-luxembourg-osm.graph",
             TestGraph::Orani => "econ-orani678.graph",
+            TestGraph::CitDblp => "cit-DBLP.graph",
         }
     }
 
     pub fn test_suite() -> impl Iterator<Item = Self> {
-        static DO_BIG: LazyLock<bool> = LazyLock::new(|| {
-            std::env::var_os("DO_BIG") == Some("1".into())
-        });
+        static DO_BIG: LazyLock<bool> =
+            LazyLock::new(|| std::env::var_os("DO_BIG") == Some("1".into()));
         let do_big = *DO_BIG;
-        Self::ALL.into_iter().filter(move |g| g.is_smallish() || do_big)
+        Self::ALL
+            .into_iter()
+            .filter(move |g| g.is_smallish() || do_big)
     }
 
-    const COUNT: usize = 6;
+    pub fn is_contiguous(self) -> bool {
+        match self {
+            TestGraph::Elt4
+            | TestGraph::Youtube
+            | TestGraph::Webbase2004
+            | TestGraph::WebSpam
+            | TestGraph::Luxembourg
+            | TestGraph::Orani => true,
+            TestGraph::CitDblp => false,
+        }
+    }
+
+    const COUNT: usize = 7;
 
     const ALL: [Self; Self::COUNT] = [
         Self::Elt4,
@@ -80,30 +105,27 @@ impl TestGraph {
         Self::WebSpam,
         Self::Luxembourg,
         Self::Orani,
+        Self::CitDblp,
     ];
 }
 
 /// uses caches to reduce re-parsing
 pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usize) -> GraphBuilder {
-    // This is a bit of an awkward synchronization solution, but it's the best I can think of 
+    // This is a bit of an awkward synchronization solution, but it's the best I can think of
 
     fn load_graph_idx(idx: usize) -> Csr {
         let filename = TestGraph::rev_idx(idx).file();
         let path = Path::new("graphs").join(filename);
-        let f = std::fs::read(&path).map_err(|e| {
-            format!("Could not read graph {path}: {e}", path = path.display())
-        }).unwrap();
-        GraphBuilder::read_graph_cfg_index(
-            std::io::Cursor::new(&f),
-            Optype::Kmetis,
-            1,
-            1,
-            true
-        ).unwrap().into_csr()
+        let f = std::fs::read(&path)
+            .map_err(|e| format!("Could not read graph {path}: {e}", path = path.display()))
+            .unwrap();
+        GraphBuilder::read_graph_cfg_index(std::io::Cursor::new(&f), Optype::Kmetis, 1, 1, true)
+            .unwrap()
+            .into_csr()
     }
 
     const fn graph_of<const N: usize>() -> fn() -> Csr {
-        || { load_graph_idx(N) }
+        || load_graph_idx(N)
     }
 
     // probably false sharing, but I don't care enough to fix it
@@ -114,49 +136,60 @@ pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usiz
         LazyLock::new(graph_of::<3>()),
         LazyLock::new(graph_of::<4>()),
         LazyLock::new(graph_of::<5>()),
+        LazyLock::new(graph_of::<6>()),
     ];
 
     GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon)
-
 }
 
 /// Runs `f` on each of the small-ish graphs
 #[cfg(test)]
 pub(crate) fn for_test_suite<F>(op: Optype, nparts: usize, ncon: usize, mut f: F)
 where
-    F: FnMut(GraphBuilder) {
-    fn inner(op: Optype, nparts: usize, ncon: usize,
-        f: &mut dyn FnMut(GraphBuilder)
-    ) {
+    F: FnMut(TestGraph, GraphBuilder),
+{
+    fn inner(op: Optype, nparts: usize, ncon: usize, f: &mut dyn FnMut(TestGraph, GraphBuilder)) {
         for (i, graph) in TestGraph::test_suite().enumerate() {
             fastrand::seed(12513471239123 + i as u64);
             eprintln!("Testing with {graph:?}");
-            let graph = GraphBuilder::test_graph(graph, op, nparts, ncon);
-            f(graph);
+            let builder = GraphBuilder::test_graph(graph, op, nparts, ncon);
+            f(graph, builder);
         }
     }
 
     inner(op, nparts, ncon, &mut f);
-    
 }
 
 /// Runs `f` on each of the small-ish graphs if it passes the filter, and performs `ab_test_single_eq` on partitioning each
 #[cfg(test)]
-pub(crate) fn ab_test_partition_test_graphs_filter<F>(overrides: &str,
-    op: Optype, nparts: usize, ncon: usize, mut f: F)
-where
-    F: FnMut(GraphBuilder) -> Option<GraphBuilder>,
+pub(crate) fn ab_test_partition_test_graphs_filter<F>(
+    overrides: &str,
+    op: Optype,
+    nparts: usize,
+    ncon: usize,
+    mut f: F,
+) where
+    F: FnMut(TestGraph, GraphBuilder) -> Option<GraphBuilder>,
 {
     use crate::dyncall::ab_test_single_eq;
 
-    fn inner(overrides: &str, op: Optype, nparts: usize, ncon: usize,
-        f: &mut dyn FnMut(GraphBuilder) -> Option<GraphBuilder>
+    fn inner(
+        overrides: &str,
+        op: Optype,
+        nparts: usize,
+        ncon: usize,
+        f: &mut dyn FnMut(TestGraph, GraphBuilder) -> Option<GraphBuilder>,
     ) {
-        for_test_suite(op, nparts, ncon, |graph| {
-            if let Some(graph) = f(graph) {
+        let mut tested = false;
+        for_test_suite(op, nparts, ncon, |tg, graph| {
+            if let Some(graph) = f(tg, graph) {
+                tested = true;
                 ab_test_single_eq(overrides, || graph.clone().call());
             }
         });
+        if !tested {
+            panic!("no graphs passed the filter")
+        }
     }
 
     inner(overrides, op, nparts, ncon, &mut f);
@@ -164,12 +197,16 @@ where
 
 /// Runs `f` on each of the small-ish graphs and performs `ab_test_single_eq` on partitioning each
 #[cfg(test)]
-pub(crate) fn ab_test_partition_test_graphs<F>(overrides: &str,
-    op: Optype, nparts: usize, ncon: usize, mut f: F)
-where
+pub(crate) fn ab_test_partition_test_graphs<F>(
+    overrides: &str,
+    op: Optype,
+    nparts: usize,
+    ncon: usize,
+    mut f: F,
+) where
     F: FnMut(GraphBuilder) -> GraphBuilder,
 {
-    ab_test_partition_test_graphs_filter(overrides, op, nparts, ncon, |g| Some(f(g)));
+    ab_test_partition_test_graphs_filter(overrides, op, nparts, ncon, |_, g| Some(f(g)));
 }
 
 /// function signature of METIS_PartGraphKway, METIS_PartGraphRecursive
@@ -235,38 +272,6 @@ fn basic_part_graph_kway() {
     // assert!(graph.call().is_ok());
 }
 
-fn part_testgraph_ab(
-    graph: TestGraph,
-    ncon: idx_t,
-    nparts: idx_t,
-    use_vwgt: bool,
-    use_adjwgt: bool,
-    partfn: Optype,
-) {
-    let exec = || {
-        let mut graph = read_graph(graph, partfn, nparts as usize, ncon as usize);
-        graph.set_seed(123151);
-        graph.set_objective(Objtype::Cut);
-
-        if use_vwgt {
-            graph.random_vwgt();
-        }
-        if use_adjwgt {
-            graph.random_vwgt();
-        }
-
-        let res = graph.call();
-
-        assert!(res.is_ok());
-
-        let (objval, part) = res.unwrap();
-
-        graph.verify_part(objval, &part);
-        (objval, part)
-    };
-    ab_test_eq("*", exec);
-}
-
 fn part_graph_and_verify(
     ncon: idx_t,
     options: &mut [i32; METIS_NOPTIONS as usize],
@@ -275,13 +280,8 @@ fn part_graph_and_verify(
     use_adjwgt: bool,
     partfn: Optype,
 ) {
-    let exec = ||{
-        let mut graph = read_graph(
-            TestGraph::Elt4,
-            partfn,
-            nparts as usize,
-            ncon as usize,
-        );
+    let exec = || {
+        let mut graph = read_graph(TestGraph::Elt4, partfn, nparts as usize, ncon as usize);
 
         graph.set_from_options_arr(options);
 
@@ -303,7 +303,6 @@ fn part_graph_and_verify(
     exec();
     // ab_test_eq("*", exec);
 }
-
 
 macro_rules! partfn_type {
     ($fn:ident) => {
@@ -561,9 +560,46 @@ fn identical_to_p_kmetis() {
 }
 
 #[test]
-#[ignore = "fails"]
+#[ignore = "slow"]
 fn identical_to_c_kmetis_large() {
-    part_testgraph_ab(TestGraph::Youtube, 1, 20, true, false, Optype::Kmetis);
+    let mut rng = fastrand::Rng::with_seed(3971056);
+    for trial in 0..1 {
+        let prev_seed = fastrand::get_seed();
+        eprintln!("trial: {trial:>3}");
+
+        let thread_seed = rng.fork().get_seed();
+        let graph_seed = rng.i32(0..=i32::MAX);
+        eprintln!("thread seed: {thread_seed:16x}");
+        eprintln!(
+            "graph seed:  {graph_seed:16x}",
+            graph_seed = graph_seed as usize
+        );
+        fastrand::seed(thread_seed);
+
+        let mut graph = read_graph(TestGraph::Youtube, Optype::Kmetis, 20, 1);
+        graph.random_vwgt(); // takes slightly longer, but exposes some bugs
+        graph.set_seed(graph_seed);
+        graph.set_objective(Objtype::Cut);
+
+        // graph.enable_dbg(crate::DbgLvl::Info);
+        // graph.enable_dbg(crate::DbgLvl::Refine);
+        // graph.enable_dbg(crate::DbgLvl::Coarsen);
+        // graph.enable_dbg(crate::DbgLvl::Ipart);
+
+        let exec = || {
+            let mut graph = graph.clone();
+
+            let res = graph.call();
+
+            let (objval, part) = res.unwrap();
+
+            graph.verify_part(objval, &part);
+
+            (objval, part)
+        };
+        ab_test_eq("*", exec);
+        fastrand::seed(prev_seed);
+    }
 }
 
 #[test]
@@ -580,4 +616,20 @@ fn debug_assertions_enabled() {
     if !cfg!(debug_assertions) {
         panic!("debug assertions are disabled")
     }
+}
+
+#[test]
+fn test_graph_is_contiguous_accurate() {
+    for_test_suite(Optype::Kmetis, 1, 1, |tg, g| {
+        assert_eq!(tg.is_contiguous(), g.is_contiguous());
+    });
+}
+
+#[test]
+fn test_graph_all_populated() {
+    let mut i = 0..;
+    let actual: Vec<_> = std::iter::from_fn(|| TestGraph::try_rev_idx(i.next().unwrap()))
+        .fuse()
+        .collect();
+    assert_eq!(actual, TestGraph::ALL);
 }

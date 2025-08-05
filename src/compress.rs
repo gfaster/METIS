@@ -14,13 +14,6 @@ use std::ptr;
 
 use crate::*;
 
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-struct KeyVal {
-    key: idx_t,
-    val: idx_t,
-}
-
 /// This function compresses a graph by merging identical vertices
 ///    The compression should lead to at least 10% reduction.
 ///
@@ -49,7 +42,7 @@ pub extern "C" fn CompressGraph(
     let nvtxs = nvtxs as usize;
     let mut mark: Vec<idx_t> = vec![-1; nvtxs];
     let mut map: Vec<idx_t> = vec![-1; nvtxs];
-    let mut keys = vec![KeyVal::default(); nvtxs];
+    let mut keys = vec![ikv_t::default(); nvtxs];
 
     mkslice!(xadj, nvtxs + 1);
     mkslice!(adjncy, xadj[nvtxs]);
@@ -60,16 +53,14 @@ pub extern "C" fn CompressGraph(
 
     /* Compute a key for each adjacency list */
     for i in (0)..(nvtxs) {
-        let mut k = 0;
-        for j in (xadj[i])..(xadj[i + 1]) {
-            k += adjncy[j as usize];
-        }
+        let k: idx_t = adjncy[xadj[i] as usize .. xadj[i + 1] as usize].iter().sum();
         keys[i].key = k + i as idx_t; /* Add the diagonal entry as well */
         keys[i].val = i as idx_t;
     }
 
-    // ikvsorti(nvtxs, keys);
-    keys.sort_unstable_by_key(|kv| kv.key);
+    // Since there are repeated keys, 
+    gklib_replace::ikvsorti(&mut keys);
+    // keys.sort_unstable_by_key(|kv| kv.key);
 
     cptr[0] = 0;
     let mut l = 0;
@@ -97,15 +88,7 @@ pub extern "C" fn CompressGraph(
 
                 if map[iii] == -1 {
                     /* Do a comparison if iii has not been mapped */
-                    let mut jj = xadj[iii];
-                    for jjj in (xadj[iii])..(xadj[iii + 1]) {
-                        jj = jjj;
-                        if mark[adjncy[jj as usize] as usize] != i as idx_t {
-                            break;
-                        }
-                    }
-
-                    if jj == xadj[iii + 1] {
+                    if (xadj[iii]..xadj[iii + 1]).all(|jj| mark[adjncy[jj as usize] as usize] == i as idx_t) {
                         /* Identical adjacency structure */
                         map[iii] = cnvtxs as idx_t;
                         cind[l] = iii as idx_t;
@@ -144,14 +127,15 @@ pub extern "C" fn CompressGraph(
         /* Allocate memory for the compressed graph */
         graph.xadj = imalloc(cnvtxs as usize + 1, c"CompressGraph: xadj".as_ptr()) as _;
         graph.vwgt = imalloc(cnvtxs as usize, c"CompressGraph: vwgt".as_ptr()) as _;
-        graph.vwgt.write_bytes(0, cnvtxs as usize); // prolly unnecessary, but matches og
         graph.adjncy = imalloc(cnedges as usize, c"CompressGraph: adjncy".as_ptr()) as _;
         mkslice_mut!(cxadj: graph->xadj, cnvtxs + 1);
         mkslice_mut!(cvwgt: graph->vwgt, cnvtxs);
+        cvwgt.fill(0); // probably unnecessary, but matches og
         mkslice_mut!(cadjncy: graph->adjncy, cnedges);
         {
             graph.adjwgt = imalloc(cnedges as usize, c"CompressGraph: adjwgt".as_ptr()) as _;
-            graph.adjwgt.write_bytes(1, cnedges as usize);
+            mkslice_mut!(graph->adjwgt, cnedges);
+            adjwgt.fill(1);
         }
 
         /* Now go and compress the graph */
@@ -161,7 +145,7 @@ pub extern "C" fn CompressGraph(
         let mut l = 0;
         cxadj[0] = 0;
         for i in (0)..(cnvtxs) {
-            mark[i] = i as idx_t; /* Remove any dioganal entries in the compressed graph */
+            mark[i] = i as idx_t; /* Remove any diagonal entries in the compressed graph */
             for j in (cptr[i])..(cptr[i + 1]) {
                 let ii = cind[j as usize] as usize;
 

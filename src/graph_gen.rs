@@ -25,6 +25,27 @@ impl Csr {
     }
 
     #[cfg(test)]
+    pub fn from_parts(xadj: Vec<idx_t>, adjncy: Vec<idx_t>) -> Self {
+        let xadj = xadj.into();
+        let adjncy = adjncy.into();
+        let ret = Csr { xadj, adjncy };
+        let nvtxs = ret.nvtxs();
+        assert!(ret.xadj[0] == 0);
+        assert_eq!(ret.xadj[nvtxs] as usize, ret.adjncy.len());
+        for (i, w) in ret.xadj.windows(2).enumerate() {
+            assert!(w[0] <= w[1]);
+            let r = w[0] as usize .. w[1] as usize;
+            for &e in &ret.adjncy[r] {
+                assert!(e >= 0);
+                assert!((e as usize) < nvtxs);
+                assert_ne!(e as usize, i, "{i} -> {i} is a self loop")
+            }
+        }
+
+        ret
+    }
+
+    #[cfg(test)]
     pub fn as_parts(&self) -> (&[idx_t], &[idx_t]) {
         let Csr { xadj, adjncy } = self;
         (&xadj, &adjncy)
@@ -50,6 +71,7 @@ pub struct GraphBuilder {
     adjncy: Vec<idx_t>,
     vwgt: Option<Vec<idx_t>>,
     edge_match: Ctype,
+    imbalance_factor: idx_t,
     initial_part: Iptype,
 }
 
@@ -196,6 +218,7 @@ impl GraphBuilder {
             adjncy: Vec::new(),
             vwgt: None,
             edge_match: Ctype::Shem,
+            imbalance_factor: -1,
             initial_part: match op {
                 Optype::Pmetis => Iptype::Grow,
                 Optype::Kmetis => Iptype::Rb,
@@ -506,6 +529,13 @@ impl GraphBuilder {
         }
     }
 
+
+    /// sets the umbalance factor in thousandths over 1.000
+    pub fn set_ufactor(&mut self, ufactor: idx_t) {
+        assert!(ufactor == -1 || ufactor > 0);
+        self.imbalance_factor = ufactor;
+    }
+
     pub fn set_contig(&mut self, contig: bool) {
         match &mut self.op {
             GraphOpSettings::Kmetis { contig: x, .. } => *x = contig,
@@ -661,6 +691,7 @@ impl GraphBuilder {
         options[METIS_OPTION_ONDISK as usize] = 1;
         options[METIS_OPTION_SEED as usize] = self.seed;
         options[METIS_OPTION_DBGLVL as usize] = self.dbg_lvl as idx_t;
+        options[METIS_OPTION_UFACTOR as usize] = self.imbalance_factor;
 
         let res = match &mut self.op {
             GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, adjwgt } => unsafe {
@@ -782,8 +813,9 @@ impl GraphBuilder {
             rtype,
             compress,
             compute_vertex_separator
-        }, seed, xadj, adjncy, vwgt, edge_match, initial_part } = self else { panic!("not ometis") };
+        }, seed, xadj, adjncy, vwgt, edge_match, initial_part, imbalance_factor } = self else { panic!("not ometis") };
         assert!(!*compute_vertex_separator, "cannot use compute vertex separator when calling NodeNDP");
+        options[METIS_OPTION_UFACTOR as usize] = *imbalance_factor as idx_t;
         options[METIS_OPTION_COMPRESS as usize] = *compress as idx_t;
         options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
         options[METIS_OPTION_PFACTOR as usize] = *pfactor as idx_t;
@@ -976,15 +1008,69 @@ impl GraphBuilder {
             None
         }
     }
+
     pub fn vwgt(&self) -> Option<&[idx_t]> {
         self.vwgt.as_deref()
     }
+
     pub fn adjwgt(&self) -> Option<&[idx_t]> {
         match &self.op {
             GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt }, ..} |
             GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt.as_deref(),
             _ => None
         }
+    }
+
+    pub fn is_contiguous(&self) -> bool {
+        self.compute_num_components() == 1
+    }
+
+
+    /// adapted from [`contig::FindPartitionInducedComponents`]
+    pub fn compute_num_components(&self) -> usize {
+        let nvtxs = self.nvtxs();
+        let mut cind = vec![0; nvtxs];
+
+        /* Allocate memory required for the BFS traversal */
+        let mut perm = Vec::from_iter(0..(nvtxs as idx_t));
+        let mut todo = Vec::from_iter(0..(nvtxs as idx_t));
+        let mut touched = vec![false; nvtxs];
+
+        /* Find the connected componends induced by the partition */
+        let mut ncmps: usize = 0;
+        let mut first: usize = 0;
+        let mut last: usize = 1;
+        // implicitly start on vertex 0
+        touched[0] = true;
+        for n in (0..nvtxs).rev() {
+            if first == last {
+                /* Find another starting vertex */
+                ncmps += 1;
+                debug_assert!(!touched[todo[0] as usize]);
+                let i = todo[0] as usize;
+                cind[last] = i as idx_t;
+                last += 1;
+                touched[i] = true;
+            }
+
+            let i = cind[first] as usize;
+            first += 1;
+
+            let k = perm[i];
+            let j = todo[n];
+            todo[k as usize] = j;
+            perm[j as usize] = k;
+
+            for j in (self.xadj[i])..(self.xadj[i + 1]) {
+                let k = self.adjncy[j as usize] as usize;
+                if !touched[k] {
+                    cind[last as usize] = k as idx_t;
+                    last += 1;
+                    touched[k] = true;
+                }
+            }
+        }
+        ncmps + 1
     }
 
     /// adapted from mtest.c: VerifyPart

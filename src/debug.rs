@@ -24,6 +24,7 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
 
     let mut cut = 0;
     if graph.adjwgt == std::ptr::null_mut() {
+        // I don't think this can be hit -- we'd panic above
         for i in (0)..(nvtxs as usize) {
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                 if where_[i as usize] != where_[adjncy[j as usize] as usize] {
@@ -32,7 +33,6 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
             }
         }
     } else {
-        cut = 0;
         for i in (0)..(nvtxs) {
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                 if where_[i as usize] != where_[adjncy[j as usize] as usize] {
@@ -146,8 +146,7 @@ pub extern "C" fn CheckNodeBnd(graph: *mut graph_t, onbnd: idx_t) -> idx_t {
         }
     }
 
-    todo!("this is currently untested");
-    // return 1;
+    return 1;
 }
 
 /// Checks whether or not the rinfo of a vertex is consistent
@@ -246,12 +245,10 @@ pub extern "C" fn CheckNodePartitionParams(graph: *mut graph_t) -> idx_t {
             gpwgts[1 as usize],
             gpwgts[2 as usize]
         );
-        // return 0;
-        todo!("this is currently untested");
+        return 0;
     }
 
-    // return 1;
-    todo!("this is currently untested");
+    return 1;
 }
 
 /// Checks if the separator is indeed a separator
@@ -283,8 +280,7 @@ pub extern "C" fn IsSeparable(graph: *mut graph_t) -> idx_t {
         }
     }
 
-    // return 1;
-    todo!("this is currently untested");
+    return 1;
 }
 
 /// (*unused*) Recomputes the `vrinfo` fields and checks them against those in the `graph.vrinfo` structure

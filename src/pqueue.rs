@@ -324,6 +324,14 @@ pub mod rs {
         }
     }
 
+    macro_rules! extra_debug_assert {
+        ($($tt:tt)*) => {
+            if cfg!(feature = "extra_debug_assertions") && cfg!(debug_assertions) {
+                assert!($($tt)*);
+            }
+        };
+    }
+
     /// Priority queue augmented with indices. After inserting a (key, index) pair, it can be quickly
     /// accessed and/or removed using the index.
     #[derive(Clone)]
@@ -383,7 +391,7 @@ pub mod rs {
             self.heap[i].val = index;
             self.locator[index.idx()] = i as idx_t;
 
-            debug_assert!(self.check_heap());
+            extra_debug_assert!(self.check_heap());
         }
 
         /// delete an item
@@ -444,7 +452,7 @@ pub mod rs {
                 }
             }
 
-            debug_assert!(self.check_heap());
+            extra_debug_assert!(self.check_heap());
         }
 
         /// This function updates the key values associated for a particular item
@@ -501,7 +509,7 @@ pub mod rs {
             self.heap[i.idx()].val = node;
             self.locator[node.idx()] = i;
 
-            debug_assert!(self.check_heap());
+            extra_debug_assert!(self.check_heap());
         }
 
         /// This function returns the item at the top of the queue and removes it from the priority queue
@@ -552,8 +560,8 @@ pub mod rs {
             self.heap[i].val = node;
             self.locator[node.idx()] = i as idx_t;
 
-            debug_assert!(self.check_heap());
-            assert_ne!(vtx.idx() as isize, -1);
+            extra_debug_assert!(self.check_heap());
+            debug_assert_ne!(vtx.idx() as isize, -1);
             Some((vtx.key, vtx.val))
         }
 
@@ -585,8 +593,20 @@ pub mod rs {
         }
 
         /// asserts the consistency of the heap
-        #[allow(unreachable_code)]
         pub fn check_heap(&self) -> bool {
+            #[cfg(debug_assertions)]
+            {
+                use std::cell::Cell;
+                thread_local! (static CALL_NUM: Cell<u64> = const { Cell::new(0) });
+
+                let count = CALL_NUM.get() + 1;
+                CALL_NUM.set(count);
+
+                if count % 10_000_000 == 0 {
+                    eprintln!("pqueue.check_heap has been called {count} times (that's sloooow!)")
+                }
+            }
+            
             // too slow to do often
             let heap = &self.heap;
             let locator = &self.locator;

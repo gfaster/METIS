@@ -1,5 +1,7 @@
 //! Replacement routines for gklib that ought to never use the original
 
+use crate::{idx_t, ikv_t};
+
 #[no_mangle]
 pub extern "C" fn gk_randinit(seed: u64) {
     fastrand::seed(seed);
@@ -18,47 +20,25 @@ pub extern "C" fn gk_randint32() -> u32 {
 }
 
 
-#[cfg(any())]
-mod for_future_miri {
-    use std::{alloc::{self, Layout}, ffi::c_void};
-    use crate::{idx_t, real_t};
+// I want this always used (not declared metis_func) since it generally makes sense to inline
+#[doc(hidden)]
+#[no_mangle]
+pub unsafe extern "C" fn libmetis__ikvsorti(n: usize, ikv: *mut ikv_t) {
+    crate::mkslice_mut!(ikv, n);
+    ikvsorti(ikv)
+}
 
-    #[metis_func]
-    pub extern "C" fn imalloc(nelm: usize, _label: *const i8) -> *mut c_void {
-        assert!(nelm > 0);
-        alloc::alloc_zeroed(Layout::array::<idx_t>(nelm).expect("valid size")).cast()
-    }
+pub fn ikvsorti(ikv: &mut [ikv_t]) {
+    ikv.sort_unstable_by_key(|kv| kv.key);
+}
 
-    #[metis_func]
-    pub extern "C" fn ismalloc(nelm: usize, val: idx_t, _label: *const i8) -> *mut c_void {
-        assert!(nelm > 0);
-        let ret = alloc::alloc(Layout::array::<idx_t>(nelm).expect("valid size")).cast::<idx_t>();
-        for i in 0..nelm {
-            (ret.add(i)).write(val);
-        }
-        ret.cast()
-    }
+#[doc(hidden)]
+#[no_mangle]
+pub unsafe extern "C" fn libmetis__ikvsortd(n: usize, ikv: *mut ikv_t) {
+    crate::mkslice_mut!(ikv, n);
+    ikvsortd(ikv);
+}
 
-    #[metis_func]
-    pub extern "C" fn rmalloc(nelm: usize, _label: *const i8) -> *mut c_void {
-        assert!(nelm > 0);
-        alloc::alloc_zeroed(Layout::array::<real_t>(nelm).expect("valid size")).cast()
-    }
-
-    #[metis_func]
-    pub extern "C" fn rsmalloc(nelm: usize, val: real_t, _label: *const i8) -> *mut c_void {
-        assert!(nelm > 0);
-        let ret = alloc::alloc(Layout::array::<real_t>(nelm).expect("valid size")).cast::<real_t>();
-        for i in 0..nelm {
-            (ret.add(i)).write(val);
-        }
-        ret.cast()
-    }
-
-
-    #[no_mangle]
-    pub extern "C" fn gk_malloc(sz: usize, _label: *const i8) -> *mut c_void {
-        assert!(sz > 0);
-        unsafe { alloc::alloc_zeroed(Layout::from_size_align(sz, align_of::<usize>()).expect("valid size")) }.cast()
-    }
+pub fn ikvsortd(ikv: &mut [ikv_t]) {
+    ikv.sort_unstable_by_key(|kv| kv.key);
 }

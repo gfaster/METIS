@@ -218,6 +218,13 @@ pub const METIS_OBJTYPE_VOL: mobjtype_et = 1;
 pub const METIS_OBJTYPE_NODE: mobjtype_et = 2;
 pub type mobjtype_et = ::std::os::raw::c_uint;
 
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct ikv_t {
+    pub key: idx_t,
+    pub val: idx_t,
+}
+
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum DbgLvl {
@@ -637,6 +644,11 @@ pub struct ckrinfo_t {
     /// The total external degree of a vertex
     pub ed: idx_t,
 
+    // FIXME?  Should we put a dummy field here to make the layout the same as `vkrinfo_t`?
+    // kwayrefine::AllocateKWayPartitionMemory just casts one to the other, which is obviously
+    // incorrect?
+    pub __gv_padding: idx_t,
+
     /// The number of neighboring subdomains
     pub nnbrs: idx_t,
 
@@ -677,4 +689,6 @@ pub struct cnbr_t {
 
     /// The sum of the weights of the adjacent edges
     pub ed: idx_t,
+
+    pub gv__: idx_t,
 }

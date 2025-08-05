@@ -607,6 +607,7 @@ void c__libmetis__ComputeKWayVolGains( ctrl_t *ctrl, graph_t *graph)
     myrinfo->gv = IDX_MIN;
 
     if (myrinfo->nnbrs > 0) {
+      ASSERT(myrinfo->inbr != -1);
       me     = where[i];
       mynbrs = ctrl->vnbrpool + myrinfo->inbr;
 
@@ -616,6 +617,9 @@ void c__libmetis__ComputeKWayVolGains( ctrl_t *ctrl, graph_t *graph)
         ii     = adjncy[j];
         other  = where[ii];
         orinfo = graph->vkrinfo+ii;
+        ASSERT(orinfo->nnbrs == 0 || orinfo->inbr != -1);
+        // FIXME: if nnbrs == 0 && inbr == -1, then the rest of this block is
+        // mostly sound, but we still out of bounds pointer arithmetic
         onbrs  = ctrl->vnbrpool + orinfo->inbr;
 
         for (k=0; k<orinfo->nnbrs; k++) 
@@ -632,6 +636,7 @@ void c__libmetis__ComputeKWayVolGains( ctrl_t *ctrl, graph_t *graph)
         }
         else {
           ASSERT(ophtable[me] != -1);
+          ASSERT(ophtable[me] < orinfo->nnbrs);
 
           if (onbrs[ophtable[me]].ned == 1) { 
             /* I'm the only connection of 'ii' in 'me' */

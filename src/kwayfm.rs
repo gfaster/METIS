@@ -3620,7 +3620,7 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 mod tests {
     #![allow(non_snake_case)]
     use super::*;
-    use crate::tests::ab_test_partition_test_graphs;
+    use crate::tests::{ab_test_partition_test_graphs, ab_test_partition_test_graphs_filter};
 
     #[test]
     fn ab_Greedy_KWayOptimize() {
@@ -3813,10 +3813,12 @@ mod tests {
 
     #[test]
     fn ab_IsArticulationNode() {
-        ab_test_partition_test_graphs("IsArticulationNode:rs", Optype::Kmetis, 30, 1, |mut g| {
-            g.random_vwgt();
-            g.set_contig(true);
-            g
+        ab_test_partition_test_graphs_filter("IsArticulationNode:rs", Optype::Kmetis, 30, 1, |tg, mut g| {
+            tg.is_contiguous().then(|| {
+                g.random_vwgt();
+                g.set_contig(true);
+                g
+            })
         });
     }
 

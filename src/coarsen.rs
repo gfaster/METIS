@@ -19,7 +19,11 @@
 
 use crate::*;
 
-const UNMATCHEDFOR2HOP: f32 = 0.10; /* The fraction of unmatched vertices that triggers 2-hop */
+/// The fraction of unmatched vertices that triggers 2-hop
+///
+/// This is a double since C is a bad language (and it should feel bad). It doesn't matter in small
+/// cases, only quite large graphs
+const UNMATCHEDFOR2HOP: double = 0.10;
 const UNMATCHED: i32 = -1;
 
 /*************************************************************************/
@@ -219,7 +223,6 @@ pub extern "C" fn CoarsenGraphNlevels(
 /**************************************************************************/
 #[metis_func]
 pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
-    // println!("Calling Match_RM");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, pi, ii, j, jj, jjinc, k, nvtxs, ncon, cnvtxs, maxidx,
@@ -256,7 +259,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
     let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
     for i in (0)..(nvtxs) {
-        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as f64).sqrt() as idx_t;
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as double).sqrt() as idx_t;
         degrees[i as usize] = avgdegree.min(bnum);
     }
     bucketsort::BucketSortKeysInc(
@@ -355,7 +358,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     // println!("nunmatched: {nunmatched}");
 
     /* see if a 2-hop matching is required/allowed */
-    if ctrl.no2hop == 0 && nunmatched as real_t > UNMATCHEDFOR2HOP * nvtxs as real_t {
+    if ctrl.no2hop == 0 && nunmatched as double > UNMATCHEDFOR2HOP * nvtxs as f64 {
         // original bound cnvtxs, but that has no effect
         Match_2Hop(
             ctrl,
@@ -433,7 +436,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     /* Determine a "random" traversal order that is biased towards low-degree vertices */
     irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    let avgdegree = (4.0 * (xadj[nvtxs] as real_t / nvtxs as real_t)) as idx_t;
+    let avgdegree = (4.0 * (xadj[nvtxs] as usize / nvtxs) as double) as idx_t;
     for i in (0)..(nvtxs) {
         let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
         degrees[i as usize] = (if bnum > avgdegree { avgdegree } else { bnum }) as idx_t;
@@ -456,7 +459,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
         if match_[i as usize] == UNMATCHED {
             /* Unmatched */
-            let mut maxidx = i;
+            let mut maxidx = Some(i);
             let mut maxwgt = -1;
 
             if if ncon == 1 {
@@ -473,7 +476,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                     while last_unmatched < nvtxs {
                         let j = perm[last_unmatched as usize];
                         if match_[j as usize] == UNMATCHED {
-                            maxidx = j as usize;
+                            maxidx = Some(j as usize);
                             break;
                         }
                         last_unmatched += 1;
@@ -488,15 +491,15 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                                 && maxwgt < adjwgt[j as usize]
                                 && vwgt[i as usize] + vwgt[k] <= maxvwgt[0 as usize]
                             {
-                                maxidx = k;
+                                maxidx = Some(k);
                                 maxwgt = adjwgt[j as usize];
                             }
                         }
 
                         /* If it did not match_, record for a 2-hop matching. */
-                        if maxidx == i && 2 * vwgt[i as usize] < maxvwgt[0 as usize] {
+                        if maxidx == Some(i) && 2 * vwgt[i as usize] < maxvwgt[0 as usize] {
                             nunmatched += 1;
-                            maxidx = (UNMATCHED as isize) as usize;
+                            maxidx = None;
                         }
                     } else {
                         /* multi-constraint version */
@@ -510,29 +513,29 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                                         && mcutil::BetterVBalance(
                                             ncon as idx_t,
                                             graph.invtvwgt,
-                                            vwgt[(i * ncon)..].as_mut_ptr(),
-                                            vwgt[(maxidx * ncon)..].as_mut_ptr(),
-                                            vwgt[(k * ncon)..].as_mut_ptr(),
+                                            vwgt[(i * ncon)..].as_ptr(),
+                                            vwgt[(maxidx.unwrap() * ncon)..].as_ptr(),
+                                            vwgt[(k * ncon)..].as_ptr(),
                                         ) != 0))
                             {
-                                maxidx = k;
+                                maxidx = Some(k);
                                 maxwgt = adjwgt[j as usize];
                             }
                         }
 
                         /* If it did not match_, record for a 2-hop matching. */
-                        if maxidx == i
+                        if maxidx == Some(i)
                             // && ivecaxpylez(ncon, 2, vwgt[(i * ncon)..], vwgt[(i * ncon)..], maxvwgt))
                             && util::ivecaxpylez(2, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(i * ncon, ncon)], &maxvwgt[..ncon])
                         {
                             nunmatched += 1;
-                            maxidx = (UNMATCHED as isize) as usize;
+                            maxidx = None;
                         }
                     }
                 }
             }
 
-            if maxidx as idx_t != UNMATCHED {
+            if let Some(maxidx) = maxidx {
                 cmap[maxidx as usize] = cnvtxs;
                 cmap[i as usize] = cnvtxs;
                 cnvtxs += 1;
@@ -545,7 +548,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     //println!("nunmatched: %zu", nunmatched);
 
     /* see if a 2-hop matching is required/allowed */
-    if ctrl.no2hop == 0 && nunmatched > (UNMATCHEDFOR2HOP * nvtxs as real_t) as usize {
+    if ctrl.no2hop == 0 && (nunmatched as double) > UNMATCHEDFOR2HOP * nvtxs as double {
         // original bound this to cnvtxs, but that's redundant
         Match_2Hop(
             ctrl,
@@ -606,7 +609,7 @@ pub extern "C" fn Match_2Hop(
         perm,
         match_,
         cnvtxs,
-        &mut nunmatched as *mut usize,
+        &mut nunmatched,
         2,
     );
     cnvtxs = Match_2HopAll(
@@ -615,28 +618,28 @@ pub extern "C" fn Match_2Hop(
         perm,
         match_,
         cnvtxs,
-        &mut nunmatched as *mut usize,
+        &mut nunmatched,
         64,
     );
-    if (nunmatched as real_t) > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs as real_t {
+    if (nunmatched as double) > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs as f64 {
         cnvtxs = Match_2HopAny(
             ctrl,
             graph,
             perm,
             match_,
             cnvtxs,
-            &mut nunmatched as *mut usize,
+            &mut nunmatched,
             3,
         );
     }
-    if (nunmatched as real_t) > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs as real_t {
+    if (nunmatched as double) > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs as f64 {
         cnvtxs = Match_2HopAny(
             ctrl,
             graph,
             perm,
             match_,
             cnvtxs,
-            &mut nunmatched as *mut usize,
+            &mut nunmatched,
             graph.nvtxs as usize,
         );
     }
@@ -802,60 +805,59 @@ pub extern "C" fn Match_2HopAll(
     let mut keys = vec![KeyVal::default(); nunmatched];
     let mut ncand = 0;
     for pi in (0)..(nvtxs) {
-        let i = perm[pi as usize];
-        let idegree = xadj[(i + 1) as usize] - xadj[i as usize];
-        if match_[i as usize] == UNMATCHED && idegree > 1 && idegree < maxdegree as idx_t {
+        let i = perm[pi as usize] as usize;
+        let idegree = (xadj[i + 1] - xadj[i]) as usize;
+        if match_[i as usize] == UNMATCHED && idegree > 1 && idegree < maxdegree {
             let mut k = 0;
-            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+            for j in xadj[i]..xadj[i + 1] {
                 k += adjncy[j as usize] % mask;
             }
-            keys[ncand as usize].val = i;
-            keys[ncand as usize].key = (k % mask) * maxdegree as idx_t + idegree;
+            keys[ncand].val = i as idx_t;
+            keys[ncand].key = (k % mask) * maxdegree as idx_t + idegree as idx_t;
             ncand += 1;
         }
     }
-    keys.sort_by_key(|k| k.key);
+    keys[..ncand].sort_unstable_by_key(|k| k.key);
     // ikvsorti(ncand, keys);
 
-    let mut mark = vec![0; nvtxs];
+    let mut mark: Vec<idx_t> = vec![0; nvtxs];
     for pi in (0)..(ncand) {
-        let i = keys[pi as usize].val;
-        if match_[i as usize] != UNMATCHED {
+        let i = keys[pi].val as usize;
+        if match_[i] != UNMATCHED {
             continue;
         }
 
-        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-            mark[adjncy[j as usize] as usize] = i;
+        for j in (xadj[i])..(xadj[i + 1]) {
+            mark[adjncy[j as usize] as usize] = i as idx_t;
         }
 
         for pk in (pi + 1)..(ncand) {
-            let k = keys[pk as usize].val;
-            if match_[k as usize] != UNMATCHED {
+            let k = keys[pk as usize].val as usize;
+            if match_[k] != UNMATCHED {
                 continue;
             }
 
-            if keys[pi as usize].key != keys[pk as usize].key {
+            if keys[pi].key != keys[pk].key {
                 break;
             }
-            if xadj[(i + 1) as usize] - xadj[i as usize]
-                != xadj[(k + 1) as usize] - xadj[k as usize]
+            if xadj[i + 1] - xadj[i] != xadj[k + 1] - xadj[k]
             {
                 break;
             }
 
-            let mut jj = xadj[k as usize];
-            while jj < (xadj[(k + 1) as usize]) {
-                if mark[adjncy[jj as usize] as usize] != i {
+            let mut jj = xadj[k];
+            while jj < (xadj[k + 1]) {
+                if mark[adjncy[jj as usize] as usize] != i as idx_t {
                     break;
                 }
                 jj += 1;
             }
-            if jj == xadj[(k + 1) as usize] {
-                cmap[k as usize] = cnvtxs;
-                cmap[i as usize] = cnvtxs;
+            if jj == xadj[k + 1] {
+                cmap[k] = cnvtxs;
+                cmap[i] = cnvtxs;
                 cnvtxs += 1;
-                match_[i as usize] = k;
-                match_[k as usize] = i;
+                match_[i] = k as idx_t;
+                match_[k] = i as idx_t;
                 nunmatched -= 2;
                 break;
             }
@@ -1096,7 +1098,7 @@ pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i;
     get_graph_slices!(graph => adjwgt);
-    println!(
+    print!(
         "{:10} {:10} {:10} [{:}] [",
         graph.nvtxs,
         graph.nedges,
@@ -1105,7 +1107,7 @@ pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> ()
     );
 
     for i in (0)..(graph.ncon) {
-        println!(
+        print!(
             " {:8}:{:8}",
             *ctrl.maxvwgt.add(i as usize),
             *graph.tvwgt.add(i as usize)
@@ -1144,6 +1146,7 @@ pub extern "C" fn CreateCoarseGraph(
     let dropedges = ctrl.dropedges;
 
     let mask = HTLENGTH;
+    const { assert!((HTLENGTH + 1).count_ones() == 1) }
 
     // ifset!(
     // ctrl.dbglvl,
@@ -1312,7 +1315,6 @@ pub extern "C" fn CreateCoarseGraph(
 
             /* reset the htable -- reverse order (LIFO) is critical to prevent cadjncy[-1]
              * indexing due to a remove of an earlier entry */
-            // for (j=nedges-1; j>=0; j--) {
             for j in (0..nedges).rev() {
                 let k = cadjncy[j as usize];
                 // for (kk=k&mask; cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
@@ -1560,23 +1562,29 @@ mod tests {
 
     use super::*;
 
-    fn coarsen_test(overrides: &str) {
-        ab_test_partition_test_graphs(overrides, Optype::Kmetis, 20, 1, |mut g| {
+    fn coarsen_test(overrides: &str, matching: Ctype, ncon: usize) {
+        ab_test_partition_test_graphs(overrides, Optype::Kmetis, 20, ncon, |mut g| {
             g.random_vwgt();
             g.random_tpwgts();
+            g.set_edge_match(matching);
             g
         });
     }
 
     #[test]
-    fn ab_CoarsenGraph() {
-        coarsen_test("CoarsenGraph:rs");
+    fn ab_CoarsenGraph_rm() {
+        coarsen_test("CoarsenGraph:rs", Ctype::Rm, 1);
+    }
+
+    #[test]
+    fn ab_CoarsenGraph_shem() {
+        coarsen_test("CoarsenGraph:rs", Ctype::Shem, 1);
     }
 
     #[test]
     fn ab_CoarsenGraphNlevels() {
-        ab_test_partition_test_graphs_filter("CoarsenGraphNlevels:rs", Optype::Ometis, 3, 1, |mut g| {
-            if g.nvtxs() < ometis::MLEVEL_NODE_BISECTION_L2_CUTOFF {
+        ab_test_partition_test_graphs_filter("CoarsenGraphNlevels:rs", Optype::Ometis, 3, 1, |_tg, mut g| {
+            if g.nvtxs() < ometis::MLEVEL_NODE_BISECTION_L2_CUTOFF || g.nvtxs() > 15_000 {
                 return None
             }
             g.random_vwgt();
@@ -1586,16 +1594,56 @@ mod tests {
 
     #[test]
     fn ab_CreateCoarseGraph() {
-        coarsen_test("CreateCoarseGraph:rs");
+        coarsen_test("CreateCoarseGraph:rs", Ctype::Shem, 1);
     }
 
     #[test]
     fn ab_SetupCoarseGraph() {
-        coarsen_test("SetupCoarseGraph:rs");
+        coarsen_test("SetupCoarseGraph:rs", Ctype::Shem, 1);
     }
 
     #[test]
     fn ab_ReAdjustMemory() {
-        coarsen_test("ReAdjustMemory:rs");
+        coarsen_test("ReAdjustMemory:rs", Ctype::Shem, 1);
+    }
+
+    #[test]
+    fn ab_Match_RM() {
+        coarsen_test("Match_RM:rs", Ctype::Rm, 1);
+    }
+
+    #[test]
+    fn ab_Match_RM_ncon2() {
+        coarsen_test("Match_RM:rs", Ctype::Rm, 2);
+    }
+
+    #[test]
+    fn ab_Match_RM_ncon3() {
+        coarsen_test("Match_RM:rs", Ctype::Rm, 3);
+    }
+
+    #[test]
+    fn ab_Match_SHEM() {
+        coarsen_test("Match_SHEM:rs", Ctype::Shem, 1);
+    }
+
+    #[test]
+    fn ab_Match_SHEM_ncon2() {
+        coarsen_test("Match_SHEM:rs", Ctype::Shem, 2);
+    }
+
+    #[test]
+    fn ab_Match_SHEM_ncon3() {
+        coarsen_test("Match_SHEM:rs", Ctype::Shem, 3);
+    }
+
+    #[test]
+    fn ab_Match_2HopAll() {
+        coarsen_test("Match_2HopAll:rs,Match_2Hop:rs", Ctype::Shem, 1);
+    }
+
+    #[test]
+    fn ab_Match_2HopAny() {
+        coarsen_test("Match_2HopAny:rs,Match_2Hop:rs", Ctype::Shem, 1);
     }
 }

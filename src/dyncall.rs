@@ -402,7 +402,7 @@ impl<'a> Glob<'a> {
             let Some(star_idx) = g.iter().position(|&c| c == b'*') else {
                 return g == s;
             };
-            if &g[..star_idx] != &s[..star_idx] {
+            if Some(&g[..star_idx]) != s.get(..star_idx) {
                 return false;
             }
             g = &g[star_idx + 1..];
@@ -611,6 +611,9 @@ mod tests {
         case("S*1*2*E", "S---1--2---E");
         case("S*1*2*E", "S---12---E");
         case("S*12*3*E", "S---12--3---E");
+        case("more longer*", "more longer and then some");
+        case("more longer*", "more longer");
+        case("more longer*", "more longer ");
     }
 
     #[test]
@@ -629,6 +632,8 @@ mod tests {
         case("*A", "--AA-");
         case("*A", "A-");
         case("S*1*2*E", "S---13---E");
+        case("more longer*", "more long");
+        case("more longer*", "more longe");
     }
 
     #[test]

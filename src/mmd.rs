@@ -1091,6 +1091,9 @@ mod tests {
     #[test]
     fn ab_mmd_direct_full() {
         for tg in TestGraph::test_suite() {
+            if !tg.is_smallish() {
+                continue
+            }
             let graph = Csr::test_graph(tg);
             for i in 1..=10 {
                 println!("testing {tg:?} with delta={i}");

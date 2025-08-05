@@ -13,6 +13,7 @@ mod util;
 mod obj;
 mod mtx;
 mod parser;
+mod edges;
 
 // const BUF_RW_CAPACITY: usize = 1024 * 1024 * 2;
 const BUF_RW_CAPACITY: usize = 1024 * 2;
@@ -92,6 +93,7 @@ fn main() -> ExitCode {
         let res = match ext.to_str() {
             Some("obj") => obj::edges(r),
             Some("mtx") => mtx::edges(r),
+            Some("edges") => edges::edges(r),
             _ => {
                 print_fatal_error(&format_args!("Unknown extension: {ext:?}"));
                 return ExitCode::FAILURE

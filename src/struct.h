@@ -24,6 +24,7 @@ typedef struct cnbr_t {
   idx_t pid;            /*!< The partition ID */
   idx_t ed;             /*!< The sum of the weights of the adjacent edges
                              that are incident on pid */
+  idx_t __gv;
 } cnbr_t;
 
 
@@ -34,6 +35,7 @@ typedef struct cnbr_t {
 typedef struct ckrinfo_t {
  idx_t id;              /*!< The internal degree of a vertex (sum of weights) */
  idx_t ed;            	/*!< The total external degree of a vertex */
+ idx_t __gv;           	/*!< Padding because we like casting from vkrinfo_t */
  idx_t nnbrs;          	/*!< The number of neighboring subdomains */
  idx_t inbr;            /*!< The index in the cnbr_t array where the nnbrs list 
                              of neighbors is stored */
