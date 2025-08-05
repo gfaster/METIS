@@ -43,19 +43,19 @@ pub extern "C" fn ConstructSeparator(ctrl: *mut ctrl_t, graph: *mut graph_t)
 
   graph::FreeRData(graph);
 
-  Allocate2WayNodePartitionMemory(ctrl, graph);
+  srefine::Allocate2WayNodePartitionMemory(ctrl, graph);
   get_graph_slice_mut!(graph => where_).copy_from_slice(&where_);
 
   // WCOREPOP;
 
   debug_assert!(debug::IsSeparable(graph) != 0);
 
-  Compute2WayNodePartitionParams(ctrl, graph);
+  srefine::Compute2WayNodePartitionParams(ctrl, graph);
 
   debug_assert!(debug::CheckNodePartitionParams(graph) != 0);
 
-  FM_2WayNodeRefine2Sided(ctrl, graph, 1); 
-  FM_2WayNodeRefine1Sided(ctrl, graph, 4); 
+  sfm::FM_2WayNodeRefine2Sided(ctrl, graph, 1); 
+  sfm::FM_2WayNodeRefine1Sided(ctrl, graph, 4); 
 
   debug_assert!(debug::IsSeparable(graph) != 0);
 

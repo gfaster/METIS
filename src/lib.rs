@@ -37,6 +37,8 @@ pub mod separator;
 pub mod kwayfm;
 pub mod options;
 pub mod parmetis;
+pub mod sfm;
+pub mod srefine;
 
 pub mod gklib_replace;
 pub mod graphio;
@@ -51,6 +53,8 @@ pub(crate) mod defs;
 pub(crate) mod gk;
 pub(crate) mod graph_gen;
 pub(crate) mod pqueue;
+pub(crate) mod gk_temp;
+use gk_temp::*;
 use defs::*;
 
 #[macro_use]

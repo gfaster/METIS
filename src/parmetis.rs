@@ -364,10 +364,10 @@ pub extern "C" fn METIS_NodeRefine(
     AllocateWorkSpace(ctrl, graph);
 
     /* set up the memory and the input partition */
-    Allocate2WayNodePartitionMemory(ctrl, graph);
+    srefine::Allocate2WayNodePartitionMemory(ctrl, graph);
     std::ptr::copy_nonoverlapping(where_, (*graph).where_, nvtxs as usize);
 
-    Compute2WayNodePartitionParams(ctrl, graph);
+    srefine::Compute2WayNodePartitionParams(ctrl, graph);
 
     FM_2WayNodeRefine1SidedP(ctrl, graph, hmarker, ubfactor, 10);
     /* FM_2WayNodeRefine2SidedP(ctrl, graph, hmarker, ubfactor, 10); */

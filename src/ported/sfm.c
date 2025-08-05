@@ -13,12 +13,14 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
 /*! This function performs a node-based FM refinement */
 /**************************************************************************/
-void FM_2WayNodeRefine2Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
+IFUNC(void, FM_2WayNodeRefine2Sided,(ctrl_t *ctrl, graph_t *graph, idx_t niter));
+void c__libmetis__FM_2WayNodeRefine2Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
 {
   idx_t i, ii, j, k, jj, kk, nvtxs, nbnd, nswaps, nmind;
   idx_t *xadj, *vwgt, *adjncy, *where, *pwgts, *edegrees, *bndind, *bndptr;
@@ -260,7 +262,8 @@ void FM_2WayNodeRefine2Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
     is allowed; hence, it is one-sided. 
 */
 /**************************************************************************/
-void FM_2WayNodeRefine1Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
+IFUNC(void, FM_2WayNodeRefine1Sided, (ctrl_t *ctrl, graph_t *graph, idx_t niter));
+void c__libmetis__FM_2WayNodeRefine1Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
 {
   idx_t i, ii, j, k, jj, kk, nvtxs, nbnd, nswaps, nmind, iend;
   idx_t *xadj, *vwgt, *adjncy, *where, *pwgts, *edegrees, *bndind, *bndptr;
@@ -473,7 +476,8 @@ void FM_2WayNodeRefine1Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter)
 /*! This function balances the left/right partitions of a separator 
     tri-section */
 /*************************************************************************/
-void FM_2WayNodeBalance(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, FM_2WayNodeBalance, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__FM_2WayNodeBalance(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, ii, j, k, jj, kk, nvtxs, nbnd, nswaps, gain;
   idx_t badmaxpwgt, higain, oldgain, pass, to, other;

@@ -13,6 +13,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************/
@@ -20,7 +21,8 @@
     It does not perform any refinement on graph, but it starts by first
     projecting it to the next level finer graph and proceeds from there. */
 /*************************************************************************/
-void Refine2WayNode(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
+IFUNC(void, Refine2WayNode, (ctrl_t *ctrl, graph_t *orggraph, graph_t *graph));
+void c__libmetis__Refine2WayNode(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
 {
 
   IFSET(ctrl->dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl->UncoarsenTmr));
@@ -65,7 +67,8 @@ void Refine2WayNode(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
 /*************************************************************************/
 /*! This function allocates memory for 2-way node-based refinement */
 /**************************************************************************/
-void Allocate2WayNodePartitionMemory(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, Allocate2WayNodePartitionMemory, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Allocate2WayNodePartitionMemory(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t nvtxs;
 
@@ -82,7 +85,8 @@ void Allocate2WayNodePartitionMemory(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function computes the edegrees[] to the left & right sides */
 /*************************************************************************/
-void Compute2WayNodePartitionParams(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, Compute2WayNodePartitionParams, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Compute2WayNodePartitionParams(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, nvtxs, nbnd;
   idx_t *xadj, *adjncy, *vwgt;
@@ -136,7 +140,8 @@ void Compute2WayNodePartitionParams(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function projects the node-based bisection */
 /*************************************************************************/
-void Project2WayNodePartition(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, Project2WayNodePartition, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__Project2WayNodePartition(ctrl_t *ctrl, graph_t *graph)
 {
   idx_t i, j, nvtxs;
   idx_t *cmap, *where, *cwhere;

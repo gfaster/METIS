@@ -297,18 +297,18 @@ void Compute2WayPartitionParams(ctrl_t *ctrl, graph_t *graph);
 void Project2WayPartition(ctrl_t *ctrl, graph_t *graph);
 
 
-/* separator.c - Ported */
+/* separator.c - ported */
 void ConstructSeparator(ctrl_t *ctrl, graph_t *graph);
 void ConstructMinCoverSeparator(ctrl_t *ctrl, graph_t *graph);
 
 
-/* sfm.c */
+/* sfm.c - ported */
 void FM_2WayNodeRefine2Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter);
 void FM_2WayNodeRefine1Sided(ctrl_t *ctrl, graph_t *graph, idx_t niter);
 void FM_2WayNodeBalance(ctrl_t *ctrl, graph_t *graph);
 
 
-/* srefine.c */
+/* srefine.c - ported */
 void Refine2WayNode(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph);
 void Allocate2WayNodePartitionMemory(ctrl_t *ctrl, graph_t *graph);
 void Compute2WayNodePartitionParams(ctrl_t *ctrl, graph_t *graph);

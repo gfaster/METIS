@@ -638,9 +638,9 @@ pub fn GrowBisectionNode(
             }
         }
 
-        Compute2WayNodePartitionParams(ctrl, graph);
-        FM_2WayNodeRefine2Sided(ctrl, graph, 1);
-        FM_2WayNodeRefine1Sided(ctrl, graph, 4);
+        srefine::Compute2WayNodePartitionParams(ctrl, graph);
+        sfm::FM_2WayNodeRefine2Sided(ctrl, graph, 1);
+        sfm::FM_2WayNodeRefine1Sided(ctrl, graph, 4);
 
         /*
         println!("ISep: [{} {} {} {}] {}",

@@ -465,7 +465,7 @@ pub extern "C" fn MlevelNodeBisectionMultiple(ctrl: *mut ctrl_t, graph: *mut gra
         get_graph_slices_mut!(graph => where_);
         where_.copy_from_slice(&bestwhere_);
         // icopy(graph.nvtxs, bestwhere_, graph.where_);
-        Compute2WayNodePartitionParams(ctrl, graph);
+        srefine::Compute2WayNodePartitionParams(ctrl, graph);
     }
 
     // WCOREPOP;
@@ -532,7 +532,7 @@ pub extern "C" fn MlevelNodeBisectionL2(ctrl: *mut ctrl_t, graph: *mut graph_t, 
 
     // WCOREPOP;
 
-    Refine2WayNode(ctrl, graph, cgraph);
+    srefine::Refine2WayNode(ctrl, graph, cgraph);
 }
 
 /*************************************************************************/
@@ -563,7 +563,7 @@ pub extern "C" fn MlevelNodeBisectionL1(ctrl: *mut ctrl_t, graph: *mut graph_t, 
     /*niparts = (cgraph.nvtxs <= ctrl.CoarsenTo ? SMALLNIPARTS : LARGENIPARTS);*/
     initpart::InitSeparator(ctrl, cgraph, niparts);
 
-    Refine2WayNode(ctrl, graph, cgraph);
+    srefine::Refine2WayNode(ctrl, graph, cgraph);
 }
 
 /*************************************************************************/
