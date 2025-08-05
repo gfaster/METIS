@@ -570,8 +570,16 @@ impl GraphBuilder {
     pub fn set_pfactor(&mut self, p: idx_t) {
         match &mut self.op {
             GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set pfactor on pmetis or kmetis"),
             GraphOpSettings::Ometis { pfactor, .. } => *pfactor = p,
+        }
+    }
+
+    pub fn set_rtype(&mut self, rt: OmetisRtype) {
+        match &mut self.op {
+            GraphOpSettings::Pmetis { ..} |
+            GraphOpSettings::Kmetis { .. } => panic!("cannot set rtype on pmetis or kmetis"),
+            GraphOpSettings::Ometis { rtype, .. } => *rtype = rt,
         }
     }
 

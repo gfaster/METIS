@@ -166,3 +166,46 @@ pub extern "C" fn Project2WayNodePartition(ctrl: *mut ctrl_t, graph: *mut graph_
 
     Compute2WayNodePartitionParams(ctrl, graph);
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::tests::ab_test_partition_test_graphs;
+
+    #[test]
+    fn ab_Refine2WayNode() {
+        ab_test_partition_test_graphs("Refine2WayNode:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_Compute2WayNodePartitionParams() {
+        ab_test_partition_test_graphs(
+            "Compute2WayNodePartitionParams:rs",
+            Optype::Ometis,
+            3,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_Project2WayNodePartition() {
+        ab_test_partition_test_graphs(
+            "Project2WayNodePartition:rs",
+            Optype::Ometis,
+            3,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g
+            },
+        );
+    }
+}

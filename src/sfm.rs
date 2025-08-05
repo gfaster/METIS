@@ -717,7 +717,7 @@ pub extern "C" fn FM_2WayNodeBalance(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                 where_[k] = 2;
                 pwgts[other as usize] -= vwgt[k];
 
-                // edegrees = rinfo[k].edegrees = [0, 0];
+                rinfo[k].edegrees = [0, 0];
                 for jj in (xadj[k])..(xadj[(k + 1) as usize]) {
                     let kk = adjncy[jj as usize] as usize;
                     if where_[kk] != 2 {
@@ -757,4 +757,50 @@ pub extern "C" fn FM_2WayNodeBalance(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     graph.nbnd = nbnd as idx_t;
 
     // WCOREPOP;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+    use crate::tests::ab_test_partition_test_graphs;
+
+    #[test]
+    fn ab_FM_2WayNodeRefine2Sided() {
+        ab_test_partition_test_graphs(
+            "FM_2WayNodeRefine2Sided:rs",
+            Optype::Ometis,
+            3,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g.set_rtype(graph_gen::OmetisRtype::Sep2Sided);
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_FM_2WayNodeRefine1Sided() {
+        ab_test_partition_test_graphs(
+            "FM_2WayNodeRefine1Sided:rs",
+            Optype::Ometis,
+            3,
+            1,
+            |mut g| {
+                g.random_vwgt();
+                g.set_rtype(graph_gen::OmetisRtype::Sep1Sided);
+                g
+            },
+        );
+    }
+
+    #[test]
+    fn ab_FM_2WayNodeBalance() {
+        ab_test_partition_test_graphs("FM_2WayNodeBalance:rs", Optype::Ometis, 3, 1, |mut g| {
+            g.random_vwgt();
+            g.set_rtype(graph_gen::OmetisRtype::Sep1Sided);
+            g
+        });
+    }
 }
