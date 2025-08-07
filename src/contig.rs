@@ -12,6 +12,7 @@ use core::{ptr, slice};
 use std::cmp::Reverse;
 
 use crate::*;
+use kwayfm::{crinfos, crinfos_mut, vrinfos, vrinfos_mut};
 
 /*************************************************************************/
 /* This function finds the connected components induced by the
@@ -627,15 +628,6 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
                         .iter()
                         .position(|x| x.key < 0.5 * cand[0].key)
                         .unwrap_or(ncand);
-
-                    // let mut j = 1;
-                    // while j < ncand {
-                    //     if cand[j].key < 0.5 * cand[0].key {
-                    //         break;
-                    //     }
-                    //     j += 1;
-                    // }
-                    // ncand = j;
                 }
 
                 /* Now among those, select the one with the best balance */
@@ -729,6 +721,8 @@ pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) ->
         }
     }
 
+    debug_assert!(FindPartitionInducedComponents(graph, where_.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut()) <= nparts as idx_t);
+
     // WCOREPOP;
 }
 
@@ -766,15 +760,12 @@ pub extern "C" fn MoveGroupContigForCut(
         let i = ind[iii as usize] as usize;
         let from = where_[i];
 
-        let myrinfo = graph.ckrinfo.add(i as usize).as_mut().unwrap();
+        let myrinfo = &mut *graph.ckrinfo.add(i as usize);
         if myrinfo.inbr == -1 {
             myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
             myrinfo.nnbrs = 0;
         }
-        let mynbrs = std::slice::from_raw_parts_mut(
-            ctrl.cnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize + 1,
-        );
+        let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
         let mut k = 0;
@@ -789,6 +780,7 @@ pub extern "C" fn MoveGroupContigForCut(
             mynbrs[k].ed = 0;
             myrinfo.nnbrs += 1;
         }
+        let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
         graph.mincut -= mynbrs[k].ed - myrinfo.id;
 
@@ -833,7 +825,7 @@ pub extern "C" fn MoveGroupContigForCut(
             let j = j as usize;
             let ii = adjncy[j] as usize;
             let me = where_[ii];
-            let myrinfo = &mut *graph.ckrinfo.add(ii);
+            let (myrinfo, _mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, ii);
 
             UpdateAdjacentVertexInfoAndBND!(
                 ctrl,
@@ -878,39 +870,27 @@ pub extern "C" fn MoveGroupContigForVol(
 ) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
-    // idx_t i, ii, iii, j, jj, k, l, nvtxs, from, me, other, xgain;
-    // idx_t *xadj, *vsize, *adjncy, *where_;
-    // vkrinfo_t *myrinfo, *orinfo;
-    // vnbr_t *mynbrs, *onbrs;
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(graph => xadj vsize adjncy vkrinfo);
+    get_graph_slices!(graph => xadj vsize adjncy);
     get_graph_slices_mut!(graph => where_);
-    // xadj = graph.xadj;
-    // vsize = graph.vsize;
-    // adjncy = graph.adjncy;
-    // where_ = graph.where_;
 
     mkslice!(ptr, nvtxs);
     mkslice!(ind, nvtxs);
     let gid = gid as usize;
 
-    // debug_assert_eq!(ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    // debug_assert_eq!(ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
-
     for iii in (ptr[gid])..(ptr[gid + 1]) {
         let i = ind[iii as usize] as usize;
         let from = where_[i];
 
-        let myrinfo = graph.vkrinfo.add(i).as_mut().unwrap();
-        if myrinfo.inbr == -1 {
-            myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-            myrinfo.nnbrs = 0;
+        {
+            let myrinfo = &mut *graph.vkrinfo.add(i);
+            if myrinfo.inbr == -1 {
+                myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
+                myrinfo.nnbrs = 0;
+            }
         }
-        let mynbrs = slice::from_raw_parts_mut(
-            ctrl.vnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize + 1,
-        );
+        let (myrinfo, mynbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, i);
 
         let mut xgain = if myrinfo.nid == 0 && myrinfo.ned > 0 {
             vsize[i]
@@ -919,14 +899,10 @@ pub extern "C" fn MoveGroupContigForVol(
         };
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
-        let mut k = 0;
-        while k < myrinfo.nnbrs as usize {
-            if mynbrs[k].pid == to {
-                break;
-            }
-            k += 1;
-        }
-        if k as idx_t == myrinfo.nnbrs {
+        if let Some(k) = mynbrs.iter().position(|rinfo| rinfo.pid == to) {
+            graph.minvol -= xgain + mynbrs[k].gv;
+            graph.mincut -= mynbrs[k].ned - myrinfo.nid;
+        } else {
             if myrinfo.nid > 0 {
                 xgain -= vsize[i];
             }
@@ -935,55 +911,31 @@ pub extern "C" fn MoveGroupContigForVol(
             for j in (xadj[i])..(xadj[i + 1]) {
                 let ii = adjncy[j as usize] as usize;
                 let other = where_[ii];
-                let orinfo = &vkrinfo[ii];
-                let onbrs = slice::from_raw_parts_mut(
-                    ctrl.vnbrpool.add(orinfo.inbr as usize),
-                    orinfo.nnbrs as usize + 1,
-                );
+                let (_orinfo, onbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, ii);
                 assert!(other != to);
 
                 if from == other {
                     /* Same subdomain vertex: Decrease the gain if 'to' is a new neighbor. */
-
-                    let mut l = 0;
-                    while l < orinfo.nnbrs {
-                        if onbrs[l as usize].pid == to {
-                            break;
-                        }
-                        l += 1;
-                    }
-                    if l == orinfo.nnbrs {
+                    if !onbrs.iter().any(|rinfo| rinfo.pid == to) {
                         xgain -= vsize[ii];
                     }
                 } else {
                     /* Remote vertex: increase if 'to' is a new subdomain */
-                    {
-                        let mut l = 0;
-                        while l < orinfo.nnbrs {
-                            if onbrs[l as usize].pid == to {
-                                break;
-                            }
-                            l += 1;
-                        }
-                        if l == orinfo.nnbrs {
-                            xgain -= vsize[ii]; // GAVIN: Should this be +?
-                        }
+                    if !onbrs.iter().any(|rinfo| rinfo.pid == to) {
+                        xgain -= vsize[ii]; // GAVIN: Should this be +?
                     }
 
                     /* Remote vertex: decrease if i is the only connection to 'from' */
-                    for l in (0)..(orinfo.nnbrs as usize) {
-                        if onbrs[l].pid == from && onbrs[l].ned == 1 {
-                            xgain += vsize[ii];
-                            break;
-                        }
+                    if onbrs
+                        .iter()
+                        .any(|rinfo| rinfo.pid == from && rinfo.ned == 1)
+                    {
+                        xgain += vsize[ii];
                     }
                 }
             }
             graph.minvol -= xgain;
             graph.mincut -= -myrinfo.nid;
-        } else {
-            graph.minvol -= xgain + mynbrs[k].gv;
-            graph.mincut -= mynbrs[k].ned - myrinfo.nid;
         }
 
         /* Update where_ and pwgts */
@@ -1036,8 +988,11 @@ pub extern "C" fn MoveGroupContigForVol(
         /*CheckKWayVolPartitionParams(ctrl, graph);*/
     }
 
-    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
-    debug_assert_eq!(debug::ComputeVolume(graph, where_.as_ptr()), graph.minvol,);
+    debug_assert_eq!(
+        debug::ComputeCutUnweighted(graph, where_.as_ptr()),
+        graph.mincut
+    );
+    debug_assert_eq!(debug::ComputeVolume(graph, where_.as_ptr()), graph.minvol);
 }
 
 #[cfg(test)]
@@ -1099,8 +1054,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Assert fails on C-only"]
-    fn vol_c_fail() {
+    fn vol_c_contig_regression() {
+        // This failed in earlier versions for two reasons:
+        // 1) If refinement completely eliminated a partition, the check of
+        //    FindPartitionInducedSubdomains == nparts would fail. This was fixed by changing the
+        //    '==' to '<='. Perhaps it would be good to assert that refinement doesn't eliminate
+        //    partitions in general, but it definitely doesn't make sense to only die when contig
+        //    is set
+        // 2) Volume refinement info and mindegree uses unweigted internal and external degrees,
+        //    but certain places in the code assumed that it was weighted (most notably in
+        //    ProjectKWayPartition). I changed this to always use unweighted, but this comes with
+        //    an expected perf regression.
         let _k = dyncall::set_local_overrides("*");
         fastrand::seed(1230);
         let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
@@ -1116,20 +1080,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Not sure how to trigger"]
     fn ab_EliminateComponents_vol() {
         ab_test_single_eq("EliminateComponents:rs", || {
-            fastrand::seed(231);
+            fastrand::seed(131);
             let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
-            g.set_seed(1230);
+            g.set_seed(125);
             g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500)))
-                    .take(2300),
+                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
             );
-            g.set_objective(Objtype::Vol);
+            assert!(g.is_contiguous());
             g.set_contig(true);
-            g.random_vsize();
-            g.random_vwgt();
+            g.set_objective(Objtype::Vol);
             g.call().unwrap()
         });
     }
@@ -1164,24 +1125,26 @@ mod tests {
         // });
     }
 
+    // #[ignore = "broken on original"]
     #[test]
-    #[ignore = "broken on original"]
     fn ab_MoveGroupContigForVol() {
         ab_test_single_eq("MoveGroupContigForVol:rs", || {
             fastrand::seed(131);
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 3);
+            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
             g.set_seed(125);
             g.edge_list(
                 std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
             );
+            assert!(g.is_contiguous());
             g.set_contig(true);
+            // g.enable_dbg(DbgLvl::Refine);
             g.set_objective(Objtype::Vol);
             // g.write_graph({
             //     std::io::BufWriter::new(std::fs::OpenOptions::new().create(true).write(true).open("bug.graph").unwrap())
             // }).unwrap();
             // g.random_vsize();
             // g.random_vwgt();
-            g.call().unwrap();
+            g.call().unwrap()
         });
     }
 }

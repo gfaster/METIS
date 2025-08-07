@@ -81,6 +81,7 @@ void MoveGroupContigForVol(ctrl_t *ctrl, graph_t *graph, idx_t to, idx_t gid,
 
 /* debug.c - ported */
 idx_t ComputeCut(graph_t *graph, idx_t *where);
+idx_t ComputeCutUnweighted(graph_t *graph, idx_t *where);
 idx_t ComputeVolume(graph_t *, idx_t *);
 idx_t ComputeMaxCut(graph_t *graph, idx_t nparts, idx_t *where);
 idx_t CheckBnd(graph_t *);

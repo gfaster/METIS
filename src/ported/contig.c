@@ -525,6 +525,9 @@ void c__libmetis__EliminateComponents( ctrl_t *ctrl, graph_t *graph)
 
   }
 
+  ASSERTP(FindPartitionInducedComponents(graph, where, NULL, NULL) <= nparts, 
+          ("%"PRIDX" %"PRIDX"\n", FindPartitionInducedComponents(graph, where, NULL, NULL), nparts));
+
   WCOREPOP;
 }
 
@@ -617,8 +620,8 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
   adjncy = graph->adjncy;
   where  = graph->where;
 
-  ASSERTP(ComputeCut(graph, where) == graph->mincut,
-      ("%"PRIDX" %"PRIDX"\n", ComputeCut(graph, where), graph->mincut));
+  ASSERTP(ComputeCutUnweighted(graph, where) == graph->mincut,
+      ("%"PRIDX" %"PRIDX"\n", ComputeCutUnweighted(graph, where), graph->mincut));
   ASSERTP(ComputeVolume(graph, where) == graph->minvol,
       ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
 
@@ -700,8 +703,8 @@ void c__libmetis__MoveGroupContigForVol( ctrl_t *ctrl, graph_t *graph, idx_t to,
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }
 
-  ASSERTP(ComputeCut(graph, where) == graph->mincut,
-      ("%"PRIDX" %"PRIDX"\n", ComputeCut(graph, where), graph->mincut));
+  ASSERTP(ComputeCutUnweighted(graph, where) == graph->mincut,
+      ("%"PRIDX" %"PRIDX"\n", ComputeCutUnweighted(graph, where), graph->mincut));
   ASSERTP(ComputeVolume(graph, where) == graph->minvol,
       ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
 

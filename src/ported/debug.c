@@ -21,17 +21,17 @@
 IFUNC(idx_t , ComputeCut, (graph_t *graph, idx_t *where));
 idx_t c__libmetis__ComputeCut(graph_t *graph, idx_t *where)
 {
-  idx_t i, j, cut;
+  idx_t i, j, cut=0;
 
   if (graph->adjwgt == NULL) {
-    for (cut=0, i=0; i<graph->nvtxs; i++) {
+    for (i=0; i<graph->nvtxs; i++) {
       for (j=graph->xadj[i]; j<graph->xadj[i+1]; j++)
         if (where[i] != where[graph->adjncy[j]])
           cut++;
     }
   }
   else {
-    for (cut=0, i=0; i<graph->nvtxs; i++) {
+    for (i=0; i<graph->nvtxs; i++) {
       for (j=graph->xadj[i]; j<graph->xadj[i+1]; j++)
         if (where[i] != where[graph->adjncy[j]])
           cut += graph->adjwgt[j];
@@ -41,6 +41,20 @@ idx_t c__libmetis__ComputeCut(graph_t *graph, idx_t *where)
   return cut/2;
 }
 
+IFUNC(idx_t , ComputeCutUnweighted, (graph_t *graph, idx_t *where));
+idx_t c__libmetis__ComputeCutUnweighted(graph_t *graph, idx_t *where)
+{
+  idx_t i, j, cut=0;
+
+  /* when doing volume, we treat all edges as unit weight */
+  for (i=0; i<graph->nvtxs; i++) {
+    for (j=graph->xadj[i]; j<graph->xadj[i+1]; j++)
+      if (where[i] != where[graph->adjncy[j]])
+        cut++;
+  }
+
+  return cut/2;
+}
 
 /*************************************************************************/
 /*! This function computes the total volume 

@@ -143,14 +143,13 @@ pub extern "C" fn RefineKWay(ctrl: *mut ctrl_t, orggraph: *mut graph_t, graph: *
     }
 
     if (*ctrl).contig != 0 {
-        debug_assert_eq!(
+        debug_assert!(
             contig::FindPartitionInducedComponents(
                 graph,
                 (*graph).where_,
                 ptr::null_mut(),
                 ptr::null_mut()
-            ),
-            (*ctrl).nparts,
+            ) <= (*ctrl).nparts,
         );
     }
 
@@ -308,7 +307,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
                         }
                     }
 
-                    assert!(myrinfo.nnbrs <= xadj[i + 1] - xadj[i]);
+                    debug_assert!(myrinfo.nnbrs <= xadj[i + 1] - xadj[i]);
 
                     /* Only ed-id>=0 nodes are considered to be in the boundary */
                     if myrinfo.ed - myrinfo.id >= 0 {
@@ -322,7 +321,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             graph.mincut = mincut / 2;
             graph.nbnd = nbnd;
 
-            assert!(debug::CheckBnd2(graph) != 0);
+            debug_assert!(debug::CheckBnd2(graph) != 0);
         }
 
         METIS_OBJTYPE_VOL => {
@@ -532,7 +531,12 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             }
 
             graph.nbnd = nbnd;
-            assert!(debug::CheckBnd2(graph) != 0);
+            debug_assert!(debug::CheckBnd2(graph) != 0);
+            graph.mincut = if dropedges != 0 {
+                debug::ComputeCut(graph, where_.as_mut_ptr())
+            } else {
+                (*cgraph).mincut
+            };
         }
 
         METIS_OBJTYPE_VOL => {
@@ -617,17 +621,22 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
 
             ComputeKWayVolGains(ctrl, graph);
 
-            assert!(graph.minvol == debug::ComputeVolume(graph, graph.where_));
+            debug_assert_eq!(graph.minvol, debug::ComputeVolume(graph, graph.where_));
+            /* Can't use dropedges since volume rinfo does not keep track of     */
+            /* weight -- cgraph's mincut will generally not be valid for graph.  */
+            /* Doing it this way is a performance pessimization so perhaps it    */
+            /* would be better to match cut refinement's behavior in using rinfo */
+            // TODO: can I use weigted cut on cgraph?
+            // PERF: this was pessimized from the original (but this is more correct I think)
+            // graph.mincut = if dropedges != 0 { 
+            //     debug::ComputeCutUnweighted(graph, where_.as_mut_ptr()) 
+            // } else { (*cgraph).mincut };
+            graph.mincut = debug::ComputeCutUnweighted(graph, where_.as_mut_ptr());
         }
 
         _ => panic!("Unknown objtype of {}", ctrl.objtype),
     }
 
-    graph.mincut = if dropedges != 0 {
-        debug::ComputeCut(graph, where_.as_mut_ptr())
-    } else {
-        (*cgraph).mincut
-    };
     {
         mkslice_mut!(dst: graph->pwgts, nparts * graph.ncon);
         mkslice_mut!(src: cgraph->pwgts, nparts * graph.ncon);
@@ -860,8 +869,8 @@ mod tests {
     use graph_gen::GraphBuilder;
 
     #[test]
-    #[ignore = "aborts"]
-    fn kwayrefine_contig_abort() {
+    fn kwayrefine_contig_mc_abort_regression() {
+        // See: contig::tests::vol_c_contig_regression
         fastrand::seed(123);
         // note that setting ncon to 2 causes an abort even in C-only
         let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);

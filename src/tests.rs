@@ -149,8 +149,8 @@ where
     F: FnMut(TestGraph, GraphBuilder),
 {
     fn inner(op: Optype, nparts: usize, ncon: usize, f: &mut dyn FnMut(TestGraph, GraphBuilder)) {
-        for (i, graph) in TestGraph::test_suite().enumerate() {
-            fastrand::seed(12513471239123 + i as u64);
+        for graph in TestGraph::test_suite() {
+            fastrand::seed(12513471239123 + graph as u64);
             eprintln!("Testing with {graph:?}");
             let builder = GraphBuilder::test_graph(graph, op, nparts, ncon);
             f(graph, builder);
@@ -193,6 +193,38 @@ pub(crate) fn ab_test_partition_test_graphs_filter<F>(
     }
 
     inner(overrides, op, nparts, ncon, &mut f);
+}
+
+/// Runs `f` on the graph provided, and performs `ab_test_single_eq` on partitioning each
+#[cfg(test)]
+pub(crate) fn ab_test_partition_test_graph<F>(
+    overrides: &str,
+    op: Optype,
+    nparts: usize,
+    ncon: usize,
+    tg: TestGraph,
+    mut f: F,
+) where
+    F: FnMut(GraphBuilder) -> GraphBuilder,
+{
+    use crate::dyncall::ab_test_single_eq;
+
+    fn inner(
+        overrides: &str,
+        op: Optype,
+        nparts: usize,
+        ncon: usize,
+        tg: TestGraph,
+        f: &mut dyn FnMut(GraphBuilder) -> GraphBuilder,
+    ) {
+        fastrand::seed(85103750);
+        eprintln!("Testing with {tg:?}");
+        let builder = GraphBuilder::test_graph(tg, op, nparts, ncon);
+        let graph = f(builder);
+        ab_test_single_eq(overrides, || graph.clone().call());
+    }
+
+    inner(overrides, op, nparts, ncon, tg, &mut f);
 }
 
 /// Runs `f` on each of the small-ish graphs and performs `ab_test_single_eq` on partitioning each

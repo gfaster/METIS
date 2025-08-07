@@ -108,7 +108,7 @@ void c__libmetis__RefineKWay( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
   }
 
   if (ctrl->contig) 
-    ASSERT(FindPartitionInducedComponents(graph, graph->where, NULL, NULL) == ctrl->nparts);
+    ASSERT(FindPartitionInducedComponents(graph, graph->where, NULL, NULL) <= ctrl->nparts);
 
   IFSET(ctrl->dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl->UncoarsenTmr));
 }
@@ -431,6 +431,7 @@ void c__libmetis__ProjectKWayPartition( ctrl_t *ctrl, graph_t *graph)
         }
       
         graph->nbnd = nbnd;
+        graph->mincut = (dropedges ? ComputeCut(graph, where) : cgraph->mincut);
       }
       ASSERT(CheckBnd2(graph));
       break;
@@ -500,6 +501,12 @@ void c__libmetis__ProjectKWayPartition( ctrl_t *ctrl, graph_t *graph)
         ComputeKWayVolGains(ctrl, graph);
 
         ASSERT(graph->minvol == ComputeVolume(graph, graph->where));
+        /* Can't use dropedges since volume rinfo does not keep track of     */
+        /* weight -- cgraph's mincut will generally not be valid for graph.  */
+        /* Doing it this way is a performance pessimization so perhaps it    */
+        /* would be better to match cut refinement's behavior in using rinfo */
+        /* graph->mincut = (dropedges ? ComputeCutUnweighted(graph, where) : cgraph->mincut); */
+        graph->mincut = ComputeCutUnweighted(graph, where);
       }
       break;
 
@@ -507,7 +514,6 @@ void c__libmetis__ProjectKWayPartition( ctrl_t *ctrl, graph_t *graph)
       gk_errexit(SIGERR, "Unknown objtype of %d\n", ctrl->objtype);
   }
 
-  graph->mincut = (dropedges ? ComputeCut(graph, where) : cgraph->mincut);
   icopy(nparts*graph->ncon, cgraph->pwgts, graph->pwgts);
 
   FreeGraph(&graph->coarser);

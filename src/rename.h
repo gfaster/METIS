@@ -59,6 +59,7 @@
 
 /* debug.c */
 #define ComputeCut			libmetis__ComputeCut
+#define ComputeCutUnweighted		libmetis__ComputeCutUnweighted
 #define ComputeVolume			libmetis__ComputeVolume
 #define ComputeMaxCut			libmetis__ComputeMaxCut
 #define CheckBnd			libmetis__CheckBnd

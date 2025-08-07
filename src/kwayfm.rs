@@ -78,7 +78,7 @@ fn isum(n: usize, slice: &[idx_t], step: usize) -> idx_t {
 /// little helper to replace all the times we get a `ckrinfo_t` + `&[cnbr_t]`
 #[inline]
 #[track_caller]
-unsafe fn crinfos<'a>(
+pub(crate) unsafe fn crinfos<'a>(
     graph_ckrinfo: *const ckrinfo_t,
     ctrl_cnbrpool: *const cnbr_t,
     idx: usize,
@@ -99,7 +99,7 @@ unsafe fn crinfos<'a>(
 /// element (or to not oob the old in case of removal)
 #[inline]
 #[track_caller]
-unsafe fn crinfos_mut<'a>(
+pub(crate) unsafe fn crinfos_mut<'a>(
     graph_ckrinfo: *mut ckrinfo_t,
     ctrl_cnbrpool: *mut cnbr_t,
     idx: usize,
@@ -118,7 +118,7 @@ unsafe fn crinfos_mut<'a>(
 /// little helper to replace all the times we get a `vkrinfo_t` `&[vnbr_t]`
 #[inline]
 #[track_caller]
-unsafe fn vrinfos<'a>(
+pub(crate) unsafe fn vrinfos<'a>(
     graph_vkrinfo: *const vkrinfo_t,
     ctrl_vnbrpool: *const vnbr_t,
     idx: usize,
@@ -139,7 +139,7 @@ unsafe fn vrinfos<'a>(
 /// element (or to not oob the old in case of removal)
 #[inline]
 #[track_caller]
-unsafe fn vrinfos_mut<'a>(
+pub(crate) unsafe fn vrinfos_mut<'a>(
     graph_vkrinfo: *mut vkrinfo_t,
     ctrl_vnbrpool: *mut vnbr_t,
     idx: usize,
@@ -1417,6 +1417,18 @@ pub extern "C" fn Greedy_KWayVolOptimize(
         {
             break;
         }
+    }
+
+    if ctrl.contig != 0 {
+        debug_assert_eq!(
+            contig::FindPartitionInducedComponents(
+                graph,
+                where_.as_ptr(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut()
+            ),
+            ctrl.nparts,
+        );
     }
 
     // WCOREPOP;
@@ -2948,7 +2960,7 @@ pub unsafe fn KWayVolUpdate(
                             /* find the vertex 'u' that 'ii' was connected into 'from' */
                             for jj in (xadj[ii])..(xadj[(ii + 1) as usize]) {
                                 let u = adjncy[jj as usize] as usize;
-                                let other = where_[u as usize] as usize;
+                                let other = where_[u] as usize;
 
                                 if other == from {
                                     let (_orinfo, onbrs) =
@@ -2963,9 +2975,9 @@ pub unsafe fn KWayVolUpdate(
                                         nbr.gv += vsize[ii];
                                     }
 
-                                    if vmarker[u as usize] == 0 {
+                                    if vmarker[u] == 0 {
                                         /* Need to update boundary etc */
-                                        vmarker[u as usize] = 2;
+                                        vmarker[u] = 2;
                                         modind[nmod as usize] = u as idx_t;
                                         nmod += 1;
                                     }
@@ -2991,7 +3003,7 @@ pub unsafe fn KWayVolUpdate(
                         /* find the vertex 'u' that 'ii' was connected into 'to' */
                         for jj in (xadj[ii as usize])..(xadj[(ii + 1) as usize]) {
                             let u = adjncy[jj as usize] as usize;
-                            let other = where_[u as usize] as usize;
+                            let other = where_[u] as usize;
 
                             if u != v && other == to {
                                 let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);

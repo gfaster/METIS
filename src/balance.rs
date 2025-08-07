@@ -271,8 +271,8 @@ pub extern "C" fn General2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntp
     // iset(nvtxs, -1, moved);
     moved.fill(-1);
 
-    assert!(debug::ComputeCut(graph, where_.as_ptr()) == graph.mincut);
-    assert!(debug::CheckBnd(graph) != 0);
+    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert!(debug::CheckBnd(graph) != 0);
 
     /* Insert the nodes of the proper partition whose size is OK in the priority queue */
     irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 5, 1);
@@ -385,7 +385,6 @@ pub extern "C" fn McGeneral2WayBalance(
     graph: *mut graph_t,
     ntpwgts: *mut real_t,
 ) {
-    // eprintln!("called McGeneral2WayBalance");
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, ii, j, k, l, kwgt, nvtxs, ncon, nbnd, nswaps, from, to, pass,
@@ -735,7 +734,7 @@ pub extern "C" fn McGeneral2WayBalance(
 #[cfg(test)]
 mod tests {
     #![allow(non_snake_case)]
-    use crate::tests::{ab_test_partition_test_graphs, TestGraph};
+    use crate::tests::{ab_test_partition_test_graph, ab_test_partition_test_graphs, ab_test_partition_test_graphs_filter, TestGraph};
 
     use super::*;
     use dyncall::ab_test_single_eq;
@@ -772,18 +771,25 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "broken on original"]
-    fn ab_McGeneral2WayBalance_contig_regression() {
-        ab_test_single_eq("McGeneral2WayBalance:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 2);
-            g.set_seed(18231);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+    fn ab_General2WayBalance() {
+        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 20, 1, TestGraph::Webbase2004, |mut g| {
+            g.set_seed(1234);
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_General2WayBalance_contig() {
+        // have a separate test for contig since I expect that to affect the kinds of subgraphs
+        // it's called on
+        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 20, 1, TestGraph::Webbase2004, |mut g| {
+            g.set_seed(1234);
             g.set_contig(true);
             g.random_adjwgt();
-            // g.write_graph(std::io::BufWriter::new(std::fs::OpenOptions::new().write(true).create(true).truncate(true).open("graphs/contig_bug.graph").unwrap())).unwrap();
-            g.call().unwrap()
+            g.random_tpwgts();
+            g
         });
     }
 

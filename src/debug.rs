@@ -18,13 +18,13 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
     let graph = graph.as_ref().unwrap();
     // idx_t i, j, cut;
 
-    get_graph_slices!(graph => xadj adjncy adjwgt);
+    get_graph_slices!(graph => xadj adjncy);
     let nvtxs = graph.nvtxs as usize;
     mkslice!(where_, nvtxs);
 
     let mut cut = 0;
     if graph.adjwgt == std::ptr::null_mut() {
-        // I don't think this can be hit -- we'd panic above
+        // I don't think this is ever hit
         for i in (0)..(nvtxs as usize) {
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                 if where_[i as usize] != where_[adjncy[j as usize] as usize] {
@@ -33,11 +33,33 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
             }
         }
     } else {
+        get_graph_slices!(graph => adjwgt);
         for i in (0)..(nvtxs) {
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                 if where_[i as usize] != where_[adjncy[j as usize] as usize] {
                     cut += adjwgt[j as usize];
                 }
+            }
+        }
+    }
+
+    return cut / 2;
+}
+
+/// Computes the total edgecut with unit weights
+#[metis_func]
+pub extern "C" fn ComputeCutUnweighted(graph: *const graph_t, where_: *const idx_t) -> idx_t {
+    let graph = graph.as_ref().unwrap();
+
+    get_graph_slices!(graph => xadj adjncy);
+    let nvtxs = graph.nvtxs as usize;
+    mkslice!(where_, nvtxs);
+
+    let mut cut = 0;
+    for i in (0)..(nvtxs as usize) {
+        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+            if where_[i as usize] != where_[adjncy[j as usize] as usize] {
+                cut += 1;
             }
         }
     }
