@@ -748,61 +748,23 @@ mod tests {
     use super::*;
     use crate::dyncall::ab_test_single_eq;
     use crate::graph_gen::GraphBuilder;
+    use crate::tests::ab_test_partition_test_graphs;
 
     #[test]
     fn ab_FM_Mc2WayCutRefine() {
-        ab_test_single_eq("FM_Mc2WayCutRefine:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 2);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
-            g.set_seed(4321);
+        ab_test_partition_test_graphs("FM_Mc2WayCutRefine:rs", Optype::Kmetis, 20, 2, |mut g| {
             g.random_adjwgt();
-            // g.random_tpwgts();
-            g.call().unwrap()
-        });
-    }
-
-    #[test]
-    #[ignore = "expensive"]
-    fn ab_FM_Mc2WayCutRefine_large() {
-        ab_test_single_eq("FM_Mc2WayCutRefine:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 3);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
-            );
-            g.set_seed(4321);
-            g.random_adjwgt();
-            // g.random_tpwgts();
-            g.call().unwrap()
+            g.random_tpwgts();
+            g
         });
     }
 
     #[test]
     fn ab_FM_2WayCutRefine() {
-        ab_test_single_eq("FM_2WayCutRefine:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 4, 1);
-            g.set_seed(4321);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=50), fastrand::i32(0..=50))).take(230),
-            );
+        ab_test_partition_test_graphs("FM_2WayCutRefine:rs", Optype::Kmetis, 20, 1, |mut g| {
             g.random_adjwgt();
-            // g.random_tpwgts();
-            g.call().unwrap()
-        });
-    }
-
-    #[test]
-    fn ab_FM_2WayCutRefine_large() {
-        ab_test_single_eq("FM_2WayCutRefine:rs", || {
-            let mut g = GraphBuilder::new(Optype::Kmetis, 16, 1);
-            g.set_seed(4321);
-            g.edge_list(
-                std::iter::repeat_with(|| (fastrand::i32(0..=500), fastrand::i32(0..=500))).take(2300),
-            );
-            g.random_adjwgt();
-            // g.random_tpwgts();
-            g.call().unwrap()
+            g.random_tpwgts();
+            g
         });
     }
 }
