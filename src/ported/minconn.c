@@ -482,7 +482,7 @@ void c__libmetis__MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to,
 {
   idx_t i, ii, j, jj, k, l, nvtxs, nbnd, from, me;
   idx_t *xadj, *adjncy, *adjwgt, *where, *bndptr, *bndind;
-  ckrinfo_t *myrinfo;
+  ckrinfo_t *myrinfo, *orinfo;
   cnbr_t *mynbrs;
 
   nvtxs  = graph->nvtxs;
@@ -513,7 +513,8 @@ void c__libmetis__MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to,
         break;
     }
     if (k == myrinfo->nnbrs) {
-      ASSERT(k < xadj[i+1]-xadj[i]);
+      /* we may temporarily need an extra nbr */
+      ASSERT(k <= xadj[i+1]-xadj[i]);
       mynbrs[k].pid = to;
       mynbrs[k].ed  = 0;
       myrinfo->nnbrs++;
@@ -537,10 +538,10 @@ void c__libmetis__MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to,
     for (j=xadj[i]; j<xadj[i+1]; j++) {
       ii = adjncy[j];
       me = where[ii];
-      myrinfo = graph->ckrinfo+ii;
+      orinfo = graph->ckrinfo+ii;
 
       UpdateAdjacentVertexInfoAndBND(ctrl, ii, xadj[ii+1]-xadj[ii], me,
-          from, to, myrinfo, adjwgt[j], nbnd, bndptr, bndind, BNDTYPE_REFINE);
+          from, to, orinfo, adjwgt[j], nbnd, bndptr, bndind, BNDTYPE_REFINE);
 
       /* Update subdomain graph to reflect the move of 'i' for domains other 
          than 'from' and 'to' */
@@ -549,6 +550,9 @@ void c__libmetis__MoveGroupMinConnForCut(ctrl_t *ctrl, graph_t *graph, idx_t to,
         UpdateEdgeSubDomainGraph(ctrl, to, me, adjwgt[j], NULL);
       }
     }
+
+    ASSERTP(myrinfo->nnbrs <= xadj[i+1]-xadj[i], 
+            ("%"PRIDX" %"PRIDX"\n", myrinfo->nnbrs, xadj[i+1]-xadj[i]));
   }
 
   ASSERT(ComputeCut(graph, where) == graph->mincut);
@@ -590,7 +594,7 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
 
     xgain = (myrinfo->nid == 0 && myrinfo->ned > 0 ? vsize[i] : 0);
 
-    //printf("Moving %"PRIDX" from %"PRIDX" to %"PRIDX" [vsize: %"PRIDX"] [xgain: %"PRIDX"]\n", 
+    // printf("Moving %5"PRIDX" from %3"PRIDX" to %3"PRIDX" [vsize: %"PRIDX"] [xgain: %"PRIDX"]\n", 
     //    i, from, to, vsize[i], xgain);
     
     /* find the location of 'to' in myrinfo or create it if it is not there */
@@ -602,8 +606,9 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
     if (k == myrinfo->nnbrs) {
       //printf("Missing neighbor\n");
 
-      if (myrinfo->nid > 0)
-        xgain -= vsize[i];
+      /* I'm not sure why this is correct, but it seems to be more correct */
+      /* previously only decreased if myrinfo->nid > 0 */
+      xgain -= vsize[i];
 
       /* determine the volume gain resulting from that move */
       for (j=xadj[i]; j<xadj[i+1]; j++) {
@@ -613,7 +618,7 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
         onbrs  = ctrl->vnbrpool + orinfo->inbr;
         ASSERT(other != to)
 
-        //printf("  %8d %8d %3d\n", (int)ii, (int)vsize[ii], (int)other);
+        // printf("  %8d %8d %3d %s\n", (int)ii, (int)vsize[ii], (int)other, (from == other) ? "local" : "remote");
 
         if (from == other) {
           /* Same subdomain vertex: Decrease the gain if 'to' is a new neighbor. */
@@ -625,7 +630,7 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
             xgain -= vsize[ii];
         }
         else {
-          /* Remote vertex: increase if 'to' is a new subdomain */
+          /* Remote vertex: Decrease the gain if 'to' is a new subdomain */
           for (l=0; l<orinfo->nnbrs; l++) {
             if (onbrs[l].pid == to)
               break;
@@ -633,7 +638,7 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
           if (l == orinfo->nnbrs) 
             xgain -= vsize[ii];
 
-          /* Remote vertex: decrease if i is the only connection to 'from' */
+          /* Remote vertex: increase gain if i is the only connection to 'from' */
           for (l=0; l<orinfo->nnbrs; l++) {
             if (onbrs[l].pid == from && onbrs[l].ned == 1) {
               xgain += vsize[ii];
@@ -675,7 +680,7 @@ void c__libmetis__MoveGroupMinConnForVol(ctrl_t *ctrl, graph_t *graph, idx_t to,
 
     /*CheckKWayVolPartitionParams(ctrl, graph);*/
   }
-  ASSERT(ComputeCut(graph, where) == graph->mincut);
+  ASSERT(ComputeCutUnweighted(graph, where) == graph->mincut);
   ASSERTP(ComputeVolume(graph, where) == graph->minvol, 
       ("%"PRIDX" %"PRIDX"\n", ComputeVolume(graph, where), graph->minvol));
 

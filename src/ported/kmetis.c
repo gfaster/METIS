@@ -127,7 +127,7 @@ idx_t c__libmetis__MlevelKWayPartitioning( ctrl_t *ctrl, graph_t *graph, idx_t *
 
     /* Re-allocate the work space */
     AllocateWorkSpace(ctrl, graph);
-    AllocateRefinementWorkSpace(ctrl, graph->nedges, 2*cgraph->nedges);
+    AllocateRefinementWorkSpace(ctrl, graph->nedges + graph->nvtxs, 2*cgraph->nedges);
 
     IFSET(ctrl->dbglvl, METIS_DBG_TIME, gk_stopcputimer(ctrl->InitPartTmr));
     IFSET(ctrl->dbglvl, METIS_DBG_IPART, 

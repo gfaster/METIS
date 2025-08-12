@@ -83,12 +83,14 @@ pub(crate) unsafe fn crinfos<'a>(
     ctrl_cnbrpool: *const cnbr_t,
     idx: usize,
 ) -> (&'a ckrinfo_t, &'a [cnbr_t]) {
+    debug_assert!(!graph_ckrinfo.is_null());
+    debug_assert!(!ctrl_cnbrpool.is_null());
     let info = &*graph_ckrinfo.add(idx);
     if info.nnbrs == 0 {
         // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
         return (info, &[]);
     }
-    debug_assert!(info.inbr != -1);
+    debug_assert!(info.inbr >= 0);
     let slice =
         std::slice::from_raw_parts(ctrl_cnbrpool.add(info.inbr as usize), info.nnbrs as usize);
     (info, slice)
@@ -104,6 +106,8 @@ pub(crate) unsafe fn crinfos_mut<'a>(
     ctrl_cnbrpool: *mut cnbr_t,
     idx: usize,
 ) -> (&'a mut ckrinfo_t, &'a mut [cnbr_t]) {
+    debug_assert!(!graph_ckrinfo.is_null());
+    debug_assert!(!ctrl_cnbrpool.is_null());
     let info = &mut *graph_ckrinfo.add(idx);
     if info.nnbrs == 0 {
         // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
@@ -115,6 +119,21 @@ pub(crate) unsafe fn crinfos_mut<'a>(
     (info, slice)
 }
 
+/// ensures `ckrinfo` doesn't have `inbr == -1` by initializing it if necessary.
+pub(crate) unsafe fn ensure_crinfo_init(
+    ctrl: &mut ctrl_t,
+    graph_ckrinfo: *mut ckrinfo_t,
+    idx: usize,
+    xadj: &[idx_t],
+) {
+    debug_assert!(!graph_ckrinfo.is_null());
+    let info = &mut *graph_ckrinfo.add(idx);
+    if info.inbr == -1 {
+        info.inbr = cnbrpoolGetNext(ctrl, xadj[idx + 1] - xadj[idx]);
+        info.nnbrs = 0;
+    }
+}
+
 /// little helper to replace all the times we get a `vkrinfo_t` `&[vnbr_t]`
 #[inline]
 #[track_caller]
@@ -123,6 +142,8 @@ pub(crate) unsafe fn vrinfos<'a>(
     ctrl_vnbrpool: *const vnbr_t,
     idx: usize,
 ) -> (&'a vkrinfo_t, &'a [vnbr_t]) {
+    debug_assert!(!graph_vkrinfo.is_null());
+    debug_assert!(!ctrl_vnbrpool.is_null());
     let info = &*graph_vkrinfo.add(idx);
     if info.nnbrs == 0 {
         // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
@@ -144,6 +165,8 @@ pub(crate) unsafe fn vrinfos_mut<'a>(
     ctrl_vnbrpool: *mut vnbr_t,
     idx: usize,
 ) -> (&'a mut vkrinfo_t, &'a mut [vnbr_t]) {
+    debug_assert!(!graph_vkrinfo.is_null());
+    debug_assert!(!ctrl_vnbrpool.is_null());
     let info = &mut *graph_vkrinfo.add(idx);
     if info.nnbrs == 0 {
         // if nnbrs = 0, then inbr may be -1 (since the neighbors are empty)
@@ -155,9 +178,11 @@ pub(crate) unsafe fn vrinfos_mut<'a>(
     (info, slice)
 }
 
-/// function to replace the identically named macro
+/// function to replace the identically named macro. The macro was not used for polymorphism, so
+/// I'm guessing it was to force inlining. That being said, I'm not sure now helpful that would
+/// actually be.
 #[allow(non_snake_case)]
-unsafe fn UpdateAdjacentVertexInfoAndBND(
+pub(crate) unsafe fn UpdateAdjacentVertexInfoAndBND(
     ctrl: &mut ctrl_t,
     vid: usize,
     adjlen: idx_t,
@@ -171,6 +196,7 @@ unsafe fn UpdateAdjacentVertexInfoAndBND(
     bndind: &mut [idx_t],
     bndtype: i32,
 ) {
+    debug_assert!(bndtype == BNDTYPE_REFINE || bndtype == BNDTYPE_BALANCE);
     // idx_t k;
     // cnbr_t *mynbrs;
 
@@ -243,6 +269,57 @@ unsafe fn UpdateAdjacentVertexInfoAndBND(
     }
 
     debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
+}
+
+/// replacement for the identically named macro. There is no polymorphism in the macro, so I
+/// believe it was a macro for const swtiching on bndtype
+///
+/// Note: original mangled `j`
+// TODO: make this const-generic over bndtype
+#[allow(non_snake_case)]
+pub(crate) fn UpdateMovedVertexInfoAndBND(
+    i: usize,
+    from: usize,
+    k: usize,
+    to: usize,
+    myrinfo: &mut ckrinfo_t,
+    mynbrs: &mut [cnbr_t],
+    where_: &mut [idx_t],
+    nbnd: &mut usize,
+    bndptr: &mut [idx_t],
+    bndind: &mut [idx_t],
+    bndtype: i32,
+) {
+    debug_assert!(bndtype == BNDTYPE_REFINE || bndtype == BNDTYPE_BALANCE);
+    debug_assert_eq!(mynbrs.len(), myrinfo.nnbrs as usize);
+
+    where_[i] = to as idx_t;
+    myrinfo.ed += myrinfo.id - mynbrs[k].ed;
+    std::mem::swap(&mut myrinfo.id, &mut mynbrs[k].ed);
+    if mynbrs[k].ed == 0 {
+        myrinfo.nnbrs -= 1;
+        mynbrs[k] = mynbrs[myrinfo.nnbrs as usize].clone();
+    } else {
+        mynbrs[k].pid = from as idx_t;
+    }
+
+    /* Update the boundary information. Both deletion and addition is
+    allowed as this routine can be used for moving arbitrary nodes. */
+    if bndtype == BNDTYPE_REFINE {
+        if bndptr[i] != -1 && myrinfo.ed - myrinfo.id < 0 {
+            BNDDelete!(*nbnd, bndind, bndptr, i);
+        }
+        if bndptr[i] == -1 && myrinfo.ed - myrinfo.id >= 0 {
+            BNDInsert!(*nbnd, bndind, bndptr, i);
+        }
+    } else {
+        if bndptr[i] != -1 && myrinfo.ed <= 0 {
+            BNDDelete!(*nbnd, bndind, bndptr, i);
+        }
+        if bndptr[i] == -1 && myrinfo.ed > 0 {
+            BNDInsert!(*nbnd, bndind, bndptr, i);
+        }
+    }
 }
 
 /// function to replace the identically named macro (without suffix)
@@ -849,8 +926,8 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
             /* Update ID/ED and BND related information for the moved vertex */
             inc_dec!(pwgts[to as usize], pwgts[from as usize], vwgt);
-            UpdateMovedVertexInfoAndBND!(
-                i, from, k, to, myrinfo, mynbrs, where_, nbnd, bndptr, bndind, bndtype,
+            UpdateMovedVertexInfoAndBND(
+                i, from, k, to, myrinfo, mynbrs, where_, &mut nbnd, bndptr, bndind, bndtype,
             );
 
             /* Update the degrees of adjacent vertices */
@@ -1964,8 +2041,8 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 &mut pwgts[cntrng!(from * ncon, ncon)],
                 1,
             );
-            UpdateMovedVertexInfoAndBND!(
-                i, from, k, to, myrinfo, mynbrs, where_, nbnd, bndptr, bndind, bndtype,
+            UpdateMovedVertexInfoAndBND(
+                i, from, k, to, myrinfo, mynbrs, where_, &mut nbnd, bndptr, bndind, bndtype,
             );
 
             /* Update the degrees of adjacent vertices */
@@ -2884,9 +2961,12 @@ pub unsafe fn KWayVolUpdate(
     if myidx == -1 {
         myidx = myrinfo.nnbrs;
         myrinfo.nnbrs += 1;
-        debug_assert!(myidx < xadj[(v + 1) as usize] - xadj[v as usize]);
+        // may temporarily use an extra index
+        debug_assert!(myidx <= xadj[(v + 1) as usize] - xadj[v as usize]);
+        let (_myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, v);
         mynbrs[myidx as usize].ned = 0;
     }
+    let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, v);
     myrinfo.ned += myrinfo.nid - mynbrs[myidx as usize].ned;
     std::mem::swap(&mut myrinfo.nid, &mut mynbrs[myidx as usize].ned);
     if mynbrs[myidx as usize].ned == 0 {
@@ -3240,7 +3320,7 @@ pub unsafe fn KWayVolUpdate(
 ///
 /// - `graph` is the graph that is being refined.
 /// - `niter` is the number of refinement iterations.
-/// - `ffactor` is the *fudge-factor* for allowing positive gain moves to violate the 
+/// - `ffactor` is the *fudge-factor* for allowing positive gain moves to violate the
 ///   max-pwgt constraint.
 /// - `omode` is the type of optimization that will performed among OMODE_REFINE and OMODE_BALANCE
 #[metis_func]
@@ -3505,8 +3585,8 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 
             /* Update ID/ED and BND related information for the moved vertex */
             inc_dec!(pwgts[to as usize], pwgts[from as usize], vwgt[u as usize]);
-            UpdateMovedVertexInfoAndBND!(
-                u, from, k, to, urinfo, unbrs, where_, nbnd, bndptr, bndind, bndtype,
+            UpdateMovedVertexInfoAndBND(
+                u, from, k, to, urinfo, unbrs, where_, &mut nbnd, bndptr, bndind, bndtype,
             );
 
             /* Update the degrees of adjacent vertices */
@@ -3575,8 +3655,8 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
 
             /* Update ID/ED and BND related information for the moved vertex */
             inc_dec!(pwgts[to as usize], pwgts[from as usize], vwgt[v as usize]);
-            UpdateMovedVertexInfoAndBND!(
-                v, from, k, to, vrinfo, vnbrs, where_, nbnd, bndptr, bndind, bndtype,
+            UpdateMovedVertexInfoAndBND(
+                v, from, k, to, vrinfo, vnbrs, where_, &mut nbnd, bndptr, bndind, bndtype,
             );
 
             /* Update the degrees of adjacent vertices */
@@ -3658,7 +3738,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fails on original"]
     fn ab_Greedy_KWayCutOptimize_minconn() {
         ab_test_partition_test_graphs(
             "Greedy_KWayCutOptimize:rs",
@@ -3702,9 +3781,7 @@ mod tests {
         );
     }
 
-    // FIXME: I would really like to be able to test this before tearing out dyncall
     #[test]
-    #[ignore = "fails on original"]
     fn ab_Greedy_McKWayCutOptimize_minconn() {
         ab_test_partition_test_graphs(
             "Greedy_McKWayCutOptimize:rs",
@@ -3750,7 +3827,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fails on original"]
     fn ab_Greedy_KWayVolOptimize_minconn() {
         ab_test_partition_test_graphs(
             "Greedy_KWayVolOptimize:rs",
@@ -3794,7 +3870,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fails on original"]
     fn ab_Greedy_McKWayVolOptimize_minconn() {
         ab_test_partition_test_graphs(
             "Greedy_McKWayVolOptimize:rs",
@@ -3825,13 +3900,19 @@ mod tests {
 
     #[test]
     fn ab_IsArticulationNode() {
-        ab_test_partition_test_graphs_filter("IsArticulationNode:rs", Optype::Kmetis, 30, 1, |tg, mut g| {
-            tg.is_contiguous().then(|| {
-                g.random_vwgt();
-                g.set_contig(true);
-                g
-            })
-        });
+        ab_test_partition_test_graphs_filter(
+            "IsArticulationNode:rs",
+            Optype::Kmetis,
+            30,
+            1,
+            |tg, mut g| {
+                tg.is_contiguous().then(|| {
+                    g.random_vwgt();
+                    g.set_contig(true);
+                    g
+                })
+            },
+        );
     }
 
     #[test]

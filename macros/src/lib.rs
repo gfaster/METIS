@@ -2,25 +2,205 @@
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::format_ident;
-use syn::{ItemFn, Token};
+use quote::{format_ident, ToTokens};
+use syn::{punctuated::Punctuated, spanned::Spanned, ItemFn, Signature, Token};
 
-#[proc_macro_attribute]
-pub fn metis_func(input: TokenStream, annotated_item: TokenStream) -> TokenStream {
-    let item_fn = syn::parse_macro_input!(annotated_item as ItemFn);
-    let mut pfx = "libmetis__";
-    if !input.is_empty() {
-        let directive = syn::parse_macro_input!(input as Ident);
-        let directive_text = directive.to_string();
-        if directive_text != "no_pfx" {
-            panic!("unknown directive {directive_text} (try \"no_pfx\")");
-        }
-        pfx = "";
-    }
-    metis_func_normal(item_fn, pfx)
+struct ErrorCollector {
+    inner: TokenStream,
 }
 
-fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
+impl ErrorCollector {
+    #[cold]
+    fn push_error(&mut self, err: syn::Error) {
+        self.inner.extend(TokenStream::from(err.to_compile_error()));
+    }
+
+    #[cold]
+    fn push<T: std::fmt::Display>(&mut self, span: Span, msg: T) {
+        self.push_error(syn::Error::new(span, msg));
+    }
+
+    fn push_res(&mut self, res: Result<(), syn::Error>) {
+        if let Err(e) = res {
+            self.push_error(e);
+        }
+    }
+
+    fn finish(mut self, rem: impl Into<TokenStream>) -> TokenStream {
+        if self.inner.is_empty() {
+            return rem.into()
+        }
+
+        self.inner.extend(rem.into());
+
+        self.inner
+    }
+}
+
+/// Function that is implemented in both C and Rust
+///
+/// Accepted arguments are:
+///
+/// ### `no_pfx`
+/// exported name is not prefixed with `libmetis__`. This is used for unmangled names, i.e. api
+/// names that start with `METIS_`.
+///
+/// ### `no_c`
+/// Never use the C implementation. If it doesn't exist or exists and is ifunc'd, then it will
+/// always call the Rust version. Does nothing if the C impl exists but is not ifunc'd. 
+///
+/// The C prototype of course must exist if it is to be called by C code. Remember to add the entry
+/// in `rename.h` as well
+#[proc_macro_attribute]
+pub fn metis_func(input: TokenStream, annotated_item: TokenStream) -> TokenStream {
+    let mut pfx = "libmetis__";
+    let mut no_c = false;
+    let mut errors = ErrorCollector { inner: TokenStream::new() };
+    if !input.is_empty() {
+        let directives = syn::parse_macro_input!(input with Punctuated<Ident, Token![,]>::parse_terminated);
+
+        for directive in directives {
+            let text = directive.to_string();
+            match &*text {
+                "no_pfx" => pfx = "",
+                "no_c" => no_c = true,
+                _ => {
+                    errors.push_error(
+                    syn::Error::new(directive.span(),
+                        format!("unknown directive `{text}` (valid directives: `no_pfx` or `no_c`)"))
+                    );
+                }
+            }
+        }
+    }
+
+    if !errors.inner.is_empty() {
+        return errors.finish(annotated_item)
+    }
+
+    let item_fn = syn::parse_macro_input!(annotated_item as ItemFn);
+
+    if no_c {
+        metis_func_no_c_impl(item_fn, pfx, errors)
+    } else {
+        metis_func_normal(item_fn, pfx, errors)
+    }
+}
+
+fn ensure_extern_c(sig: &Signature, msg: &'static str) -> Result<(), syn::Error> {
+    let Some(abi) = sig.abi.as_ref() else {
+        return Err(syn::Error::new(sig.span(), msg))
+    };
+    let Some(lit) = abi.name.as_ref() else {
+        return Err(syn::Error::new(sig.span(), msg))
+    };
+    if lit.value() != "C" {
+        return Err(syn::Error::new(sig.span(), msg))
+    }
+    Ok(())
+}
+
+fn ensure_unsafe(sig: &Signature, msg: &'static str) -> Result<(), syn::Error> {
+    let Some(_unsafety) = sig.unsafety.as_ref() else {
+        return Err(syn::Error::new(sig.span(), msg))
+    };
+    Ok(())
+}
+
+fn metis_func_no_c_impl(impl_fn: ItemFn, pfx: &str, mut errors: ErrorCollector) -> TokenStream {
+    errors.push_res(ensure_extern_c(&impl_fn.sig, "no_c metis_func must be `extern \"C\"`"));
+    errors.push_res(ensure_unsafe(&impl_fn.sig, "metis_func must be `unsafe`"));
+    let export_name = format!("{pfx}{}", impl_fn.sig.ident);
+    // let resolve_name_exported = format_ident!("resolve_{fn_name}");
+    let dispatch_fn_ptr = fn_pointer_of_sig(&impl_fn.sig, &mut errors);
+    let impl_ident = &impl_fn.sig.ident;
+    let resolve_name_exported = format_ident!("resolve_{fn_name}", fn_name = impl_fn.sig.ident);
+
+
+    let res = quote::quote! {
+        #[export_name = #export_name]
+        #[allow(dead_code, non_snake_case)]
+        #impl_fn
+
+        #[doc(hidden)]
+        #[no_mangle]
+        pub extern "C" fn #resolve_name_exported() -> #dispatch_fn_ptr {
+            #impl_ident
+        }
+    };
+    errors.finish(res)
+}
+
+fn dispatch_sig(base_sig: &Signature) -> Signature {
+    let mut dispatch_sig = base_sig.clone();
+    dispatch_sig.ident = base_sig.ident.clone();
+    dispatch_sig.unsafety = Some(Token!(unsafe)(Span::call_site()));
+    // always need extern C because in tests, dispatch is what the ifunc resolves to
+    dispatch_sig.abi = Some(syn::Abi {
+        extern_token: Token![extern](Span::call_site()),
+        name: Some(syn::LitStr::new("C", Span::call_site())),
+    });
+    dispatch_sig
+}
+
+fn fn_pointer_of_sig(sig: &Signature, errors: &mut ErrorCollector) -> proc_macro2::TokenStream {
+    if !sig.generics.params.is_empty() {
+        for ty in sig.generics.type_params() {
+            errors.push_error(syn::Error::new(ty.span(), "cannot create function pointer out of function with type params"));
+        }
+        for cnst in sig.generics.const_params() {
+            errors.push_error(syn::Error::new(cnst.span(), "cannot create function pointer out of function with const params"));
+        }
+        for lt in sig.generics.lifetimes() {
+            errors.push_error(syn::Error::new(lt.span(), "cannot create function pointer out of function with explicit lifetime params"));
+        }
+    }
+    if let Some(var) = &sig.variadic {
+        errors.push_error(syn::Error::new(var.span(), "cannot create function pointer out of variadic function"));
+    }
+
+    let mut bare_arg = |arg: &syn::FnArg| {
+        match arg {
+            syn::FnArg::Receiver(receiver) => {
+                errors.push(receiver.span(), "function pointer cannot have reciever");
+                syn::BareFnArg {
+                    attrs: receiver.attrs.clone(),
+                    name: None,
+                    ty: (*receiver.ty).clone(),
+                }
+            },
+            syn::FnArg::Typed(pat_type) => {
+                syn::BareFnArg {
+                    attrs: pat_type.attrs.clone(),
+                    name: None,
+                    ty: (*pat_type.ty).clone(),
+                }
+            },
+        }
+    };
+
+    let inputs = sig.inputs.pairs().map(|p| match p {
+        syn::punctuated::Pair::Punctuated(arg, comma) => {
+            syn::punctuated::Pair::Punctuated(bare_arg(arg), comma.clone())
+        },
+        syn::punctuated::Pair::End(arg) => {
+            syn::punctuated::Pair::End(bare_arg(arg))
+        },
+    }).collect();
+
+    syn::TypeBareFn {
+        lifetimes: None,
+        unsafety: sig.unsafety.clone(),
+        abi: sig.abi.clone(),
+        fn_token: sig.fn_token,
+        paren_token: sig.paren_token,
+        inputs,
+        variadic: None,
+        output: sig.output.clone(),
+    }.into_token_stream()
+}
+
+fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str, mut errors: ErrorCollector) -> TokenStream {
     let fn_name = &impl_fn.sig.ident;
     let attrs = impl_fn.attrs.clone();
 
@@ -40,15 +220,7 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
     let rs_link_func = format!("rs__{pfx}{}", fn_name);
     let dispatch_lib_ident = format_ident!("__LIBRARY_DISPATCH_{fn_name}");
 
-    let mut dispatch_sig = impl_fn.sig.clone();
-    dispatch_sig.ident = format_ident!("{fn_name}");
-    dispatch_sig.ident.set_span(fn_name.span());
-    dispatch_sig.unsafety = Some(Token!(unsafe)(Span::call_site()));
-    // always need extern C because in tests, dispatch is what the ifunc resolves to
-    dispatch_sig.abi = Some(syn::Abi {
-        extern_token: Token![extern](Span::call_site()),
-        name: Some(syn::LitStr::new("C", Span::call_site())),
-    });
+    let dispatch_sig = dispatch_sig(&impl_fn.sig);
     let dispatch_sig_ident = &dispatch_sig.ident;
     let dispatch_vis = impl_fn.vis.clone();
     let mut dispatch_rs_call = format_ident!("{rs_link_func}");
@@ -61,6 +233,8 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
         proc_macro2::Literal::c_string(sym)
     };
 
+    let dispatch_fn_ptr = fn_pointer_of_sig(&dispatch_sig, &mut errors);
+
     let dispatch_args_decl: Vec<_> = impl_fn
         .sig
         .inputs
@@ -72,27 +246,14 @@ fn metis_func_normal(mut impl_fn: ItemFn, pfx: &str) -> TokenStream {
         .cloned()
         .collect();
 
-    let dispatch_args = impl_fn.sig.inputs.clone();
-
     // let underscore = Token![_](proc_macro2::Span::call_site());
     // let underscores = vec![underscore; dispatch_args_decl.len()];
-    let mut dispatch_return = impl_fn.sig.output.clone();
-    if matches!(dispatch_return, syn::ReturnType::Default) {
-        dispatch_return = syn::ReturnType::Type(
-            Token![->](Span::call_site()),
-            syn::Type::Tuple(syn::TypeTuple {
-                paren_token: syn::token::Paren::default(),
-                elems: syn::punctuated::Punctuated::new(),
-            })
-            .into(),
-        )
-    }
     // let dispatch_args_decl = quote::quote! { #(#dispatch_args_decl),* };
 
-    let dispatch_fn_ptr = quote::quote! {
-        // fn () -> ()
-        unsafe extern "C" fn(#dispatch_args) #dispatch_return
-    };
+    // let dispatch_fn_ptr = quote::quote! {
+    //     // fn () -> ()
+    //     unsafe extern "C" fn(#dispatch_args) #dispatch_return
+    // };
 
     // We do resolve functions so that we can link to them from the original source
     let resolve_name = format_ident!("resolve_static_{fn_name}");

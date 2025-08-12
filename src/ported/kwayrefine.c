@@ -29,6 +29,8 @@ void c__libmetis__RefineKWay( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
   /* Compute the parameters of the coarsest graph */
   ComputeKWayPartitionParams(ctrl, graph);
 
+  ASSERT(CheckRInfoExtendedFull(ctrl, graph));
+
   /* Try to minimize the sub-domain connectivity */
   if (ctrl->minconn) 
     EliminateSubDomainEdges(ctrl, graph);
@@ -48,6 +50,8 @@ void c__libmetis__RefineKWay( ctrl_t *ctrl, graph_t *orggraph, graph_t *graph)
 
   /* Refine each successively finer graph */
   for (i=0; ;i++) {
+    ASSERT(CheckRInfoExtendedFull(ctrl, graph));
+
     if (ctrl->minconn && i == nlevels/2) 
       EliminateSubDomainEdges(ctrl, graph);
 
@@ -242,6 +246,8 @@ void c__libmetis__ComputeKWayPartitionParams( ctrl_t *ctrl, graph_t *graph)
           else {
             myrinfo->inbr = -1;
           }
+
+          ASSERT(CheckRInfoExtended(ctrl, graph, i));
         }
 
         graph->mincut = mincut/2;

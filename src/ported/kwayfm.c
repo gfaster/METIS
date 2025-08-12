@@ -1570,7 +1570,7 @@ void KWayVolUpdate(ctrl_t *ctrl, graph_t *graph, idx_t v, idx_t from,
    *=====================================================================*/
   if (myidx == -1) {
     myidx = myrinfo->nnbrs++;
-    ASSERT(myidx < xadj[v+1]-xadj[v]);
+    ASSERT(myidx <= xadj[v+1]-xadj[v]);
     mynbrs[myidx].ned = 0;
   }
   myrinfo->ned += myrinfo->nid-mynbrs[myidx].ned;

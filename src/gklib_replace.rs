@@ -40,5 +40,5 @@ pub unsafe extern "C" fn libmetis__ikvsortd(n: usize, ikv: *mut ikv_t) {
 }
 
 pub fn ikvsortd(ikv: &mut [ikv_t]) {
-    ikv.sort_unstable_by_key(|kv| kv.key);
+    ikv.sort_unstable_by_key(|kv| std::cmp::Reverse(kv.key));
 }

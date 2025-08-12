@@ -121,7 +121,8 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, PrintTimers(ctrl));
 
     /* clean up */
-    options::FreeCtrl(&mut (ctrl as *mut ctrl_t));
+    let mut ctrl: *mut ctrl_t = ctrl;
+    options::FreeCtrl(&mut ctrl);
     gk_malloc_cleanup(0);
 
     util::metis_rcode(sigrval)
@@ -166,7 +167,7 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
 
         /* Re-allocate the work space */
         AllocateWorkSpace(ctrl, graph);
-        AllocateRefinementWorkSpace(ctrl, graph.nedges, 2 * cgraph.nedges);
+        AllocateRefinementWorkSpace(ctrl, graph.nedges + graph.nvtxs, 2 * cgraph.nedges);
 
         // ifset!(
         //     ctrl.dbglvl,

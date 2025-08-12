@@ -66,6 +66,9 @@
 #define CheckBnd2			libmetis__CheckBnd2
 #define CheckNodeBnd			libmetis__CheckNodeBnd
 #define CheckRInfo			libmetis__CheckRInfo
+#define CheckRInfoExtended		libmetis__CheckRInfoExtended
+#define CheckRInfoExtendedFull		libmetis__CheckRInfoExtendedFull
+#define PrintRInfoVol			libmetis__PrintRInfoVol
 #define CheckNodePartitionParams	libmetis__CheckNodePartitionParams
 #define IsSeparable			libmetis__IsSeparable
 #define CheckKWayVolPartitionParams     libmetis__CheckKWayVolPartitionParams

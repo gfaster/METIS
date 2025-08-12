@@ -12,13 +12,6 @@ use std::ptr::NonNull;
 
 use crate::*;
 
-#[derive(Clone, Copy)]
-#[allow(non_camel_case_types)]
-struct ikv_t {
-    key: idx_t,
-    val: idx_t,
-}
-
 /// The original is a gklib routine. Since it's only used here, I'm not putting it in utils.
 ///
 /// I think I may be able to make this an associated function with DAL
@@ -113,7 +106,7 @@ pub extern "C" fn ComputeSubDomainGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) 
                 let rinfo = get_graph_slice!(graph => vkrinfo);
                 for ii in (pptr[pid as usize])..(pptr[(pid + 1) as usize]) {
                     let i = pind[ii as usize];
-                    assert!(pid as idx_t == where_[i as usize]);
+                    debug_assert_eq!(pid as idx_t, where_[i as usize]);
 
                     if rinfo[i as usize].ned > 0 {
                         let nnbrs = rinfo[i as usize].nnbrs as usize;
@@ -334,7 +327,8 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
 
     let mut cpwgt: Vec<idx_t> = vec![0; ncon];
     let mut maxpwgt: Vec<idx_t> = vec![0; nparts * ncon];
-    let mut ind: Vec<idx_t> = vec![0; nvtxs];
+    // let mut ind: Vec<idx_t> = vec![0; nvtxs];
+    let mut ind: Vec<idx_t> = Vec::with_capacity(nvtxs);
     let mut otherpmat: Vec<idx_t> = vec![0; nparts];
 
     // cand  = ikvwspacemalloc(ctrl, nparts);
@@ -392,14 +386,14 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
     loop {
         let total: idx_t = nads.iter().sum();
         let avg = total / (nparts as idx_t);
-        let max = nads[util::iargmax(nads, 1)];
+        // let max = nads[util::iargmax(nads, 1)];
+        let max = nads.iter().copied().max().unwrap();
 
         ifset!(
             ctrl.dbglvl,
             METIS_DBG_CONNINFO,
-            print!(
-                "Adjacent Subdomain Stats: Total: {:3}, \
-        Max: {:3}[{}], Avg: {:3}\n",
+            println!(
+                "Adjacent Subdomain Stats: Total: {:3}, Max: {:3}[{}], Avg: {:3}",
                 total,
                 max,
                 util::iargmax(nads, 1),
@@ -407,7 +401,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
             )
         );
 
-        if max < (badfactor * (avg as real_t)) as idx_t {
+        if (max as real_t) < (badfactor * avg as real_t) {
             break;
         }
 
@@ -469,10 +463,10 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
             These two schemes are applied in sequence. */
             let mut target = usize::MAX;
             let mut target2 = usize::MAX;
-            let mut nind = 0;
-            for scheme in (0)..(2) {
-                for min in (0)..(cand2.len()) {
-                    let other = cand2[min as usize].val as usize;
+            // let mut nind = 0;
+            for scheme in [0, 1] {
+                for min in 0..cand2.len() {
+                    let other = cand2[min].val as usize;
 
                     /* pid_from is the subdomain from where_ the vertices will be removed.
                     pid_to is the adjacent subdomain to pid_from that defines the
@@ -488,31 +482,33 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                     }
 
                     /* Go and find the vertices in 'other' that are connected in 'me' */
-                    nind = 0;
-                    for ii in (pptr[pid_from as usize])..(pptr[(pid_from + 1) as usize]) {
+                    // nind = 0;
+                    ind.clear();
+                    for ii in pptr[pid_from]..pptr[pid_from + 1] {
                         let i = pind[ii as usize] as usize;
-                        debug_assert_eq!(where_[i as usize], pid_from as idx_t);
-                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                        debug_assert_eq!(where_[i], pid_from as idx_t);
+                        for j in xadj[i]..xadj[i + 1] {
                             if where_[adjncy[j as usize] as usize] == pid_to as idx_t {
-                                ind[nind] = i as idx_t;
-                                nind += 1;
+                                ind.push(i as idx_t);
+                                // ind[nind] = i as idx_t;
+                                // nind += 1;
                                 break;
                             }
                         }
                     }
 
-                    /* Go and construct the otherpmat to see where_ these nind vertices are
+                    /* Go and construct the otherpmat to see where these nind vertices are
                     connected to */
                     // iset(ncon, 0, cpwgt);
                     cpwgt.fill(0);
                     cand.clear();
                     // ncand=0;
-                    for ii in (0)..(nind) {
-                        let i = ind[ii as usize] as usize;
+                    for &i in &ind {
+                        let i = i as usize;
                         // blas::iaxpy(ncon, 1, vwgt+i*ncon, 1, cpwgt, 1);
                         blas::iaxpy(ncon, 1, &vwgt[cntrng!(i * ncon, ncon)], 1, &mut cpwgt, 1);
 
-                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                        for j in xadj[i]..xadj[i + 1] {
                             let k = where_[adjncy[j as usize] as usize] as usize;
                             if k == pid_from {
                                 continue;
@@ -520,13 +516,13 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                             if otherpmat[k] == 0 {
                                 cand.push(ikv_t {
                                     val: k as idx_t,
-                                    key: 0,
+                                    key: -1,
                                 })
                                 // cand[(ncand) as usize].val = k;
                                 // ncand+=1;
                             }
                             // otherpmat[k as usize] += (adjwgt ? adjwgt[j as usize] : 1);
-                            otherpmat[k as usize] += adjwgt.map_or(1, |adjwgt| adjwgt[j as usize]);
+                            otherpmat[k] += adjwgt.map_or(1, |adjwgt| adjwgt[j as usize]);
                         }
                     }
 
@@ -541,46 +537,46 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                     ifset!(
                         ctrl.dbglvl,
                         METIS_DBG_CONNINFO,
-                        print!(
-                            "\tMinOut: {:4}, to: {:3}, TtlWgt: {:5}[#:{:}]\n",
+                        println!(
+                            "\tMinOut: {:4}, to: {:3}, TtlWgt: {:5}[#:{:}]",
                             mypmat[other as usize],
                             other,
                             cpwgt.iter().sum::<idx_t>(),
-                            nind
+                            ind.len()
                         )
                     );
 
                     /* Go through and select the first domain that is common with 'me', and does
-                    not increase the nads[target as usize] higher than nads[me], subject to the maxpwgt
+                    not increase the nads[target] higher than nads[me], subject to the maxpwgt
                     constraint. Traversal is done from the mostly connected to the least. */
-                    for i in (0)..(cand.len()) {
-                        let k = cand[i as usize].val as usize;
+                    for i in &cand {
+                        let k = i.val as usize;
 
-                        if mypmat[k as usize] > 0 {
+                        if mypmat[k] > 0 {
                             /* Check if balance will go off */
                             // if (!mcutil::ivecaxpylez(ncon, 1, cpwgt, pwgts+k*ncon, maxpwgt+k*ncon))
-                            if mcutil::ivecaxpylez(
-                                ncon as idx_t,
+                            if !util::ivecaxpylez(
                                 1,
-                                cpwgt.as_ptr(),
-                                pwgts[cntrng!(k * ncon, ncon)].as_ptr(),
-                                maxpwgt[cntrng!(k * ncon, ncon)].as_ptr(),
-                            ) == 0
-                            {
+                                &cpwgt,
+                                &pwgts[cntrng!(k * ncon, ncon)],
+                                &maxpwgt[cntrng!(k * ncon, ncon)],
+                            ) {
                                 continue;
                             }
 
                             /* get a dense vector out of k's connectivity */
-                            for j in (0)..(nads[k as usize]) {
-                                kpmat[*adids[k as usize].add(j as usize) as usize] =
-                                    *adwgts[k as usize].add(j as usize);
+                            for j in 0..nads[k] {
+                                let j = j as usize;
+                                mkslice!(adids_k: adids[k], nads[k]);
+                                mkslice!(adwgts_k: adwgts[k], nads[k]);
+                                kpmat[adids_k[j] as usize] = adwgts_k[j];
                             }
 
                             /* Check if the move to domain k will increase the nads of another
                             subdomain j that the set of vertices being moved are connected
                             to but domain k is not connected to. */
                             // for j in (0)..(nparts) {
-                            //   if (otherpmat[j as usize] > 0 && kpmat[j as usize] == 0 && nads[j as usize]+1 >= nads[me])  {
+                            //   if (otherpmat[j] > 0 && kpmat[j] == 0 && nads[j]+1 >= nads[me])  {
                             //     break;
                             //   }
                             // }
@@ -593,7 +589,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                             if !bad_effects {
                                 let mut nadd = 0;
                                 for j in (0)..(nparts) {
-                                    if otherpmat[j as usize] > 0 && kpmat[j as usize] == 0 {
+                                    if otherpmat[j] > 0 && kpmat[j] == 0 {
                                         nadd += 1;
                                     }
                                 }
@@ -609,10 +605,8 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
 
                                 if nads[k as usize] + nadd < nads[me] {
                                     if target2 == usize::MAX
-                                        || nads[target2 as usize] + bestnadd
-                                            > nads[k as usize] + nadd
-                                        || (nads[target2 as usize] + bestnadd
-                                            == nads[k as usize] + nadd
+                                        || nads[target2] + bestnadd > nads[k] + nadd
+                                        || (nads[target2] + bestnadd == nads[k] + nadd
                                             && bestnadd > nadd)
                                     {
                                         target2 = k;
@@ -626,7 +620,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                             }
 
                             /* reset kpmat for the next iteration */
-                            for j in (0)..(nads[k as usize]) {
+                            for j in (0)..(nads[k]) {
                                 mkslice!(adids_k: adids[k], nads[k]);
                                 kpmat[adids_k[j as usize] as usize] = 0;
                             }
@@ -675,14 +669,14 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                         ctrl,
                         graph,
                         target as idx_t,
-                        nind as idx_t,
+                        ind.len() as idx_t,
                         ind.as_mut_ptr(),
                     ),
                     METIS_OBJTYPE_VOL => MoveGroupMinConnForVol(
                         ctrl,
                         graph,
                         target as idx_t,
-                        nind as idx_t,
+                        ind.len() as idx_t,
                         ind.as_mut_ptr(),
                         vmarker.as_nullable_ptr_mut(),
                         pmarker.as_nullable_ptr_mut(),
@@ -735,41 +729,31 @@ pub extern "C" fn MoveGroupMinConnForCut(
     get_graph_slices!(graph => xadj adjncy adjwgt);
     get_graph_slices_mut!(graph => bndptr bndind where_);
 
-    let mut nbnd = graph.nbnd;
+    let mut nbnd: usize = graph.nbnd as usize;
     mkslice!(ind, nind);
-    for nind in (0..nind).rev() {
-        let i = ind[nind as usize] as usize;
-        let from = where_[i as usize] as usize;
+    for &i in ind.iter().rev() {
+        let i = i as usize;
+        let from = where_[i] as usize;
 
-        let myrinfo = &mut *graph.ckrinfo.add(i);
-        if myrinfo.inbr == -1 {
-            myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[(i + 1) as usize] - xadj[i as usize]);
-            myrinfo.nnbrs = 0;
-        }
-        let mynbrs = std::slice::from_raw_parts_mut(
-            ctrl.cnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize,
-        );
+        kwayfm::ensure_crinfo_init(ctrl, graph.ckrinfo, i, xadj);
+        let (myrinfo, mynbrs) = kwayfm::crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
-        let k = {
-            let mut found = false;
-            let mut k = 0;
-            for kk in (0)..(myrinfo.nnbrs) {
-                k = kk;
-                if mynbrs[k as usize].pid == to {
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                assert!(k < xadj[(i + 1) as usize] - xadj[i as usize]);
-                mynbrs[k as usize].pid = to;
-                mynbrs[k as usize].ed = 0;
-                myrinfo.nnbrs += 1;
-            }
+        let k = if let Some(k) = mynbrs.iter().position(|nbr| nbr.pid == to) {
+            k
+        } else {
+            let k = mynbrs.len();
+            myrinfo.nnbrs += 1;
+            // we may temporarily need an extra nbr
+            debug_assert!((k as idx_t) <= xadj[i + 1] - xadj[i]);
+
+            let (_myrinfo, mynbrs) = kwayfm::crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
+            mynbrs[k].pid = to;
+            mynbrs[k].ed = 0;
             k
         };
+        // re-construct mynbrs since we may have adjusted nnbrs
+        let (myrinfo, mynbrs) = kwayfm::crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
         /* Update pwgts */
         {
@@ -786,7 +770,7 @@ pub extern "C" fn MoveGroupMinConnForCut(
             );
             blas::iaxpy(
                 ncon,
-                1,
+                -1,
                 &vwgt[cntrng!(i * ncon, ncon)],
                 1,
                 &mut pwgts[cntrng!(from * ncon, ncon)],
@@ -795,51 +779,51 @@ pub extern "C" fn MoveGroupMinConnForCut(
         }
 
         /* Update mincut */
-        graph.mincut -= mynbrs[k as usize].ed - myrinfo.id;
+        graph.mincut -= mynbrs[k].ed - myrinfo.id;
 
         /* Update subdomain connectivity graph to reflect the move of 'i' */
         UpdateEdgeSubDomainGraph(
             ctrl,
             from as idx_t,
             to,
-            myrinfo.id - mynbrs[k as usize].ed,
+            myrinfo.id - mynbrs[k].ed,
             std::ptr::null_mut(),
         );
 
         /* Update ID/ED and BND related information for the moved vertex */
-        UpdateMovedVertexInfoAndBND!(
+        kwayfm::UpdateMovedVertexInfoAndBND(
             i,
-            from as idx_t,
+            from,
             k,
-            to,
+            to as usize,
             myrinfo,
             mynbrs,
             where_,
-            nbnd,
+            &mut nbnd,
             bndptr,
             bndind,
-            BNDTYPE_REFINE
+            BNDTYPE_REFINE,
         );
 
         /* Update the degrees of adjacent vertices */
-        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+        for j in xadj[i]..(xadj[i + 1]) {
             let ii = adjncy[j as usize] as usize;
-            let me = where_[ii as usize];
-            let myrinfo = &mut *graph.ckrinfo.add(ii as usize);
+            let me = where_[ii];
+            let orinfo = &mut *graph.ckrinfo.add(ii);
 
-            UpdateAdjacentVertexInfoAndBND!(
+            kwayfm::UpdateAdjacentVertexInfoAndBND(
                 ctrl,
                 ii,
-                xadj[(ii + 1) as usize] - xadj[ii as usize],
-                me,
-                from as idx_t,
-                to,
-                myrinfo,
+                xadj[ii + 1] - xadj[ii],
+                me as usize,
+                from,
+                to as usize,
+                orinfo,
                 adjwgt[j as usize],
-                nbnd,
+                &mut nbnd,
                 bndptr,
                 bndind,
-                BNDTYPE_REFINE
+                BNDTYPE_REFINE,
             );
 
             /* Update subdomain graph to reflect the move of 'i' for domains other
@@ -855,11 +839,14 @@ pub extern "C" fn MoveGroupMinConnForCut(
                 UpdateEdgeSubDomainGraph(ctrl, to, me, adjwgt[j as usize], std::ptr::null_mut());
             }
         }
+
+        // debug_assert!(debug::CheckRInfoExtended(ctrl, graph, i as idx_t) != 0);
+        debug_assert!(myrinfo.nnbrs <= xadj[i + 1] - xadj[i]);
     }
 
     debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
 
-    graph.nbnd = nbnd;
+    graph.nbnd = nbnd as idx_t;
 }
 
 /*************************************************************************/
@@ -925,26 +912,22 @@ pub extern "C" fn MoveGroupMinConnForVol(
         // control flow inverted from original
         if let Some(k) = mynbrs.iter().position(|nbr| nbr.pid == to) {
             // found the location of 'to' in myrinfo
-            graph.minvol -= xgain + mynbrs[k as usize].gv;
-            graph.mincut -= mynbrs[k as usize].ned - myrinfo.nid;
-            ewgt = myrinfo.nid - mynbrs[k as usize].ned;
+            graph.minvol -= xgain + mynbrs[k].gv;
+            graph.mincut -= mynbrs[k].ned - myrinfo.nid;
+            ewgt = myrinfo.nid - mynbrs[k].ned;
         } else {
             // no 'to' in myrinfo, so we'll create it
             //print!("Missing neighbor\n");
 
-            if myrinfo.nid > 0 {
-                xgain -= vsize[i as usize];
-            }
+            // if myrinfo.nid > 0 {
+            xgain -= vsize[i as usize];
+            // }
 
             /* determine the volume gain resulting from that move */
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
                 let ii = adjncy[j as usize] as usize;
                 let other = where_[ii as usize] as usize;
-                let orinfo = &mut *graph.vkrinfo.add(ii);
-                let onbrs = std::slice::from_raw_parts(
-                    ctrl.vnbrpool.add(orinfo.inbr as usize),
-                    orinfo.nnbrs as usize,
-                );
+                let (_orinfo, onbrs) = kwayfm::vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
                 debug_assert!(other != to as usize);
 
                 //print!("  %8d %8d %3d\n", (int)ii, (int)vsize[ii as usize], (int)other);
@@ -959,7 +942,7 @@ pub extern "C" fn MoveGroupMinConnForVol(
                     // if (l == orinfo.nnbrs)  {
                     //   xgain -= vsize[ii as usize];
                     // }
-                    if !onbrs.iter().any(|o| o.pid == to) {
+                    if onbrs.iter().all(|o| o.pid != to) {
                         xgain -= vsize[ii as usize];
                     }
                 } else {
@@ -973,7 +956,7 @@ pub extern "C" fn MoveGroupMinConnForVol(
                     //   xgain -= vsize[ii as usize];
                     // }
                     // TODO: should this really be subtraction?? That contradicts the comment
-                    if !onbrs.iter().any(|o| o.pid == to) {
+                    if onbrs.iter().all(|o| o.pid != to) {
                         xgain -= vsize[ii as usize];
                     }
 
@@ -1055,7 +1038,10 @@ pub extern "C" fn MoveGroupMinConnForVol(
 
         /*CheckKWayVolPartitionParams(ctrl, graph);*/
     }
-    debug_assert_eq!(debug::ComputeCut(graph, where_.as_ptr()), graph.mincut);
+    debug_assert_eq!(
+        debug::ComputeCutUnweighted(graph, where_.as_ptr()),
+        graph.mincut
+    );
     debug_assert_eq!(debug::ComputeVolume(graph, where_.as_ptr()), graph.minvol);
 }
 
@@ -1126,12 +1112,11 @@ mod tests {
     use crate::tests::{TestGraph, ab_test_partition_test_graphs};
 
     #[test]
-    #[ignore = "Bug in original"]
-    fn ab_ComputeSubDomainGraph() {
+    fn ab_ComputeSubDomainGraph_cut() {
         ab_test_partition_test_graphs(
             "ComputeSubDomainGraph:rs",
             Optype::Kmetis,
-            200,
+            20,
             1,
             |mut g| {
                 g.set_minconn(true);
@@ -1143,12 +1128,27 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Bug in original"]
+    fn ab_ComputeSubDomainGraph_vol() {
+        ab_test_partition_test_graphs(
+            "ComputeSubDomainGraph:rs",
+            Optype::Kmetis,
+            20,
+            1,
+            |mut g| {
+                g.set_minconn(true);
+                g.random_vsize();
+                g.random_tpwgts();
+                g
+            },
+        );
+    }
+
+    #[test]
     fn ab_UpdateEdgeSubDomainGraph() {
         ab_test_partition_test_graphs(
             "UpdateEdgeSubDomainGraph:rs",
             Optype::Kmetis,
-            200,
+            20,
             1,
             |mut g| {
                 g.set_minconn(true);
@@ -1160,12 +1160,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Bug in original"]
     fn ab_EliminateSubDomainEdges_cut() {
         ab_test_partition_test_graphs(
             "EliminateSubDomainEdges:rs",
             Optype::Kmetis,
-            200,
+            20,
             1,
             |mut g| {
                 g.set_minconn(true);
@@ -1178,17 +1177,16 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Bug in original"]
-    fn ab_EliminateSubDomainEdges_vol() {
+    fn ab_EliminateSubDomainEdges_vol_1() {
         ab_test_partition_test_graphs(
             "EliminateSubDomainEdges:rs",
             Optype::Kmetis,
-            200,
+            80,
             1,
             |mut g| {
                 g.set_minconn(true);
                 g.set_objective(Objtype::Vol);
-                g.random_adjwgt();
+                g.random_vsize();
                 g.random_tpwgts();
                 g
             },
@@ -1196,12 +1194,30 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Likely bug in original (but also probably broken Rust impl)"]
+    fn ab_EliminateSubDomainEdges_vol_2() {
+        // had some different failures at nparts=20
+        ab_test_partition_test_graphs(
+            "EliminateSubDomainEdges:rs",
+            Optype::Kmetis,
+            20,
+            1,
+            |mut g| {
+                g.set_minconn(true);
+                g.set_objective(Objtype::Vol);
+                g.random_vsize();
+                g.random_tpwgts();
+                // g.enable_dbg(DbgLvl::ConnInfo);
+                g
+            },
+        );
+    }
+
+    #[test]
     fn ab_MoveGroupMinConnForCut() {
         ab_test_partition_test_graphs(
             "MoveGroupMinConnForCut:rs",
             Optype::Kmetis,
-            200,
+            80, // need a decently large npart
             1,
             |mut g| {
                 g.set_minconn(true);
@@ -1214,17 +1230,16 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Bug in original"]
     fn ab_MoveGroupMinConnForVol() {
         ab_test_partition_test_graphs(
             "MoveGroupMinConnForVol:rs",
             Optype::Kmetis,
-            23,
+            80,
             1,
             |mut g| {
                 g.set_minconn(true);
                 g.set_objective(Objtype::Vol);
-                g.random_adjwgt();
+                g.random_vsize();
                 g.random_tpwgts();
                 g
             },

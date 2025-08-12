@@ -88,6 +88,9 @@ void FreeWorkSpace(ctrl_t *ctrl)
              ctrl->nbrpoolsize,  ctrl->nbrpoolcpos, 
              ctrl->nbrpoolreallocs));
 
+  if (ctrl->cnbrpool == (cnbr_t *)ctrl->vnbrpool) {
+    ctrl->vnbrpool = NULL;
+  }
   gk_free((void **)&ctrl->cnbrpool, &ctrl->vnbrpool, LTERM);
   ctrl->nbrpoolsize_max = 0;
   ctrl->nbrpoolsize     = 0;
@@ -172,7 +175,9 @@ void cnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 idx_t cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
-  nnbrs = gk_min(ctrl->nparts, nnbrs);
+  /* add 1 because when moving vertices, an extra neighbor can be temporaily
+   * needed (particularly when minconn is set) */
+  nnbrs = gk_min(ctrl->nparts, nnbrs) + 1;
   ctrl->nbrpoolcpos += nnbrs;
 
   if (ctrl->nbrpoolcpos > ctrl->nbrpoolsize) {
@@ -182,6 +187,8 @@ idx_t cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
     ctrl->cnbrpool = (cnbr_t *)gk_realloc(ctrl->cnbrpool,  
                           ctrl->nbrpoolsize*sizeof(cnbr_t), "cnbrpoolGet: cnbrpool");
     ctrl->nbrpoolreallocs++;
+
+    ASSERT(ctrl->nbrpoolcpos <= ctrl->nbrpoolsize);
   }
 
   return ctrl->nbrpoolcpos - nnbrs;
@@ -202,7 +209,9 @@ void vnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 idx_t vnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
-  nnbrs = gk_min(ctrl->nparts, nnbrs);
+  /* add 1 because when moving vertices, an extra neighbor can be temporaily
+   * needed (particularly when minconn is set) */
+  nnbrs = gk_min(ctrl->nparts, nnbrs) + 1;
   ctrl->nbrpoolcpos += nnbrs;
 
   if (ctrl->nbrpoolcpos > ctrl->nbrpoolsize) {
@@ -212,6 +221,8 @@ idx_t vnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
     ctrl->vnbrpool = (vnbr_t *)gk_realloc(ctrl->vnbrpool,  
                           ctrl->nbrpoolsize*sizeof(vnbr_t), "vnbrpoolGet: vnbrpool");
     ctrl->nbrpoolreallocs++;
+
+    ASSERT(ctrl->nbrpoolcpos <= ctrl->nbrpoolsize);
   }
 
   return ctrl->nbrpoolcpos - nnbrs;

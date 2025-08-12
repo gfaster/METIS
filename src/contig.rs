@@ -806,15 +806,15 @@ pub extern "C" fn MoveGroupContigForCut(
                 1,
             );
         }
-        UpdateMovedVertexInfoAndBND!(
+        kwayfm::UpdateMovedVertexInfoAndBND(
             i,
-            from,
+            from as usize,
             k,
-            to,
+            to as usize,
             myrinfo,
             mynbrs,
             where_,
-            nbnd,
+            &mut nbnd,
             bndptr,
             bndind,
             BNDTYPE_REFINE
@@ -827,16 +827,16 @@ pub extern "C" fn MoveGroupContigForCut(
             let me = where_[ii];
             let (myrinfo, _mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, ii);
 
-            UpdateAdjacentVertexInfoAndBND!(
+            kwayfm::UpdateAdjacentVertexInfoAndBND(
                 ctrl,
                 ii,
                 xadj[ii + 1] - xadj[ii],
-                me,
-                from,
-                to,
+                me as usize,
+                from as usize,
+                to as usize,
                 myrinfo,
                 adjwgt[j],
-                nbnd,
+                &mut nbnd,
                 bndptr,
                 bndind,
                 BNDTYPE_REFINE

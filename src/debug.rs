@@ -71,28 +71,25 @@ pub extern "C" fn ComputeCutUnweighted(graph: *const graph_t, where_: *const idx
 #[metis_func]
 pub extern "C" fn ComputeVolume(graph: *const graph_t, where_: *const idx_t) -> idx_t {
     let graph = graph.as_ref().unwrap();
-    // idx_t i, j, k, me, nvtxs, nparts, totalv;
-    // idx_t *xadj, *adjncy, *vsize, *marker;
 
     let nvtxs = graph.nvtxs as usize;
     get_graph_slices!(graph => xadj adjncy);
     get_graph_slices_optional!(graph => vsize);
     mkslice!(where_, nvtxs);
 
-    let nparts = where_[(util::iargmax(where_, 1)) as usize] as usize + 1;
-    // marker = ismalloc(nparts, -1, "ComputeVolume: marker");
+    let nparts = where_.iter().copied().max().unwrap_or_default() as usize + 1;
     let mut marker: Vec<idx_t> = vec![-1; nparts];
 
     let mut totalv = 0;
 
-    for i in (0)..(nvtxs) {
-        marker[where_[i as usize] as usize] = i as idx_t;
-        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+    for i in 0..nvtxs {
+        marker[where_[i] as usize] = i as idx_t;
+        for j in xadj[i]..xadj[i + 1] {
             let k = where_[adjncy[j as usize] as usize] as usize;
-            if marker[k as usize] != i as idx_t {
-                marker[k as usize] = i as idx_t;
+            if marker[k] != i as idx_t {
+                marker[k] = i as idx_t;
                 totalv += if let Some(vsize) = vsize {
-                    vsize[i as usize]
+                    vsize[i]
                 } else {
                     1
                 };
@@ -188,8 +185,8 @@ pub extern "C" fn CheckRInfo(ctrl: *const ctrl_t, rinfo: *const ckrinfo_t) -> id
 
     for i in (0)..(rinfo.nnbrs) {
         for j in (i + 1)..(rinfo.nnbrs) {
-            assert!(
-                nbrs[i as usize].pid != nbrs[j as usize].pid,
+            assert_ne!(
+                nbrs[i as usize].pid, nbrs[j as usize].pid,
                 "{:} {:} {:} {:}",
                 i,
                 j,
@@ -200,6 +197,83 @@ pub extern "C" fn CheckRInfo(ctrl: *const ctrl_t, rinfo: *const ckrinfo_t) -> id
     }
 
     return 1;
+}
+
+#[metis_func(no_c)]
+pub unsafe extern "C" fn CheckRInfoExtendedFull(ctrl: &ctrl_t, graph: &graph_t) -> idx_t {
+    for i in 0..graph.nvtxs {
+        CheckRInfoExtended(ctrl, graph, i);
+    }
+    1
+}
+
+/// asserts rinfo of a vertex is consistent and that is correct
+#[metis_func(no_c)]
+pub unsafe extern "C" fn CheckRInfoExtended(ctrl: &ctrl_t, graph: &graph_t, vtx: idx_t) -> idx_t {
+    let vtx = vtx as usize;
+    if ctrl.cnbrpool.is_null() || graph.ckrinfo.is_null() {
+        return 1
+    }
+    let (myrinfo, mynbrs) = kwayfm::crinfos(graph.ckrinfo, ctrl.cnbrpool, vtx);
+    CheckRInfo(ctrl, myrinfo);
+    get_graph_slices!(graph => xadj adjncy where_);
+
+
+    let mut actual_eds = vec![0; ctrl.nparts as usize];
+    let this_pid = where_[vtx];
+    // eprintln!("checking vtx {vtx} in pid {this_pid}");
+
+    // check that ed and id in myrinfo is correct, and compute actual ed for each neighboring
+    // partition
+    let mut id = 0;
+    let mut ed = 0;
+    let mut actual_nnbrs = 0;
+    if ctrl.objtype == METIS_OBJTYPE_CUT {
+        get_graph_slices!(graph => adjwgt);
+        for i in xadj[vtx]..xadj[vtx + 1] {
+            let i = i as usize;
+            let other = adjncy[i] as usize;
+            if where_[other] == this_pid {
+                id += adjwgt[i];
+            } else {
+                if actual_eds[where_[other] as usize] == 0 {
+                    actual_nnbrs += 1;
+                }
+                actual_eds[where_[other] as usize] += adjwgt[i];
+                ed += adjwgt[i];
+            }
+        }
+    } else {
+        for i in xadj[vtx]..xadj[vtx + 1] {
+            let i = i as usize;
+            let other = adjncy[i] as usize;
+            if where_[other] == this_pid {
+                id += 1;
+            } else {
+                if actual_eds[where_[other] as usize] == 0 {
+                    actual_nnbrs += 1;
+                }
+                actual_eds[where_[other] as usize] += 1;
+                ed += 1;
+            }
+        }
+    }
+
+    assert!(id == myrinfo.id, "internal degree of vtx {vtx} does not match: {id} != {}", myrinfo.id);
+    assert!(ed == myrinfo.ed, "external degree of vtx {vtx} does not match: {ed} != {}", myrinfo.ed);
+    assert_eq!(ed, myrinfo.ed);
+
+    for nbr in mynbrs {
+        let actual_ed = actual_eds[nbr.pid as usize];
+        assert_ne!(actual_ed, 0, "rinfo should not contain {}", nbr.pid);
+        assert_eq!(actual_ed, nbr.ed);
+    }
+
+    assert!(myrinfo.nnbrs <= xadj[vtx+1]-xadj[vtx]);
+    assert_eq!(myrinfo.nnbrs, actual_nnbrs as idx_t);
+    assert_eq!(mynbrs.len(), actual_nnbrs);
+
+    1
 }
 
 /// Checks the correctness of the NodeFM data structures
@@ -305,166 +379,105 @@ pub extern "C" fn IsSeparable(graph: *mut graph_t) -> idx_t {
     return 1;
 }
 
-/// (*unused*) Recomputes the `vrinfo` fields and checks them against those in the `graph.vrinfo` structure
-#[metis_func]
-pub extern "C" fn CheckKWayVolPartitionParams(ctrl: *mut ctrl_t, graph: *mut graph_t) {
-    let graph = graph.as_mut().unwrap();
-    let ctrl = ctrl.as_mut().unwrap();
-    // idx_t i, ii, j, k, kk, l, nvtxs, nbnd, mincut, minvol, me, other, pid;
-    // idx_t *xadj, *vsize, *adjncy, *pwgts, *where_, *bndind, *bndptr;
-    // vkrinfo_t *rinfo, *myrinfo, *orinfo, tmprinfo;
-    // vnbr_t *mynbrs, *onbrs, *tmpnbrs;
-
-    // WCOREPUSH;
+/// (*only used for debug*) Recomputes the `vrinfo` fields and checks them against those in the
+/// `graph.vrinfo` structure
+#[metis_func(no_c)]
+pub unsafe extern "C" fn CheckKWayVolPartitionParams(ctrl: *const ctrl_t, graph: *const graph_t) {
+    let graph = graph.as_ref().unwrap();
+    let ctrl = ctrl.as_ref().unwrap();
 
     let nvtxs = graph.nvtxs as usize;
-    get_graph_slices!(graph => xadj vsize adjncy where_ vkrinfo);
-    let rinfo = vkrinfo;
-    // xadj   = graph.xadj;
-    // vsize  = graph.vsize;
-    // adjncy = graph.adjncy;
-    // where_  = graph.where_;
-    // rinfo  = graph.vkrinfo;
+    get_graph_slices!(graph => xadj vsize adjncy where_);
 
-    // tmpnbrs = (vnbr_t *)wspacemalloc(ctrl, ctrl.nparts*std::mem::size_of::<vnbr_t>());
-    let mut tmpnbrs: Vec<vnbr_t> =
-        Vec::from_iter(std::iter::repeat(vnbr_t::default()).take(ctrl.nparts as usize));
+    let mut tmpnbrs: Vec<vnbr_t> = vec![vnbr_t::default(); ctrl.nparts as usize];
 
     /*------------------------------------------------------------
     / Compute now the iv/ev degrees
     /------------------------------------------------------------*/
+    let mut errors = 0;
     for i in (0)..(nvtxs) {
         let me = where_[i as usize];
 
-        let myrinfo = &rinfo[i];
-        // let mynbrs  = ctrl.vnbrpool + myrinfo.inbr;
-        let mynbrs = std::slice::from_raw_parts(
-            ctrl.vnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize,
-        );
+        let (_myrinfo, mynbrs) = kwayfm::vrinfos(graph.vkrinfo, ctrl.vnbrpool, i);
 
-        for k in (0)..(myrinfo.nnbrs) {
-            tmpnbrs[k as usize] = mynbrs[k as usize].clone();
-        }
+        tmpnbrs[..mynbrs.len()].clone_from_slice(mynbrs);
 
         // tmprinfo.nnbrs = myrinfo.nnbrs;
         // tmprinfo.nid    = myrinfo.nid;
         // tmprinfo.ned    = myrinfo.ned;
-        let tmprinfo = vkrinfo_t {
-            gv: 0,
-            inbr: 0,
-            ..myrinfo.clone()
-        };
+        // let tmprinfo = vkrinfo_t {
+        //     gv: 0,
+        //     inbr: 0,
+        //     ..myrinfo.clone()
+        // };
 
-        let myrinfo = &tmprinfo;
-        let mynbrs = &mut tmpnbrs;
+        let mynbrs = &mut tmpnbrs[..mynbrs.len()];
 
-        for k in (0)..(myrinfo.nnbrs) {
-            mynbrs[k as usize].gv = 0;
+        for nbr in &mut *mynbrs {
+            nbr.gv = 0;
         }
 
-        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+        for j in xadj[i]..xadj[i + 1] {
             let ii = adjncy[j as usize] as usize;
-            let other = where_[ii as usize];
-            let orinfo = &rinfo[ii];
-            // let onbrs  = ctrl.vnbrpool + orinfo.inbr;
-            let onbrs = std::slice::from_raw_parts(
-                ctrl.vnbrpool.add(orinfo.inbr as usize),
-                orinfo.nnbrs as usize,
-            );
+            let other = where_[ii];
+            let (_orinfo, onbrs) = kwayfm::vrinfos(graph.vkrinfo, ctrl.vnbrpool, ii);
+            let vsize = vsize[ii];
 
             if me == other {
                 /* Find which domains 'i' is connected and 'ii' is not and update their gain */
-                for k in (0)..(myrinfo.nnbrs) {
-                    let pid = mynbrs[k as usize].pid;
-
-                    let mut kk = 0;
-                    // for kk in (0)..(orinfo.nnbrs) {
-                    while kk < orinfo.nnbrs as usize {
-                        if onbrs[kk as usize].pid == pid {
-                            break;
-                        }
-                        kk += 1;
-                    }
-                    if kk == orinfo.nnbrs as usize {
-                        mynbrs[k as usize].gv -= vsize[ii as usize];
+                for nbr in &mut *mynbrs {
+                    if onbrs.iter().all(|onbr| onbr.pid != nbr.pid) {
+                        nbr.gv -= vsize;
                     }
                 }
             } else {
-                /* Find the orinfo[me as usize].ed and see if I'm the only connection */
-                let mut k = 0;
-                // for k in (0)..(orinfo.nnbrs) {
-                while k < orinfo.nnbrs as usize {
-                    if onbrs[k as usize].pid == me {
-                        break;
-                    }
-                    k += 1;
-                }
+                /* Find the orinfo[me].ed and see if I'm the only connection */
+                let Some(onbr) = onbrs.iter().find(|o| o.pid == me) else {
+                    panic!("missing vnbr entry")
+                };
 
-                if onbrs[k as usize].ned == 1 {
+                if onbr.ned == 1 {
                     /* I'm the only connection of 'ii' in 'me' */
-                    for k in (0)..(myrinfo.nnbrs) {
-                        if mynbrs[k as usize].pid == other {
-                            mynbrs[k as usize].gv += vsize[ii as usize];
-                            break;
-                        }
-                    }
+                    mynbrs.iter_mut().find(|nbr| nbr.pid == other).expect("missing mynbr entry").gv += vsize;
 
                     /* Increase the gains for all the common domains between 'i' and 'ii' */
-                    for k in (0)..(myrinfo.nnbrs) {
-                        let pid = mynbrs[k as usize].pid;
-                        if pid == other {
+                    for nbr in &mut *mynbrs {
+                        if nbr.pid == other {
                             continue;
                         }
-                        for kk in (0)..(orinfo.nnbrs) {
-                            if onbrs[kk as usize].pid == pid {
-                                mynbrs[k as usize].gv += vsize[ii as usize];
-                                break;
-                            }
+                        if onbrs.iter().any(|onbr| onbr.pid == nbr.pid) {
+                            nbr.gv += vsize;
                         }
                     }
                 } else {
                     /* Find which domains 'i' is connected and 'ii' is not and update their gain */
-                    for k in (0)..(myrinfo.nnbrs) {
-                        let pid = mynbrs[k as usize].pid;
-                        if pid == other {
-                            continue;
+                    for nbr in &mut *mynbrs {
+                        if nbr.pid == other {
+                            continue
                         }
-                        let mut kk = 0;
-                        // for kk in (0)..(orinfo.nnbrs) {
-                        while kk < orinfo.nnbrs {
-                            if onbrs[kk as usize].pid == pid {
-                                break;
-                            }
-                            kk += 1;
-                        }
-                        if kk == orinfo.nnbrs {
-                            mynbrs[k as usize].gv -= vsize[ii as usize];
+
+                        if onbrs.iter().all(|onbr| onbr.pid != nbr.pid) {
+                            nbr.gv -= vsize;
                         }
                     }
                 }
             }
         }
 
-        let myrinfo = &rinfo[i];
-        // mynbrs  = ctrl.vnbrpool + myrinfo.inbr;
-        let mynbrs = std::slice::from_raw_parts(
-            ctrl.vnbrpool.add(myrinfo.inbr as usize),
-            myrinfo.nnbrs as usize,
-        );
+        let (_myrinfo, mynbrs) = kwayfm::vrinfos(graph.vkrinfo, ctrl.vnbrpool, i);
 
-        for k in (0)..(myrinfo.nnbrs) {
-            let pid = mynbrs[k as usize].pid;
-            for kk in (0)..(tmprinfo.nnbrs) {
-                if tmpnbrs[kk as usize].pid == pid {
-                    if tmpnbrs[kk as usize].gv != mynbrs[k as usize].gv {
+        for nbr in mynbrs {
+            for tnbr in &tmpnbrs[..mynbrs.len()] {
+                if tnbr.pid == nbr.pid {
+                    if tnbr.gv != nbr.gv {
+                        errors += 1;
                         println!(
-                            "[({:8} {:8} {:8} {:+8} {:+8}) as usize]",
+                            "[{:8} {:8} {:8} {:+8} {:+8}]",
                             i,
-                            where_[i as usize],
-                            pid,
-                            mynbrs[k as usize].gv,
-                            tmpnbrs[kk as usize].gv
+                            where_[i],
+                            nbr.pid,
+                            nbr.gv,
+                            tnbr.gv
                         );
                     }
                     break;
@@ -473,7 +486,57 @@ pub extern "C" fn CheckKWayVolPartitionParams(ctrl: *mut ctrl_t, graph: *mut gra
         }
     }
 
-    // WCOREPOP;
+    if errors != 0 {
+        panic!("found {errors} errors")
+    }
+}
+
+#[metis_func(no_c)]
+pub unsafe extern "C" fn PrintRInfoVol(ctrl: *const ctrl_t, graph: *const graph_t, vtx: idx_t) {
+    let ctrl = ctrl.as_ref().unwrap();
+    let graph = graph.as_ref().unwrap();
+    let vtx = vtx as usize;
+
+    get_graph_slices!(graph => xadj adjncy where_ vsize);
+
+    let (myrinfo, mynbrs) = kwayfm::vrinfos(graph.vkrinfo, ctrl.vnbrpool, vtx);
+
+    let pid = where_[vtx];
+
+    println!("\nRinfo of {vtx} [{pid}] [nid,ned:{:3},{:3}] [gv:{:8}]:", myrinfo.nid, myrinfo.ned, myrinfo.gv);
+    for nbr in mynbrs {
+        let vnbr_t { pid: nbr_pid, ned, gv } = nbr;
+        println!("\t{nbr_pid:3} [ned:{ned:3}] [gv:{gv:8}]");
+
+        println!("\t\texternal:");
+        for i in xadj[vtx]..xadj[vtx + 1] {
+            let i = adjncy[i as usize] as usize;
+            if where_[i] != *nbr_pid {
+                continue
+            }
+            for j in xadj[i]..xadj[i + 1] {
+                let j = adjncy[j as usize] as usize;
+                if where_[j] != pid {
+                    println!("\t\t[{i:5}->{j:5}] [{nbr_pid:3} => {opid:3}] ({vsizei:5} <=> {vsizej:5})", vsizei=vsize[i], vsizej=vsize[j], opid=where_[j]);
+                }
+            }
+        }
+
+        println!("\n\t\tinternal (where == {pid}):");
+        for i in xadj[vtx]..xadj[vtx + 1] {
+            let i = adjncy[i as usize] as usize;
+            if where_[i] != *nbr_pid {
+                continue
+            }
+            for j in xadj[i]..xadj[i + 1] {
+                let j = adjncy[j as usize] as usize;
+                if where_[j] == pid {
+                    println!("\t\t[{i:5}->{j:5}] ({vsizei:5} <=> {vsizej:5})", vsizei=vsize[i], vsizej=vsize[j]);
+                }
+            }
+        }
+        println!();
+    }
 }
 
 #[metis_func]

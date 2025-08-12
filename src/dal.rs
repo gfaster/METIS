@@ -130,8 +130,12 @@ impl DirectAccessList {
     pub fn contains(&self, key: idx_t) -> bool {
         debug_assert!(key >= 0);
         let key = key as usize;
-        debug_assert!(key < self.ptr.len());
-        self.ptr[key] != -1
+        debug_assert!(key < self.ptr.len(), 
+            "{key} is out of bounds of {len} \
+                (doesn't techically matter for this, but it's probably a bug)",
+            len = self.ptr.len()
+        );
+        self.ptr.get(key).is_some_and(|&i| i != -1)
     }
 
     /// iterator of the keys in the list in an unspecified order. O(n).
@@ -346,6 +350,17 @@ impl<T> DirectAccessMap<T> {
             Some(&mut self.map[key_ind])
         } else {
             None
+        }
+    }
+
+    pub fn get_or_insert(&mut self, key: idx_t, item: T) -> &mut T {
+        let len = self.map.len();
+        if let Some(key_ind) = self.list.key_ind(key) {
+            &mut self.map[key_ind]
+        } else {
+            self.list.insert(key);
+            self.map.push(item);
+            &mut self.map[len]
         }
     }
 }
