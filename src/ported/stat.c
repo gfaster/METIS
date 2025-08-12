@@ -13,12 +13,14 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************
 * This function computes cuts and balance information
 **************************************************************************/
-void ComputePartitionInfoBipartite(graph_t *graph, idx_t nparts, idx_t *where)
+IFUNC(void, ComputePartitionInfoBipartite, (graph_t *graph, idx_t nparts, idx_t *where));
+void c__libmetis__ComputePartitionInfoBipartite(graph_t *graph, idx_t nparts, idx_t *where)
 {
   idx_t i, j, k, nvtxs, ncon, mustfree=0;
   idx_t *xadj, *adjncy, *vwgt, *vsize, *adjwgt, *kpwgts, *tmpptr;
@@ -122,7 +124,8 @@ void ComputePartitionInfoBipartite(graph_t *graph, idx_t nparts, idx_t *where)
 /*************************************************************************
 * This function computes the balance of the partitioning
 **************************************************************************/
-void ComputePartitionBalance(graph_t *graph, idx_t nparts, idx_t *where, real_t *ubvec)
+IFUNC(void, ComputePartitionBalance, (graph_t *graph, idx_t nparts, idx_t *where, real_t *ubvec));
+void c__libmetis__ComputePartitionBalance(graph_t *graph, idx_t nparts, idx_t *where, real_t *ubvec)
 {
   idx_t i, j, nvtxs, ncon;
   idx_t *kpwgts, *vwgt;
@@ -157,7 +160,8 @@ void ComputePartitionBalance(graph_t *graph, idx_t nparts, idx_t *where, real_t 
 /*************************************************************************
 * This function computes the balance of the element partitioning
 **************************************************************************/
-real_t ComputeElementBalance(idx_t ne, idx_t nparts, idx_t *where)
+IFUNC(real_t, ComputeElementBalance, (idx_t ne, idx_t nparts, idx_t *where));
+real_t c__libmetis__ComputeElementBalance(idx_t ne, idx_t nparts, idx_t *where)
 {
   idx_t i;
   idx_t *kpwgts;

@@ -9,6 +9,7 @@
 */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 // some of the functions in the original wspace.c will remain unported and are
 // instead moved to wspace_unported.c
@@ -16,7 +17,8 @@
 /*************************************************************************/
 /*! This function allocates memory for the workspace */
 /*************************************************************************/
-void AllocateWorkSpace(ctrl_t *ctrl, graph_t *graph)
+IFUNC(void, AllocateWorkSpace, (ctrl_t *ctrl, graph_t *graph));
+void c__libmetis__AllocateWorkSpace(ctrl_t *ctrl, graph_t *graph)
 {
   size_t coresize;
 
@@ -41,7 +43,8 @@ void AllocateWorkSpace(ctrl_t *ctrl, graph_t *graph)
 /*************************************************************************/
 /*! This function allocates refinement-specific memory for the workspace */
 /*************************************************************************/
-void AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrpoolsize)
+IFUNC(void, AllocateRefinementWorkSpace, (ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrpoolsize));
+void c__libmetis__AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrpoolsize)
 {
   ctrl->nbrpoolsize_max = nbrpoolsize_max;
   ctrl->nbrpoolsize     = nbrpoolsize;
@@ -79,7 +82,8 @@ void AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrp
 /*************************************************************************/
 /*! This function frees the workspace */
 /*************************************************************************/
-void FreeWorkSpace(ctrl_t *ctrl)
+IFUNC(void, FreeWorkSpace, (ctrl_t *ctrl));
+void c__libmetis__FreeWorkSpace(ctrl_t *ctrl)
 {
   gk_mcoreDestroy(&ctrl->mcore, ctrl->dbglvl&METIS_DBG_INFO);
 
@@ -112,7 +116,8 @@ void FreeWorkSpace(ctrl_t *ctrl)
 /*************************************************************************/
 /*! This function resets the cnbrpool */
 /*************************************************************************/
-void cnbrpoolReset(ctrl_t *ctrl)
+IFUNC(void, cnbrpoolReset, (ctrl_t *ctrl));
+void c__libmetis__cnbrpoolReset(ctrl_t *ctrl)
 {
   ctrl->nbrpoolcpos = 0;
 }
@@ -121,7 +126,8 @@ void cnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 /*! This function gets the next free index from cnbrpool */
 /*************************************************************************/
-idx_t cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
+IFUNC(idx_t, cnbrpoolGetNext, (ctrl_t *ctrl, idx_t nnbrs));
+idx_t c__libmetis__cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
   /* add 1 because when moving vertices, an extra neighbor can be temporarily
    * needed (particularly when minconn is set) */
@@ -146,7 +152,8 @@ idx_t cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 /*************************************************************************/
 /*! This function resets the vnbrpool */
 /*************************************************************************/
-void vnbrpoolReset(ctrl_t *ctrl)
+IFUNC(void, vnbrpoolReset, (ctrl_t *ctrl));
+void c__libmetis__vnbrpoolReset(ctrl_t *ctrl)
 {
   ctrl->nbrpoolcpos = 0;
 }
@@ -155,7 +162,8 @@ void vnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 /*! This function gets the next free index from vnbrpool */
 /*************************************************************************/
-idx_t vnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
+IFUNC(idx_t, vnbrpoolGetNext, (ctrl_t *ctrl, idx_t nnbrs));
+idx_t c__libmetis__vnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
   /* add 1 because when moving vertices, an extra neighbor can be temporarily
    * needed (particularly when minconn is set) */

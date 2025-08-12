@@ -31,7 +31,7 @@ pub extern "C" fn ComputePartitionInfoBipartite(
 
     let nvtxs = graph.nvtxs as usize;
     let ncon = graph.ncon as usize;
-    get_graph_slices!(graph => xadj adjncy vwgt vsize adjwgt);
+    get_graph_slices!(graph => xadj adjncy vsize);
     get_graph_slices_optional!(graph => vwgt adjwgt);
     mkslice!(where_, nvtxs);
 
@@ -70,10 +70,10 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     if ncon == 1 {
         print!(
             "\tBalance: {:5.3} out of {:5.3}\n",
-            (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-                / (isum(nparts, kpwgts, 1) as real_t),
-            (nparts as real_t) * (vwgt[(iargmax(nvtxs, vwgt, 1)) as usize] as real_t)
-                / (isum(nparts, kpwgts, 1) as real_t)
+            (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+                / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t),
+            (nparts as real_t) * (vwgt[util::iargmax(&vwgt[..nvtxs], 1)] as real_t)
+                / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t)
         );
     } else {
         print!("\tBalance:");
@@ -81,12 +81,17 @@ pub extern "C" fn ComputePartitionInfoBipartite(
             print!(
                 " ({:5.3} out of {:5.3})",
                 (nparts as real_t)
-                    * (kpwgts[(ncon * iargmax_strd(nparts, kpwgts + j, ncon) + j) as usize]
-                        as real_t)
-                    / (isum(nparts, kpwgts + j, ncon) as real_t),
+                    * (kpwgts[(ncon * util::iargmax(&kpwgts[j..], ncon) + j) as usize] as real_t)
+                    / (kpwgts[cntrng!((j), (nparts))]
+                        .iter()
+                        .step_by(ncon)
+                        .sum::<idx_t>() as real_t),
                 (nparts as real_t)
-                    * (vwgt[(ncon * iargmax_strd(nvtxs, vwgt + j, ncon) + j) as usize] as real_t)
-                    / (isum(nparts, kpwgts + j, ncon) as real_t)
+                    * (vwgt[(ncon * util::iargmax(&vwgt[j..], ncon) + j) as usize] as real_t)
+                    / (kpwgts[cntrng!((j), (nparts))]
+                        .iter()
+                        .step_by(ncon)
+                        .sum::<idx_t>() as real_t)
             );
         }
         print!("\n");
@@ -100,7 +105,7 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     let mut padjwgt: Vec<idx_t> = vec![0; nparts * nparts];
     let mut padjcut: Vec<idx_t> = vec![0; nparts * nparts];
 
-    iset(nparts, 0, kpwgts);
+    kpwgts[..nparts].fill(0);
     for i in (0)..(nvtxs) {
         for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
             if where_[i as usize] != where_[adjncy[j as usize] as usize] {
@@ -121,40 +126,46 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     }
 
     for i in (0)..(nparts) {
-        kpwgts[i as usize] = isum(nparts, padjncy + i * nparts, 1);
+        kpwgts[i as usize] = padjncy[cntrng!((i * nparts), (nparts))]
+            .iter()
+            .sum::<idx_t>();
     }
     print!(
         "Min/Max/Avg/Bal # of adjacent     subdomains: {:5} {:5} {:5} {:7.3}\n",
-        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
-        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
-        isum(nparts, kpwgts, 1) / (nparts as idx_t),
-        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-            / (isum(nparts, kpwgts, 1) as real_t)
+        kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
+        kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
+        kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+            / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t)
     );
 
     for i in (0)..(nparts) {
-        kpwgts[i as usize] = isum(nparts, padjcut + i * nparts, 1);
+        kpwgts[i as usize] = padjcut[cntrng!((i * nparts), (nparts))]
+            .iter()
+            .sum::<idx_t>();
     }
     print!(
         "Min/Max/Avg/Bal # of adjacent subdomain cuts: {:5} {:5} {:5} {:7.3}\n",
-        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
-        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
-        isum(nparts, kpwgts, 1) / (nparts as idx_t),
-        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-            / (isum(nparts, kpwgts, 1) as real_t)
+        kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
+        kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
+        kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+            / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t)
     );
 
     for i in (0)..(nparts) {
-        kpwgts[i as usize] = isum(nparts, padjwgt + i * nparts, 1);
+        kpwgts[i as usize] = padjwgt[cntrng!(i * nparts, nparts)]
+            .iter()
+            .sum::<idx_t>();
     }
     print!(
         "Min/Max/Avg/Bal/Frac # of interface    nodes: {:5} {:5} {:5} {:7.3} {:7.3}\n",
-        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
-        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
-        isum(nparts, kpwgts, 1) / (nparts as idx_t),
-        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-            / (isum(nparts, kpwgts, 1) as real_t),
-        isum(nparts, kpwgts, 1) as real_t / (nvtxs as real_t)
+        kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
+        kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
+        kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+            / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t),
+        kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t / (nvtxs as real_t)
     );
 }
 
@@ -184,21 +195,21 @@ pub extern "C" fn ComputePartitionBalance(
 
     if let Some(vwgt) = vwgt {
         for j in (0)..(ncon) {
-            iset(nparts, 0, kpwgts);
+            kpwgts[..nparts].fill(0);
             for i in (0)..(nvtxs) {
                 kpwgts[where_[i as usize] as usize] += vwgt[(i * ncon + j) as usize];
             }
 
             ubvec[j as usize] = (nparts as real_t)
-                * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-                / (isum(nparts, kpwgts, 1) as real_t);
+                * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+                / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t);
         }
     } else {
         for i in (0)..(nvtxs) {
             kpwgts[where_[i as usize] as usize] += 1;
         }
         ubvec[0 as usize] = (nparts as real_t)
-            * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+            * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
             / (nvtxs as real_t);
     }
 }
@@ -215,11 +226,11 @@ pub extern "C" fn ComputeElementBalance(ne: idx_t, nparts: idx_t, where_: *mut i
     // real_t balance;
 
     let mut kpwgts = vec![0; nparts];
-
-    for i in (0)..(ne) {
-        kpwgts[*where_.add(i) as usize] += 1;
+    mkslice!(where_, ne);
+    for &i in where_ {
+        kpwgts[i as usize] += 1;
     }
 
-    (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
-        / (isum(nparts, kpwgts, 1) as real_t)
+    (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
+        / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t)
 }

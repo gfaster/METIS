@@ -13,12 +13,14 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************
 * This function clears the timers
 **************************************************************************/
-void InitTimers(ctrl_t *ctrl)
+IFUNC(void, InitTimers, (ctrl_t *ctrl));
+void c__libmetis__InitTimers(ctrl_t *ctrl)
 {
   gk_clearcputimer(ctrl->TotalTmr);
   gk_clearcputimer(ctrl->InitPartTmr);
@@ -39,7 +41,8 @@ void InitTimers(ctrl_t *ctrl)
 /*************************************************************************
 * This function prints the various timers
 **************************************************************************/
-void PrintTimers(ctrl_t *ctrl)
+IFUNC(void, PrintTimers, (ctrl_t *ctrl));
+void c__libmetis__PrintTimers(ctrl_t *ctrl)
 {
   printf("\nTiming Information -------------------------------------------------");
   printf("\n Multilevel: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->TotalTmr));

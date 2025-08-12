@@ -169,12 +169,12 @@ pub extern "C" fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t {
     let ctrl = ctrl.as_mut().unwrap();
     /* add 1 because when moving vertices, an extra neighbor can be temporarily
      * needed (particularly when minconn is set) */
-    let nnbrs = gk_min(ctrl.nparts, nnbrs) as usize + 1;
+    let nnbrs = (ctrl.nparts).min(nnbrs) as usize + 1;
     ctrl.nbrpoolcpos += nnbrs as usize;
 
     if ctrl.nbrpoolcpos > ctrl.nbrpoolsize {
-        ctrl.nbrpoolsize += gk_max(10 * nnbrs, ctrl.nbrpoolsize / 2);
-        ctrl.nbrpoolsize = gk_min(ctrl.nbrpoolsize, ctrl.nbrpoolsize_max);
+        ctrl.nbrpoolsize += (10 * nnbrs).max(ctrl.nbrpoolsize / 2);
+        ctrl.nbrpoolsize = (ctrl.nbrpoolsize).min(ctrl.nbrpoolsize_max);
 
         ctrl.cnbrpool = gk_realloc(
             ctrl.cnbrpool.cast(),
@@ -207,12 +207,12 @@ pub extern "C" fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t {
 
     /* add 1 because when moving vertices, an extra neighbor can be temporarily
      * needed (particularly when minconn is set) */
-    let nnbrs = gk_min(ctrl.nparts, nnbrs) as usize + 1;
+    let nnbrs = (ctrl.nparts).min(nnbrs) as usize + 1;
     ctrl.nbrpoolcpos += nnbrs;
 
     if ctrl.nbrpoolcpos > ctrl.nbrpoolsize {
-        ctrl.nbrpoolsize += gk_max(10 * nnbrs, ctrl.nbrpoolsize / 2);
-        ctrl.nbrpoolsize = gk_min(ctrl.nbrpoolsize, ctrl.nbrpoolsize_max);
+        ctrl.nbrpoolsize += (10 * nnbrs).max(ctrl.nbrpoolsize / 2);
+        ctrl.nbrpoolsize = (ctrl.nbrpoolsize).min(ctrl.nbrpoolsize_max);
 
         ctrl.vnbrpool = gk_realloc(
             ctrl.vnbrpool.cast(),
