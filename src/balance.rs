@@ -403,10 +403,10 @@ pub extern "C" fn McGeneral2WayBalance(
     let nvtxs = graph.nvtxs as usize;
 
     let mut moved: Vec<idx_t> = vec![0; nvtxs];
-    let mut swaps = vec![0; nvtxs];
-    let mut perm = vec![0; nvtxs];
-    let mut qnum = vec![0; nvtxs];
-    let mut newbalv = vec![0.0; ncon];
+    let mut swaps: Vec<idx_t> = vec![0; nvtxs];
+    let mut perm: Vec<idx_t> = vec![0; nvtxs];
+    let mut qnum: Vec<idx_t> = vec![0; nvtxs];
+    let mut newbalv: Vec<real_t> = vec![0.0; ncon];
     let mut minbalv: Vec<real_t> = vec![0.0; ncon];
     let mut qsizes: Vec<idx_t> = vec![0; 2 * ncon];
 
@@ -589,7 +589,7 @@ pub extern "C" fn McGeneral2WayBalance(
 
         where_[higain] = to;
         moved[higain] = nswaps;
-        swaps[nswaps as usize] = higain;
+        swaps[nswaps as usize] = higain as idx_t;
 
         if ctrl.dbglvl & METIS_DBG_MOVEINFO != 0 {
             println!(
@@ -653,7 +653,7 @@ pub extern "C" fn McGeneral2WayBalance(
     // for (nswaps--; nswaps>mincutorder; nswaps--) {
     nswaps -= 1;
     while nswaps as idx_t > mincutorder {
-        let higain = swaps[nswaps as usize];
+        let higain = swaps[nswaps as usize] as usize;
 
         // let to = where_[higain] = (where_[higain] + 1) % 2;
         where_[higain] = (where_[higain] + 1) % 2;

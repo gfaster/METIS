@@ -57,6 +57,9 @@ pub mod options;
 pub mod parmetis;
 pub mod sfm;
 pub mod srefine;
+pub mod wspace;
+pub mod stat;
+pub mod timing;
 
 pub mod gklib_replace;
 pub mod graphio;

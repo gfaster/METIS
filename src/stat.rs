@@ -12,168 +12,214 @@
  *
  */
 
-#include "metislib.h"
-
+use crate::*;
 
 /*************************************************************************
 * This function computes cuts and balance information
 **************************************************************************/
-void ComputePartitionInfoBipartite(graph_t *graph, idx_t nparts, idx_t *where)
-{
-  idx_t i, j, k, nvtxs, ncon, mustfree=0;
-  idx_t *xadj, *adjncy, *vwgt, *vsize, *adjwgt, *kpwgts, *tmpptr;
-  idx_t *padjncy, *padjwgt, *padjcut;
+#[metis_func]
+pub extern "C" fn ComputePartitionInfoBipartite(
+    graph: *const graph_t,
+    nparts: idx_t,
+    where_: *const idx_t,
+) {
+    let graph = graph.as_ref().unwrap();
+    let nparts = nparts as usize;
+    // idx_t i, j, k, nvtxs, ncon, mustfree=0;
+    // idx_t *xadj, *adjncy, *vwgt, *vsize, *adjwgt, *kpwgts, *tmpptr;
+    // idx_t *padjncy, *padjwgt, *padjcut;
 
-  nvtxs = graph->nvtxs;
-  ncon = graph->ncon;
-  xadj = graph->xadj;
-  adjncy = graph->adjncy;
-  vwgt = graph->vwgt;
-  vsize = graph->vsize;
-  adjwgt = graph->adjwgt;
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon as usize;
+    get_graph_slices!(graph => xadj adjncy vwgt vsize adjwgt);
+    get_graph_slices_optional!(graph => vwgt adjwgt);
+    mkslice!(where_, nvtxs);
 
-  if (vwgt == NULL) {
-    vwgt = graph->vwgt = ismalloc(nvtxs, 1, "vwgt");
-    mustfree = 1;
-  }
-  if (adjwgt == NULL) {
-    adjwgt = graph->adjwgt = ismalloc(xadj[nvtxs], 1, "adjwgt");
-    mustfree += 2;
-  }
+    let vwgt_vec: Vec<idx_t>;
+    let vwgt: &[idx_t] = if vwgt.is_none() {
+        vwgt_vec = vec![1; nvtxs];
+        &vwgt_vec
+    } else {
+        vwgt.unwrap()
+    };
+    let adjwgt_vec: Vec<idx_t>;
+    let adjwgt: &[idx_t] = if adjwgt.is_none() {
+        adjwgt_vec = vec![1; xadj[nvtxs] as usize];
+        &adjwgt_vec
+    } else {
+        adjwgt.unwrap()
+    };
 
-  printf("%"PRIDX"-way Cut: %5"PRIDX", Vol: %5"PRIDX", ", nparts, ComputeCut(graph, where), ComputeVolume(graph, where));
+    print!(
+        "{:}-way Cut: {:5}, Vol: {:5}, ",
+        nparts,
+        debug::ComputeCut(graph, where_.as_ptr()),
+        debug::ComputeVolume(graph, where_.as_ptr())
+    );
 
-  /* Compute balance information */
-  kpwgts = ismalloc(ncon*nparts, 0, "ComputePartitionInfo: kpwgts");
+    /* Compute balance information */
+    // let kpwgts = ismalloc(ncon*nparts, 0, "ComputePartitionInfo: kpwgts");
+    let mut kpwgts: Vec<idx_t> = vec![0; ncon * nparts];
 
-  for (i=0; i<nvtxs; i++) {
-    for (j=0; j<ncon; j++) 
-      kpwgts[where[i]*ncon+j] += vwgt[i*ncon+j];
-  }
-
-  if (ncon == 1) {
-    printf("\tBalance: %5.3"PRREAL" out of %5.3"PRREAL"\n", 
-            1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1)),
-            1.0*nparts*vwgt[iargmax(nvtxs, vwgt,1)]/(1.0*isum(nparts, kpwgts, 1)));
-  }
-  else {
-    printf("\tBalance:");
-    for (j=0; j<ncon; j++) 
-      printf(" (%5.3"PRREAL" out of %5.3"PRREAL")", 
-            1.0*nparts*kpwgts[ncon*iargmax_strd(nparts, kpwgts+j, ncon)+j]/(1.0*isum(nparts, kpwgts+j, ncon)),
-            1.0*nparts*vwgt[ncon*iargmax_strd(nvtxs, vwgt+j, ncon)+j]/(1.0*isum(nparts, kpwgts+j, ncon)));
-    printf("\n");
-  }
-
-
-  /* Compute p-adjncy information */
-  padjncy = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjncy");
-  padjwgt = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjwgt");
-  padjcut = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjwgt");
-
-  iset(nparts, 0, kpwgts);
-  for (i=0; i<nvtxs; i++) {
-    for (j=xadj[i]; j<xadj[i+1]; j++) {
-      if (where[i] != where[adjncy[j]]) {
-        padjncy[where[i]*nparts+where[adjncy[j]]] = 1;
-        padjcut[where[i]*nparts+where[adjncy[j]]] += adjwgt[j];
-        if (kpwgts[where[adjncy[j]]] == 0) {
-          padjwgt[where[i]*nparts+where[adjncy[j]]] += vsize[i];
-          kpwgts[where[adjncy[j]]] = 1;
+    for i in (0)..(nvtxs) {
+        for j in (0)..(ncon) {
+            kpwgts[where_[i as usize] as usize * ncon + j] += vwgt[(i * ncon + j) as usize];
         }
-      }
     }
-    for (j=xadj[i]; j<xadj[i+1]; j++) 
-      kpwgts[where[adjncy[j]]] = 0;
-  }
 
-  for (i=0; i<nparts; i++)
-    kpwgts[i] = isum(nparts, padjncy+i*nparts, 1);
-  printf("Min/Max/Avg/Bal # of adjacent     subdomains: %5"PRIDX" %5"PRIDX" %5"PRIDX" %7.3"PRREAL"\n",
-    kpwgts[iargmin(nparts, kpwgts,1)], kpwgts[iargmax(nparts, kpwgts,1)], isum(nparts, kpwgts, 1)/nparts, 
-    1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1)));
+    if ncon == 1 {
+        print!(
+            "\tBalance: {:5.3} out of {:5.3}\n",
+            (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+                / (isum(nparts, kpwgts, 1) as real_t),
+            (nparts as real_t) * (vwgt[(iargmax(nvtxs, vwgt, 1)) as usize] as real_t)
+                / (isum(nparts, kpwgts, 1) as real_t)
+        );
+    } else {
+        print!("\tBalance:");
+        for j in (0)..(ncon) {
+            print!(
+                " ({:5.3} out of {:5.3})",
+                (nparts as real_t)
+                    * (kpwgts[(ncon * iargmax_strd(nparts, kpwgts + j, ncon) + j) as usize]
+                        as real_t)
+                    / (isum(nparts, kpwgts + j, ncon) as real_t),
+                (nparts as real_t)
+                    * (vwgt[(ncon * iargmax_strd(nvtxs, vwgt + j, ncon) + j) as usize] as real_t)
+                    / (isum(nparts, kpwgts + j, ncon) as real_t)
+            );
+        }
+        print!("\n");
+    }
 
-  for (i=0; i<nparts; i++)
-    kpwgts[i] = isum(nparts, padjcut+i*nparts, 1);
-  printf("Min/Max/Avg/Bal # of adjacent subdomain cuts: %5"PRIDX" %5"PRIDX" %5"PRIDX" %7.3"PRREAL"\n",
-    kpwgts[iargmin(nparts, kpwgts,1)], kpwgts[iargmax(nparts, kpwgts,1)], isum(nparts, kpwgts, 1)/nparts, 
-    1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1)));
+    /* Compute p-adjncy information */
+    // padjncy = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjncy");
+    // padjwgt = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjwgt");
+    // padjcut = ismalloc(nparts*nparts, 0, "ComputePartitionInfo: padjwgt");
+    let mut padjncy: Vec<idx_t> = vec![0; nparts * nparts];
+    let mut padjwgt: Vec<idx_t> = vec![0; nparts * nparts];
+    let mut padjcut: Vec<idx_t> = vec![0; nparts * nparts];
 
-  for (i=0; i<nparts; i++)
-    kpwgts[i] = isum(nparts, padjwgt+i*nparts, 1);
-  printf("Min/Max/Avg/Bal/Frac # of interface    nodes: %5"PRIDX" %5"PRIDX" %5"PRIDX" %7.3"PRREAL" %7.3"PRREAL"\n",
-    kpwgts[iargmin(nparts, kpwgts,1)], kpwgts[iargmax(nparts, kpwgts,1)], isum(nparts, kpwgts, 1)/nparts, 
-    1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1)), 1.0*isum(nparts, kpwgts, 1)/(1.0*nvtxs));
+    iset(nparts, 0, kpwgts);
+    for i in (0)..(nvtxs) {
+        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+            if where_[i as usize] != where_[adjncy[j as usize] as usize] {
+                padjncy[where_[i as usize] as usize * nparts
+                    + where_[adjncy[j as usize] as usize] as usize] = 1;
+                padjcut[where_[i as usize] as usize * nparts
+                    + where_[adjncy[j as usize] as usize] as usize] += adjwgt[j as usize];
+                if kpwgts[where_[adjncy[j as usize] as usize] as usize] == 0 {
+                    padjwgt[where_[i as usize] as usize * nparts
+                        + where_[adjncy[j as usize] as usize] as usize] += vsize[i as usize];
+                    kpwgts[where_[adjncy[j as usize] as usize] as usize] = 1;
+                }
+            }
+        }
+        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+            kpwgts[where_[adjncy[j as usize] as usize] as usize] = 0;
+        }
+    }
 
+    for i in (0)..(nparts) {
+        kpwgts[i as usize] = isum(nparts, padjncy + i * nparts, 1);
+    }
+    print!(
+        "Min/Max/Avg/Bal # of adjacent     subdomains: {:5} {:5} {:5} {:7.3}\n",
+        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
+        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
+        isum(nparts, kpwgts, 1) / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+            / (isum(nparts, kpwgts, 1) as real_t)
+    );
 
-  if (mustfree == 1 || mustfree == 3) {
-    gk_free((void **)&vwgt, LTERM);
-    graph->vwgt = NULL;
-  }
-  if (mustfree == 2 || mustfree == 3) {
-    gk_free((void **)&adjwgt, LTERM);
-    graph->adjwgt = NULL;
-  }
+    for i in (0)..(nparts) {
+        kpwgts[i as usize] = isum(nparts, padjcut + i * nparts, 1);
+    }
+    print!(
+        "Min/Max/Avg/Bal # of adjacent subdomain cuts: {:5} {:5} {:5} {:7.3}\n",
+        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
+        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
+        isum(nparts, kpwgts, 1) / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+            / (isum(nparts, kpwgts, 1) as real_t)
+    );
 
-  gk_free((void **)&kpwgts, &padjncy, &padjwgt, &padjcut, LTERM);
+    for i in (0)..(nparts) {
+        kpwgts[i as usize] = isum(nparts, padjwgt + i * nparts, 1);
+    }
+    print!(
+        "Min/Max/Avg/Bal/Frac # of interface    nodes: {:5} {:5} {:5} {:7.3} {:7.3}\n",
+        kpwgts[(iargmin(nparts, kpwgts, 1)) as usize],
+        kpwgts[(iargmax(nparts, kpwgts, 1)) as usize],
+        isum(nparts, kpwgts, 1) / (nparts as idx_t),
+        (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+            / (isum(nparts, kpwgts, 1) as real_t),
+        isum(nparts, kpwgts, 1) as real_t / (nvtxs as real_t)
+    );
 }
-
 
 /*************************************************************************
 * This function computes the balance of the partitioning
 **************************************************************************/
-void ComputePartitionBalance(graph_t *graph, idx_t nparts, idx_t *where, real_t *ubvec)
-{
-  idx_t i, j, nvtxs, ncon;
-  idx_t *kpwgts, *vwgt;
-  real_t balance;
+#[metis_func]
+pub extern "C" fn ComputePartitionBalance(
+    graph: *const graph_t,
+    nparts: idx_t,
+    where_: *const idx_t,
+    ubvec: *mut real_t,
+) {
+    let graph = graph.as_ref().unwrap();
+    // idx_t i, j, nvtxs, ncon;
+    // idx_t *kpwgts, *vwgt;
+    // real_t balance;
 
-  nvtxs = graph->nvtxs;
-  ncon = graph->ncon;
-  vwgt = graph->vwgt;
+    let nvtxs = graph.nvtxs as usize;
+    let ncon = graph.ncon as usize;
+    get_graph_slices_optional!(graph => vwgt);
+    let nparts = nparts as usize;
+    mkslice_mut!(ubvec, ncon);
+    mkslice!(where_, nvtxs);
 
-  kpwgts = ismalloc(nparts, 0, "ComputePartitionInfo: kpwgts");
+    let mut kpwgts = vec![0; nparts];
 
-  if (vwgt == NULL) {
-    for (i=0; i<nvtxs; i++)
-      kpwgts[where[i]]++;
-    ubvec[0] = 1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*nvtxs);
-  }
-  else {
-    for (j=0; j<ncon; j++) {
-      iset(nparts, 0, kpwgts);
-      for (i=0; i<graph->nvtxs; i++)
-        kpwgts[where[i]] += vwgt[i*ncon+j];
+    if let Some(vwgt) = vwgt {
+        for j in (0)..(ncon) {
+            iset(nparts, 0, kpwgts);
+            for i in (0)..(nvtxs) {
+                kpwgts[where_[i as usize] as usize] += vwgt[(i * ncon + j) as usize];
+            }
 
-      ubvec[j] = 1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1));
+            ubvec[j as usize] = (nparts as real_t)
+                * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+                / (isum(nparts, kpwgts, 1) as real_t);
+        }
+    } else {
+        for i in (0)..(nvtxs) {
+            kpwgts[where_[i as usize] as usize] += 1;
+        }
+        ubvec[0 as usize] = (nparts as real_t)
+            * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+            / (nvtxs as real_t);
     }
-  }
-
-  gk_free((void **)&kpwgts, LTERM);
-
 }
-
 
 /*************************************************************************
 * This function computes the balance of the element partitioning
 **************************************************************************/
-real_t ComputeElementBalance(idx_t ne, idx_t nparts, idx_t *where)
-{
-  idx_t i;
-  idx_t *kpwgts;
-  real_t balance;
+#[metis_func]
+pub extern "C" fn ComputeElementBalance(ne: idx_t, nparts: idx_t, where_: *mut idx_t) -> real_t {
+    let ne = ne as usize;
+    let nparts = nparts as usize;
+    // idx_t i;
+    // idx_t *kpwgts;
+    // real_t balance;
 
-  kpwgts = ismalloc(nparts, 0, "ComputeElementBalance: kpwgts");
+    let mut kpwgts = vec![0; nparts];
 
-  for (i=0; i<ne; i++)
-    kpwgts[where[i]]++;
+    for i in (0)..(ne) {
+        kpwgts[*where_.add(i) as usize] += 1;
+    }
 
-  balance = 1.0*nparts*kpwgts[iargmax(nparts, kpwgts,1)]/(1.0*isum(nparts, kpwgts, 1));
-
-  gk_free((void **)&kpwgts, LTERM);
-
-  return balance;
-
+    (nparts as real_t) * (kpwgts[(iargmax(nparts, kpwgts, 1)) as usize] as real_t)
+        / (isum(nparts, kpwgts, 1) as real_t)
 }
-
-

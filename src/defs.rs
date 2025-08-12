@@ -20,7 +20,7 @@ use crate::{idx_t, real_t};
 // pub const MAXLINE: usize = 			1280000;
 
 /// Initial number of maximum number of adjacent domains. This number will be adjusted as required.
-// pub const INIT_MAXNAD: idx_t =              200;
+pub const INIT_MAXNAD: idx_t =              200;
 
 // #define LARGENIPARTS		7	/* Number of random initial partitions */
 // #define SMALLNIPARTS		5	/* Number of random initial partitions */

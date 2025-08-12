@@ -20,6 +20,31 @@ pub fn iabs(a: idx_t) -> idx_t {
     unimplemented!()
 }
 
+#[deprecated]
+pub fn isum(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> idx_t {
+    unimplemented!()
+}
+
+#[deprecated]
+pub fn iargmax(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> usize {
+    unimplemented!()
+}
+
+#[deprecated]
+pub fn iargmin(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> usize {
+    unimplemented!()
+}
+
+#[deprecated]
+pub fn iargmax_strd(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> usize {
+    unimplemented!()
+}
+
+#[deprecated]
+pub fn iset(n: usize, val: idx_t, slice: impl AsMut<[idx_t]>) -> usize {
+    unimplemented!()
+}
+
 /// C double, declared in `gk_temp` so we can find all the weird places C inserted it when we're
 /// ready to break bug-for-bug backwards compatibility
 #[allow(non_camel_case_types)]

@@ -10,6 +10,8 @@
 
 #include "metislib.h"
 
+// some of the functions in the original wspace.c will remain unported and are
+// instead moved to wspace_unported.c
 
 /*************************************************************************/
 /*! This function allocates memory for the workspace */
@@ -106,60 +108,6 @@ void FreeWorkSpace(ctrl_t *ctrl)
 }
 
 
-/*************************************************************************/
-/*! This function allocate space from the workspace/heap */
-/*************************************************************************/
-void *wspacemalloc(ctrl_t *ctrl, size_t nbytes)
-{
-  return gk_mcoreMalloc(ctrl->mcore, nbytes);
-}
-
-
-/*************************************************************************/
-/*! This function sets a marker in the stack of malloc ops to be used
-    subsequently for freeing purposes */
-/*************************************************************************/
-void wspacepush(ctrl_t *ctrl)
-{
-  gk_mcorePush(ctrl->mcore);
-}
-
-
-/*************************************************************************/
-/*! This function frees all mops since the last push */
-/*************************************************************************/
-void wspacepop(ctrl_t *ctrl)
-{
-  gk_mcorePop(ctrl->mcore);
-}
-
-
-/*************************************************************************/
-/*! This function allocate space from the core  */
-/*************************************************************************/
-idx_t *iwspacemalloc(ctrl_t *ctrl, idx_t n)
-{
-  return (idx_t *)wspacemalloc(ctrl, n*sizeof(idx_t));
-}
-
-
-/*************************************************************************/
-/*! This function allocate space from the core */
-/*************************************************************************/
-real_t *rwspacemalloc(ctrl_t *ctrl, idx_t n)
-{
-  return (real_t *)wspacemalloc(ctrl, n*sizeof(real_t));
-}
-
-
-/*************************************************************************/
-/*! This function allocate space from the core  */
-/*************************************************************************/
-ikv_t *ikvwspacemalloc(ctrl_t *ctrl, idx_t n)
-{
-  return (ikv_t *)wspacemalloc(ctrl, n*sizeof(ikv_t));
-}
-
 
 /*************************************************************************/
 /*! This function resets the cnbrpool */
@@ -175,7 +123,7 @@ void cnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 idx_t cnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
-  /* add 1 because when moving vertices, an extra neighbor can be temporaily
+  /* add 1 because when moving vertices, an extra neighbor can be temporarily
    * needed (particularly when minconn is set) */
   nnbrs = gk_min(ctrl->nparts, nnbrs) + 1;
   ctrl->nbrpoolcpos += nnbrs;
@@ -209,7 +157,7 @@ void vnbrpoolReset(ctrl_t *ctrl)
 /*************************************************************************/
 idx_t vnbrpoolGetNext(ctrl_t *ctrl, idx_t nnbrs)
 {
-  /* add 1 because when moving vertices, an extra neighbor can be temporaily
+  /* add 1 because when moving vertices, an extra neighbor can be temporarily
    * needed (particularly when minconn is set) */
   nnbrs = gk_min(ctrl->nparts, nnbrs) + 1;
   ctrl->nbrpoolcpos += nnbrs;

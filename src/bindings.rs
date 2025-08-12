@@ -42,6 +42,9 @@ extern "C" {
         flag: std::ffi::c_int,
     ) -> std::ffi::c_void;
     pub fn irandInRange(r: idx_t) -> idx_t;
+
+    pub fn iAllocMatrix(ndim1: usize, ndim2: usize, value: idx_t, msg: *const std::ffi::c_char) -> *mut *mut idx_t;
+    pub fn iFreeMatrix(matrix: *mut *mut *mut idx_t, ndim1: usize, ndim2: usize) -> std::ffi::c_void;
 }
 
 
@@ -68,6 +71,9 @@ extern "C" {
     pub fn gk_malloc_init() -> std::ffi::c_int;
     pub fn gk_malloc_cleanup(showstats: std::ffi::c_int) -> std::ffi::c_void;
     pub fn gk_malloc(size: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+    pub fn gk_realloc(ptr: *mut std::ffi::c_void, size: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+    pub fn gk_mcoreCreate(coresize: usize) -> *mut std::ffi::c_void;
+    pub fn gk_mcoreDestroy(core: *mut *mut std::ffi::c_void, showstats: std::ffi::c_int) -> std::ffi::c_void;
 
     /// my wrapper for gk_free that isn't variadic
     pub fn gk_free_one(ptr: *mut *mut std::ffi::c_void) -> std::ffi::c_void;

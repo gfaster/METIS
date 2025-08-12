@@ -25,7 +25,7 @@ function s() {
 
 function v() {
 	: ${1:?'requires sed expression'}
-	nvim -Es "$FILE" -c "$1" -c ":w"
+	nvim -Es "$FILE" -c "$1" -c ":update"
 }
 
 
@@ -44,15 +44,15 @@ v ':g/\v^\w+/:s/\V*/*mut /g'
 
 
 # slice indexing
-v ':%s/\v\[([^=\]]*[-+*/ ][^=\]]*)\]/[(\1) as usize]/g'
-v ':%s/\v\[(\w+)\]/[\1 as usize]/g'
+v ':%s/\v\[([^=\]]*[-+*/ ][^=\]]*)\]/[(\1) as usize]/g' || true
+v ':%s/\v\[(\w+)\]/[\1 as usize]/g' || true
 v ':%s/\]\]/] as usize]/' || true
 
 # the rest of the function signature
 v ':%s/\v^(\w+) (%(\*mut )*)([^{]*)/#[metis_func]\rpub extern "C" fn \3 -> \2\1/'
 
 # bracketless if/for
-v ':%s/\v(^ *%(for|if) ?\([^{]*)\n(.*;)/\1 {\r\2\r}'
+v ':%s/\v(^ *%(for|if) ?\([^{]*)\n(.*;)/\1 {\r\2\r}' || true
 v ':%s/\v(^ *else *\n([^{]*)\n(.*;)/\1 {\r\2\r}' || true
 
 

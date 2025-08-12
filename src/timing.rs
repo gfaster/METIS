@@ -12,52 +12,78 @@
  *
  */
 
-#include "metislib.h"
+use crate::*;
 
+fn gk_clearcputimer(timer: &mut f64) {
+    *timer = 0.0;
+}
+
+fn gk_getcputimer(timer: f64) -> f64 {
+    timer
+}
 
 /*************************************************************************
 * This function clears the timers
 **************************************************************************/
-void InitTimers(ctrl_t *ctrl)
-{
-  gk_clearcputimer(ctrl->TotalTmr);
-  gk_clearcputimer(ctrl->InitPartTmr);
-  gk_clearcputimer(ctrl->MatchTmr);
-  gk_clearcputimer(ctrl->ContractTmr);
-  gk_clearcputimer(ctrl->CoarsenTmr);
-  gk_clearcputimer(ctrl->UncoarsenTmr);
-  gk_clearcputimer(ctrl->RefTmr);
-  gk_clearcputimer(ctrl->ProjectTmr);
-  gk_clearcputimer(ctrl->SplitTmr);
-  gk_clearcputimer(ctrl->Aux1Tmr);
-  gk_clearcputimer(ctrl->Aux2Tmr);
-  gk_clearcputimer(ctrl->Aux3Tmr);
+#[metis_func]
+pub extern "C" fn InitTimers(ctrl: &mut ctrl_t) {
+    gk_clearcputimer(&mut ctrl.TotalTmr);
+    gk_clearcputimer(&mut ctrl.InitPartTmr);
+    gk_clearcputimer(&mut ctrl.MatchTmr);
+    gk_clearcputimer(&mut ctrl.ContractTmr);
+    gk_clearcputimer(&mut ctrl.CoarsenTmr);
+    gk_clearcputimer(&mut ctrl.UncoarsenTmr);
+    gk_clearcputimer(&mut ctrl.RefTmr);
+    gk_clearcputimer(&mut ctrl.ProjectTmr);
+    gk_clearcputimer(&mut ctrl.SplitTmr);
+    gk_clearcputimer(&mut ctrl.Aux1Tmr);
+    gk_clearcputimer(&mut ctrl.Aux2Tmr);
+    gk_clearcputimer(&mut ctrl.Aux3Tmr);
 }
-
-
 
 /*************************************************************************
 * This function prints the various timers
 **************************************************************************/
-void PrintTimers(ctrl_t *ctrl)
-{
-  printf("\nTiming Information -------------------------------------------------");
-  printf("\n Multilevel: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->TotalTmr));
-  printf("\n     Coarsening: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->CoarsenTmr));
-  printf("\n            Matching: \t\t\t %7.3"PRREAL"", gk_getcputimer(ctrl->MatchTmr));
-  printf("\n            Contract: \t\t\t %7.3"PRREAL"", gk_getcputimer(ctrl->ContractTmr));
-  printf("\n     Initial Partition: \t %7.3"PRREAL"", gk_getcputimer(ctrl->InitPartTmr));
-  printf("\n     Uncoarsening: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->UncoarsenTmr));
-  printf("\n          Refinement: \t\t\t %7.3"PRREAL"", gk_getcputimer(ctrl->RefTmr));
-  printf("\n          Projection: \t\t\t %7.3"PRREAL"", gk_getcputimer(ctrl->ProjectTmr));
-  printf("\n     Splitting: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->SplitTmr));
-/*
-  printf("\n       Aux1Tmr: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->Aux1Tmr));
-  printf("\n       Aux2Tmr: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->Aux2Tmr));
-  printf("\n       Aux3Tmr: \t\t %7.3"PRREAL"", gk_getcputimer(ctrl->Aux3Tmr));
-*/
-  printf("\n********************************************************************\n");
+#[metis_func]
+pub extern "C" fn PrintTimers(ctrl: &mut ctrl_t) {
+    print!("\nTiming Information -------------------------------------------------");
+    print!("\n Multilevel: \t\t {:7.3}", gk_getcputimer(ctrl.TotalTmr));
+    print!(
+        "\n     Coarsening: \t\t {:7.3}",
+        gk_getcputimer(ctrl.CoarsenTmr)
+    );
+    print!(
+        "\n            Matching: \t\t\t {:7.3}",
+        gk_getcputimer(ctrl.MatchTmr)
+    );
+    print!(
+        "\n            Contract: \t\t\t {:7.3}",
+        gk_getcputimer(ctrl.ContractTmr)
+    );
+    print!(
+        "\n     Initial Partition: \t {:7.3}",
+        gk_getcputimer(ctrl.InitPartTmr)
+    );
+    print!(
+        "\n     Uncoarsening: \t\t {:7.3}",
+        gk_getcputimer(ctrl.UncoarsenTmr)
+    );
+    print!(
+        "\n          Refinement: \t\t\t {:7.3}",
+        gk_getcputimer(ctrl.RefTmr)
+    );
+    print!(
+        "\n          Projection: \t\t\t {:7.3}",
+        gk_getcputimer(ctrl.ProjectTmr)
+    );
+    print!(
+        "\n     Splitting: \t\t {:7.3}",
+        gk_getcputimer(ctrl.SplitTmr)
+    );
+    /*
+      print!("\n       Aux1Tmr: \t\t {:7.3}", gk_getcputimer(ctrl.Aux1Tmr));
+      print!("\n       Aux2Tmr: \t\t {:7.3}", gk_getcputimer(ctrl.Aux2Tmr));
+      print!("\n       Aux3Tmr: \t\t {:7.3}", gk_getcputimer(ctrl.Aux3Tmr));
+    */
+    print!("\n********************************************************************\n");
 }
-
-
-

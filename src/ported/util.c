@@ -46,8 +46,7 @@ idx_t c__libmetis__iargmax_nrm(size_t n, idx_t *x, real_t *y)
 /*! These functions return the index of the maximum element in a vector
   */
 /*************************************************************************/
-IFUNC(idx_t , iargmax_strd, (size_t n, idx_t *x, idx_t incx));
-idx_t c__libmetis__iargmax_strd(size_t n, idx_t *x, idx_t incx)
+idx_t iargmax_strd(size_t n, idx_t *x, idx_t incx)
 {
   size_t i, max=0;
 
