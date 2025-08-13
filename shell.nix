@@ -23,7 +23,6 @@ let
     cmakeFlags = [
       "-DCMAKE_C_FLAGS_RELEASE=-O2"
       "-DASSERT=ON"
-      "-DASSERT2=ON"
     ];
 
     nativeBuildInputs = with pkgs; [ cmake ];
@@ -49,13 +48,16 @@ let
       "-DCMAKE_C_FLAGS_RELEASE=-O2"
       "-DCMAKE_C_FLAGS=-w"
       "-DGKLIB_PATH=${gklib}"
-      "-DASSERT=1"
-      "-DASSERT2=1"
+      "-DASSERT=ON"
     ];
   });
+
+  metis-normalized = pkgs.callPackage ./metis-normalized.nix { };
 in
   pkgs.mkShell rec {
     name = "metis";
+
+    METIS_NORM = metis-normalized;
 
     buildInputs = with pkgs; [
       clang

@@ -26,6 +26,11 @@ pub fn isum(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> idx_t {
 }
 
 #[deprecated]
+pub fn imax(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> idx_t {
+    unimplemented!()
+}
+
+#[deprecated]
 pub fn iargmax(n: usize, slice: impl AsRef<[idx_t]>, stride: usize) -> usize {
     unimplemented!()
 }

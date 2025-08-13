@@ -122,7 +122,23 @@ impl Arguments<'_> {
     }
 }
 
+fn read_ws(source: &mut io::Cursor<&[u8]>) -> Result {
+    let &backing = source.get_ref();
+    let mut bi = source.position() as usize;
+    let rem = backing[bi..].trim_ascii_start();
+    let diff = backing[bi..].len() - rem.len();
+    if diff == 0 {
+        return Err("No whitespace")?;
+    }
+    bi += diff;
+    source.set_position(bi as u64);
+    Ok(())
+}
+
 fn read_str(source: &mut io::Cursor<&[u8]>, s: &str) -> Result {
+    if s.chars().all(|ch| ch.is_ascii_whitespace()) {
+        return read_ws(source)
+    }
     let mut bi = source.position() as usize;
     // debug_assert!(bi < source.get_ref().len());
     let &backing = source.get_ref();

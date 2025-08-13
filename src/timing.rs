@@ -14,12 +14,34 @@
 
 use crate::*;
 
-fn gk_clearcputimer(timer: &mut f64) {
+pub fn gk_clearcputimer(timer: &mut f64) {
     *timer = 0.0;
 }
 
-fn gk_getcputimer(timer: f64) -> f64 {
+/// even though this is a nop, I want to keep all it's uses so I can deprecate it and replace them
+pub fn gk_getcputimer(timer: f64) -> f64 {
     timer
+}
+
+// TODO: replace all instances with std::time::Duration
+fn get_cpu_seconds() -> f64 {
+    #[cfg(not(target_family = "unix"))]
+    compile_error!("TODO: support windows time");
+
+    #[cfg(target_family = "unix")]
+    {
+        let mut r: libc::rusage = unsafe { std::mem::zeroed() };
+        unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut r) };
+        (r.ru_utime.tv_sec + r.ru_stime.tv_sec) as f64  + 1.0e-6*(r.ru_utime.tv_usec + r.ru_stime.tv_usec) as f64
+    }
+}
+
+pub fn gk_startcputimer(timer: &mut f64) {
+    *timer -= get_cpu_seconds()
+}
+
+pub fn gk_stopcputimer(timer: &mut f64) {
+    *timer += get_cpu_seconds()
 }
 
 /*************************************************************************

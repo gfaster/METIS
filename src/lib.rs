@@ -76,7 +76,7 @@ pub(crate) mod graph_gen;
 pub(crate) mod pqueue;
 pub(crate) mod gk_temp;
 use gk_temp::*;
-use defs::*;
+pub use defs::*;
 
 #[macro_use]
 pub mod util;

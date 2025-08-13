@@ -106,8 +106,8 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
         Err(e) => panic!("Failed to open {:?}: {e}", params.filename),
     };
 
-    let graphp = graph::CreateGraph();
-    let graph: &mut graph_t = graphp.as_mut().unwrap();
+    let graphp = unsafe { graph::CreateGraph() };
+    let graph: &mut graph_t = unsafe { graphp.as_mut().unwrap() };
 
     // fpin = gk_fopen(params.filename, "r", "ReadGRaph: Graph");
 
@@ -199,8 +199,11 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
         std::ptr::null_mut()
     };
     graph.vsize = ismalloc(graph.nvtxs as usize, 1, c"ReadGraph: vsize".as_ptr()) as *mut idx_t;
-    get_graph_slices_mut!(graph => xadj adjncy vsize vwgt);
-    get_graph_slices_optional!(mut graph => adjwgt);
+    mkslice_mut!(graph->xadj, graph.nvtxs + 1);
+    mkslice_mut!(graph->adjncy, graph.nedges);
+    mkslice_mut!(graph->vwgt, graph.nvtxs as usize * ncon);
+    mkslice_mut!(graph->vsize, graph.nvtxs);
+    mkslice_option_mut!(graph->adjwgt, graph.nedges);
 
     /*----------------------------------------------------------------------
      * Read the sparse graph file
@@ -441,25 +444,18 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
 /* This function reads in the target partition weights. If no file is
 specified the weights are set to 1/nparts */
 /*************************************************************************/
-pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
+pub fn ReadTPwgts(params: &mut params_t, ncon: usize) {
     // idx_t i, j, from, to, fromcnum, tocnum, nleft;
     // real_t awgt=0.0, twgt;
     // char *line=std::ptr::null_mut(), *curstr, *newstr;
     // size_t lnlen=0;
     // FILE *fpin;
 
-    params.tpwgts =
-        crate::rsmalloc(params.nparts * ncon, -1.0, c"ReadTPwgts: tpwgts".as_ptr()) as _;
-
     let Some(tpwgtsfile) = params.tpwgtsfile.as_deref() else {
-        mkslice_mut!(params->tpwgts, params.nparts * ncon);
-        for i in (0)..(params.nparts) {
-            for j in (0)..(ncon) {
-                tpwgts[(i * ncon + j) as usize] = 1.0 / (params.nparts as real_t);
-            }
-        }
+        params.tpwgts = vec![1.0 / params.nparts as real_t; params.nparts as usize * ncon];
         return;
     };
+    params.tpwgts = vec![-1.0; params.nparts as usize * ncon];
 
     let fpin = match OpenOptions::new().read(true).open(tpwgtsfile) {
         Ok(f) => f,
@@ -561,10 +557,9 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         if awgt <= 0.0 || awgt >= 1.0 {
             panic!("Invalid partition weight of {:}", awgt);
         }
-        mkslice_mut!(params->tpwgts, params.nparts * ncon);
         for i in (from)..=(to) {
             for j in (fromcnum)..=(tocnum) {
-                tpwgts[(i as usize * ncon + j as usize) as usize] = awgt;
+                params.tpwgts[(i as usize * ncon + j as usize) as usize] = awgt;
             }
         }
     }
@@ -577,18 +572,16 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
         /* Sum up the specified weights for the jth constraint */
         let mut twgt = 0.0;
         let mut nleft = params.nparts;
-        mkslice!(params->tpwgts, params.nparts * ncon);
-        for i in (0)..(params.nparts) {
-            if tpwgts[(i * ncon + j) as usize] > 0.0 {
-                twgt += tpwgts[(i * ncon + j) as usize];
+        for i in 0..params.nparts {
+            if params.tpwgts[i * ncon + j] > 0.0 {
+                twgt += params.tpwgts[i * ncon + j];
                 nleft -= 1;
             }
         }
 
         /* Rescale the weights to be on the safe side */
         if nleft == 0 {
-            mkslice_mut!(params->tpwgts, params.nparts * ncon);
-            util::rscale(params.nparts, 1.0 / twgt, &mut tpwgts[j..], ncon);
+            util::rscale(params.nparts, 1.0 / twgt, &mut params.tpwgts[j..], ncon);
         }
 
         /* Assign the left-over weight to the remaining partitions */
@@ -603,11 +596,10 @@ pub unsafe fn ReadTPwgts(params: &mut params_t, ncon: usize) {
 
             let awgt = (1.0 - twgt) / (nleft as real_t);
             for i in (0)..(params.nparts) {
-                mkslice_mut!(params->tpwgts, params.nparts * ncon);
-                tpwgts[(i * ncon + j) as usize] = if tpwgts[(i * ncon + j) as usize] < 0.0 {
+                params.tpwgts[i * ncon + j] = if params.tpwgts[i * ncon + j] < 0.0 {
                     awgt
                 } else {
-                    tpwgts[(i * ncon + j) as usize]
+                    params.tpwgts[i * ncon + j]
                 };
             }
         }
@@ -657,7 +649,7 @@ pub unsafe fn ReadPOVector(graph: &mut graph_t, filename: &Path, vector: *mut id
 /*************************************************************************/
 /* This function writes out the partition vector */
 /*************************************************************************/
-pub unsafe fn WritePartition(fname: &Path, part: *mut idx_t, n: idx_t, nparts: idx_t) {
+pub fn WritePartition(fname: &Path, part: &[idx_t], nparts: idx_t) {
     // FILE *fpout;
     // idx_t i;
     // char filename[MAXLINE as usize];
@@ -666,11 +658,10 @@ pub unsafe fn WritePartition(fname: &Path, part: *mut idx_t, n: idx_t, nparts: i
     let filename = extend_filename(fname, format_args!(".part.{nparts}"));
 
     // fpout = gk_fopen(filename, "w", __func__);
-    let mut fpout = OpenOptions::new().write(true).open(filename).unwrap();
+    let mut fpout = OpenOptions::new().write(true).truncate(true).open(filename).unwrap();
 
-    mkslice!(part, n);
-    for i in (0)..(n) {
-        writeln!(fpout, "{}", part[i as usize]).unwrap();
+    for i in part {
+        writeln!(fpout, "{i}").unwrap();
     }
 
     // gk_fclose(fpout);

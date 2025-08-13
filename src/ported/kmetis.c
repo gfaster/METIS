@@ -16,7 +16,11 @@
 /*************************************************************************/
 /*! This function is the entry point for MCKMETIS */
 /*************************************************************************/
-int METIS_PartGraphKway(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, idx_t *adjncy, 
+IFUNC(int, METIS_PartGraphKway,(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, idx_t *adjncy, 
+          idx_t *vwgt, idx_t *vsize, idx_t *adjwgt, idx_t *nparts, 
+          real_t *tpwgts, real_t *ubvec, idx_t *options, idx_t *objval, 
+          idx_t *part));
+int c__METIS_PartGraphKway(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, idx_t *adjncy, 
           idx_t *vwgt, idx_t *vsize, idx_t *adjwgt, idx_t *nparts, 
           real_t *tpwgts, real_t *ubvec, idx_t *options, idx_t *objval, 
           idx_t *part)

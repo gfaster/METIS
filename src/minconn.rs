@@ -12,10 +12,12 @@ use std::ptr::NonNull;
 
 use crate::*;
 
-/// The original is a gklib routine. Since it's only used here, I'm not putting it in utils.
+/// The original is a gklib routine. Since it's only used here, I'm not putting it in utils (this
+/// is wrong).
 ///
 /// I think I may be able to make this an associated function with DAL
-fn iarray2csr(n: usize, range: usize, array: &[idx_t], ptr: &mut [idx_t], ind: &mut [idx_t]) {
+// TODO: move to utils
+pub fn iarray2csr(n: usize, range: usize, array: &[idx_t], ptr: &mut [idx_t], ind: &mut [idx_t]) {
     assert_eq!(range + 1, ptr.len(), "assumption about preconditions");
     assert_eq!(n, array.len(), "assumption about preconditions");
     ptr.fill(0);

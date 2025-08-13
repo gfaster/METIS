@@ -642,6 +642,25 @@ macro_rules! BNDDelete {
     };
 }
 
+#[macro_export]
+macro_rules! mkslice_option_mut {
+    ($struct:ident->$var:ident, $len:expr) => {
+        #[allow(unused_mut)]
+        let mut $var: Option<&mut [_]> = (!(*$struct).$var.is_null()).then(|| std::slice::from_raw_parts_mut((*$struct).$var, $len as usize));
+    };
+    ($newvar:ident: $struct:ident->$var:ident, $len:expr) => {
+        #[allow(unused_mut)]
+        let mut $newvar: Option<&mut [_]> = (!(*$struct).$var.is_null()).then(|| std::slice::from_raw_parts_mut((*$struct).$var, $len as usize));
+    };
+    ($var:ident, $len:expr) => {
+        #[allow(unused_mut)]
+        let mut $var: Option<&mut [_]> = (!$var.is_null()).then(|| std::slice::from_raw_parts_mut($var, $len as usize));
+    };
+    ($newvar:ident: $var:expr, $len:expr) => {
+        #[allow(unused_mut)]
+        let mut $newvar: Option<&mut [_]> = (!$var.is_null()).then(|| std::slice::from_raw_parts_mut($var, $len as usize));
+    };
+}
 
 #[macro_export]
 macro_rules! mkslice_mut {

@@ -27,19 +27,19 @@ use crate::*;
 /*************************************************************************/
 /* This function is the entry point for MCKMETIS */
 /*************************************************************************/
-#[allow(non_snake_case)]
+#[metis_func(no_pfx)]
 pub unsafe extern "C" fn METIS_PartGraphKway(
-    nvtxs: *mut idx_t,
-    ncon: *mut idx_t,
+    nvtxs: *const idx_t,
+    ncon: *const idx_t,
     xadj: *mut idx_t,
     adjncy: *mut idx_t,
     vwgt: *mut idx_t,
     vsize: *mut idx_t,
     adjwgt: *mut idx_t,
-    nparts: *mut idx_t,
+    nparts: *const idx_t,
     tpwgts: *mut real_t,
     ubvec: *const real_t,
-    options: *mut idx_t,
+    options: *const idx_t,
     objval: *mut idx_t,
     part: *mut idx_t,
 ) -> std::ffi::c_int {

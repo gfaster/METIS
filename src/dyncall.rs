@@ -60,10 +60,9 @@ impl Library {
 unsafe impl Send for Library {}
 unsafe impl Sync for Library {}
 
-/// exported symbols that are never prefixed
-const EXPORTS: &[&str] = &[
-    "METIS_NodeND"
-];
+/// exported symbols that are never prefixed. Symbols starting with `METIS_` are implicitly
+/// contained
+const EXPORTS: &[&str] = &[ ];
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 enum Version {
@@ -145,7 +144,7 @@ impl Overrides {
             } else {
                 (arg, "c")
             };
-            let lib_pfx = if sym.starts_with("libmetis__") || EXPORTS.contains(&sym) {
+            let lib_pfx = if sym.starts_with("libmetis__") || sym.starts_with("METIS_") || EXPORTS.contains(&sym) {
                 ""
             } else {
                 "libmetis__"

@@ -34,12 +34,12 @@ use kwayfm::{crinfos, crinfos_mut, vrinfos, vrinfos_mut};
 /*************************************************************************/
 #[metis_func]
 pub extern "C" fn FindPartitionInducedComponents(
-    graph: *mut graph_t,
+    graph: *const graph_t,
     where_: *const idx_t,
     cptr: *mut idx_t,
     cind: *mut idx_t,
 ) -> idx_t {
-    let graph = graph.as_mut().unwrap();
+    let graph = graph.as_ref().unwrap();
     // idx_t i, ii, j, jj, k, me=0, nvtxs, first, last, nleft, ncmps;
     // idx_t *xadj, *adjncy;
     // idx_t *touched, *perm, *todo;
@@ -188,7 +188,7 @@ pub extern "C" fn ComputeBFSOrdering(
 
 /// This function checks whether a graph is contiguous or not.
 #[metis_func]
-pub extern "C" fn IsConnected(graph: *mut graph_t, report: idx_t) -> idx_t {
+pub extern "C" fn IsConnected(graph: *const graph_t, report: idx_t) -> idx_t {
     // idx_t ncmps;
 
     let ncmps =

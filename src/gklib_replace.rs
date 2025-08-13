@@ -1,4 +1,7 @@
 //! Replacement routines for gklib that ought to never use the original
+//!
+//! IMPORTANT: Any functions added here probably require corresponding functions in
+//! `normalization/functions.rs`
 
 use crate::{idx_t, ikv_t};
 
@@ -20,7 +23,7 @@ pub extern "C" fn gk_randint32() -> u32 {
 }
 
 
-// I want this always used (not declared metis_func) since it generally makes sense to inline
+// this is not declared metis_func since I want to use the nicer version
 #[doc(hidden)]
 #[no_mangle]
 pub unsafe extern "C" fn libmetis__ikvsorti(n: usize, ikv: *mut ikv_t) {

@@ -19,6 +19,7 @@ rust-analyzer ssr 'isum($n, $slice + $off, $stride) ==>> $slice[cntrng!($off, $n
 rust-analyzer ssr 'isum($n, $slice, $stride) ==>> $slice[..$n].iter().step_by($stride).sum::<idx_t>()'
 
 rust-analyzer ssr 'iset($n, $val, $slice) ==>> $slice[..$n].fill($val)'
+rust-analyzer ssr 'imax($n, $slice, $stride) ==>> $slice[..$n].iter().copied().step_by($stride).max().unwrap_or_default()'
 
 rust-analyzer ssr 'gk_min($a, $b) ==>> ($a).min($b)'
 rust-analyzer ssr 'gk_max($a, $b) ==>> ($a).max($b)'
