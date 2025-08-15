@@ -11,7 +11,7 @@
 use crate::*;
 
 use core::ptr;
-use std::slice;
+use std::{mem::MaybeUninit, slice};
 
 /// This function is the entry point of cut-based refinement
 #[metis_func]
@@ -253,7 +253,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
     match ctrl.objtype {
         METIS_OBJTYPE_CUT => {
             // cnbrpool operations may realloc, so we need to be careful
-            ckrinfo.fill_with(std::default::Default::default);
+            ckrinfo.fill_with(ckrinfo_t::zero);
 
             // memset(rsgraph.ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
             // ckrinfo_t * myrinfo;
@@ -262,7 +262,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             // cnbr_t * mynbrs;
             // let mynbrs: &mut [cnbr_t];
 
-            cnbrpoolReset(ctrl);
+            wspace::cnbrpoolReset(ctrl);
 
             for i in 0..(nvtxs as usize) {
                 let me = where_[i];
@@ -281,27 +281,25 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
                 if myrinfo.ed > 0 {
                     mincut += myrinfo.ed;
 
-                    myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
+                    myrinfo.inbr = wspace::cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
 
                     for j in xadj[i]..xadj[i + 1] {
                         let j = j as usize;
                         let other = where_[adjncy[j] as usize];
+                        let mynbr_base = ctrl.cnbrpool.add(myrinfo.inbr as usize);
                         let mynbrs = slice::from_raw_parts_mut(
-                            ctrl.cnbrpool.add(myrinfo.inbr as usize),
-                            myrinfo.nnbrs as usize + 1,
+                            mynbr_base,
+                            myrinfo.nnbrs as usize,
                         );
                         if me != other {
-                            let mut k = 0;
-                            while k < myrinfo.nnbrs as usize {
-                                if mynbrs[k].pid == other {
-                                    mynbrs[k].ed += adjwgt[j];
-                                    break;
-                                }
-                                k += 1;
-                            }
-                            if k == myrinfo.nnbrs as usize {
-                                mynbrs[k].pid = other;
-                                mynbrs[k].ed = adjwgt[j];
+                            if let Some(nbr) = mynbrs.iter_mut().find(|nbr| nbr.pid == other) {
+                                nbr.ed += adjwgt[j];
+                            } else {
+                                *mynbr_base.add(myrinfo.nnbrs as usize) = cnbr_t {
+                                    pid: other,
+                                    ed: adjwgt[j],
+                                    gv__: MaybeUninit::uninit(),
+                                };
                                 myrinfo.nnbrs += 1;
                             }
                         }
@@ -335,7 +333,7 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
             // vkrinfo_t * myrinfo;
             // vnbr_t *mynbrs;
 
-            vnbrpoolReset(ctrl);
+            wspace::vnbrpoolReset(ctrl);
 
             /* Compute now the id/ed degrees */
             for i in 0..(nvtxs as usize) {
@@ -358,34 +356,25 @@ pub extern "C" fn ComputeKWayPartitionParams(ctrl: *mut ctrl_t, graph: *mut grap
                 if myrinfo.ned > 0 {
                     mincut += myrinfo.ned;
 
-                    myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-                    let mut mynbrs = slice::from_raw_parts_mut(
-                        ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                        myrinfo.nnbrs as usize + 1,
-                    );
-
+                    myrinfo.inbr = wspace::vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
                     for j in xadj[i]..xadj[i + 1] {
                         let j = j as usize;
                         let other = where_[adjncy[j] as usize];
+                        let mynbr_base = ctrl.vnbrpool.add(myrinfo.inbr as usize);
+                        let mynbrs = slice::from_raw_parts_mut(
+                            mynbr_base,
+                            myrinfo.nnbrs as usize,
+                        );
                         if me != other {
-                            let mut k = 0;
-                            while k < (myrinfo.nnbrs as usize) {
-                                if mynbrs[k].pid == other {
-                                    mynbrs[k].ned += 1;
-                                    break;
-                                }
-                                k += 1;
-                            }
-                            // add as neighbor if not encountered
-                            if k == myrinfo.nnbrs as usize {
-                                mynbrs[k].gv = 0;
-                                mynbrs[k].pid = other;
-                                mynbrs[k].ned = 1;
+                            if let Some(nbr) = mynbrs.iter_mut().find(|nbr| nbr.pid == other) {
+                                nbr.ned += 1;
+                            } else {
+                                *mynbr_base.add(myrinfo.nnbrs as usize) = vnbr_t {
+                                    gv: 0,
+                                    pid: other,
+                                    ned: 1,
+                                };
                                 myrinfo.nnbrs += 1;
-                                mynbrs = slice::from_raw_parts_mut(
-                                    ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                                    myrinfo.nnbrs as usize + 1,
-                                );
                             }
                         }
                     }
@@ -457,10 +446,10 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             {
                 // memset((*graph).ckrinfo, 0, sizeof(ckrinfo_t) * nvtxs);
                 mkslice_mut!(graph->ckrinfo, nvtxs);
-                ckrinfo.fill_with(std::default::Default::default);
+                ckrinfo.fill_with(ckrinfo_t::zero);
             }
 
-            cnbrpoolReset(ctrl);
+            wspace::cnbrpoolReset(ctrl);
 
             nbnd = 0;
             for i in 0..(nvtxs as usize) {
@@ -480,17 +469,15 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     myrinfo.inbr = -1;
                 } else {
                     /* Potentially an interface node */
-                    myrinfo.inbr = cnbrpoolGetNext(ctrl, iend as idx_t - istart as idx_t);
-                    let mut mynbrs = slice::from_raw_parts_mut(
-                        ctrl.cnbrpool.add(myrinfo.inbr as usize),
-                        myrinfo.nnbrs as usize + 1,
-                    );
+                    myrinfo.inbr = wspace::cnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
+                    let mynbr_base = ctrl.cnbrpool.add(myrinfo.inbr as usize);
 
                     let me = where_[i] as usize;
                     let mut tid = 0;
                     let mut ted = 0;
                     let mut k;
                     for j in istart..iend {
+                        let (myrinfo, mynbrs) = kwayfm::crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
                         let other = where_[adjncy[j] as usize] as usize;
                         if me == other {
                             tid += adjwgt[j];
@@ -499,18 +486,18 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                             k = htable[other];
                             if k == -1 {
                                 htable[other] = myrinfo.nnbrs;
-                                mynbrs[myrinfo.nnbrs as usize].pid = other as idx_t;
-                                mynbrs[myrinfo.nnbrs as usize].ed = adjwgt[j];
+                                *mynbr_base.add(myrinfo.nnbrs as usize) = cnbr_t {
+                                    pid: other as idx_t,
+                                    ed: adjwgt[j],
+                                    gv__: MaybeUninit::uninit(),
+                                };
                                 myrinfo.nnbrs += 1;
-                                mynbrs = slice::from_raw_parts_mut(
-                                    mynbrs.as_mut_ptr(),
-                                    myrinfo.nnbrs as usize + 1,
-                                );
                             } else {
                                 mynbrs[k as usize].ed += adjwgt[j];
                             }
                         }
                     }
+                    let (myrinfo, mynbrs) = kwayfm::crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
                     myrinfo.id = tid;
                     myrinfo.ed = ted;
 
@@ -523,8 +510,8 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                             BNDInsert!(nbnd, bndind, bndptr, i);
                         }
 
-                        for j in 0..myrinfo.nnbrs {
-                            htable[mynbrs[j as usize].pid as usize] = -1;
+                        for nbr in mynbrs {
+                            htable[nbr.pid as usize] = -1;
                         }
                     }
                 }
@@ -556,7 +543,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                 get_graph_slices_mut!(graph => vkrinfo);
                 vkrinfo.fill_with(std::default::Default::default); // zeroed
             }
-            vnbrpoolReset(ctrl);
+            wspace::vnbrpoolReset(ctrl);
 
             for i in 0..(nvtxs as usize) {
                 let istart = xadj[i] as usize;
@@ -569,7 +556,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     myrinfo.inbr = -1;
                 } else {
                     /* Potentially an interface node */
-                    myrinfo.inbr = vnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
+                    myrinfo.inbr = wspace::vnbrpoolGetNext(ctrl, (iend - istart) as idx_t);
                     // mynbrs = (*ctrl).vnbrpool + myrinfo.inbr;
                     debug_assert!(myrinfo.inbr >= 0);
 
@@ -578,10 +565,10 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     let mut ted = 0;
                     for j in istart..iend {
                         let other = where_[adjncy[j] as usize];
+                        let mynbr_base = ctrl.vnbrpool.add(myrinfo.inbr as usize);
                         let mynbrs = slice::from_raw_parts_mut(
-                            ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                            // (nvtxs - myrinfo.inbr) as usize,
-                            myrinfo.nnbrs as usize + 1,
+                            mynbr_base,
+                            myrinfo.nnbrs as usize,
                         );
                         if me == other {
                             tid += 1;
@@ -590,9 +577,11 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                             k = htable[other as usize];
                             if k == -1 {
                                 htable[other as usize] = myrinfo.nnbrs;
-                                mynbrs[myrinfo.nnbrs as usize].gv = 0;
-                                mynbrs[myrinfo.nnbrs as usize].pid = other;
-                                mynbrs[myrinfo.nnbrs as usize].ned = 1;
+                                *mynbr_base.add(myrinfo.nnbrs as usize) = vnbr_t {
+                                    pid: other,
+                                    ned: 1,
+                                    gv: 0
+                                };
                                 myrinfo.nnbrs += 1;
                             } else {
                                 mynbrs[k as usize].ned += 1;
@@ -609,8 +598,7 @@ pub extern "C" fn ProjectKWayPartition(ctrl: *mut ctrl_t, graph: *mut graph_t) {
                     } else {
                         let mynbrs = slice::from_raw_parts_mut(
                             ctrl.vnbrpool.add(myrinfo.inbr as usize),
-                            // (nvtxs - myrinfo.inbr) as usize,
-                            myrinfo.nnbrs as usize + 1,
+                            myrinfo.nnbrs as usize,
                         );
                         for j in 0..myrinfo.nnbrs {
                             htable[mynbrs[j as usize].pid as usize] = -1;

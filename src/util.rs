@@ -872,6 +872,44 @@ macro_rules! eprintln_once {
 }
 pub(crate) use eprintln_once;
 
+/// function that generates a jump based on every byte in a struct or slice (assumes no padding).
+/// Valgrind should be able to detect this if it's uninitialized
+#[inline(never)]
+pub(crate) unsafe fn valgrind_assert_init<T: ?Sized>(val: &T) {
+    if !cfg!(debug_assertions) {
+        return
+    }
+    let size = size_of_val(val);
+    let val: *const T = val;
+    let bytes: &[u8] = std::slice::from_raw_parts(val.cast(), size);
+    // to hopefully speed things up since we use black box
+    let (pre, main, post) = bytes.align_to::<u64>();
+
+    #[inline(always)]
+    unsafe fn useit(b: u64) {
+        // if b != 0 {
+        //     std::hint::black_box(b);
+        // }
+        core::arch::asm!(
+            "test {b}, {b}",
+            "jnz 2f",
+            "jz 2f",
+            "2:",
+            b = in(reg) b,
+        );
+    }
+
+    for b in pre {
+        useit(*b as u64);
+    }
+    for b in main {
+        useit(*b);
+    }
+    for b in post {
+        useit(*b as u64);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::dyncall::{ab_test, ab_test_eq};

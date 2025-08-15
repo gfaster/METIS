@@ -1,17 +1,9 @@
 #![allow(bad_style, unused)]
 
+use std::mem::MaybeUninit;
+
 #[metis_decl]
 extern "C" {
-    pub fn AllocateRefinementWorkSpace(
-        ctrl: *mut ctrl_t,
-        nbrpoolsize_max: idx_t,
-        nbrpoolsize: idx_t,
-    ) -> std::ffi::c_void;
-
-    pub fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *mut graph_t) -> std::ffi::c_void;
-    pub fn cnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
-    pub fn cnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
-
     pub fn imalloc(nmemb: usize, msg: *const std::ffi::c_char) -> *mut std::ffi::c_void;
     pub fn ismalloc(
         nmemb: usize,
@@ -29,11 +21,8 @@ extern "C" {
         nmemb: usize,
         msg: *const std::ffi::c_char,
     ) -> *mut std::ffi::c_void;
-    pub fn FreeWorkSpace(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
     pub fn isrand(seed: idx_t) -> std::ffi::c_void;
-    pub fn vnbrpoolGetNext(ctrl: *mut ctrl_t, nnbrs: idx_t) -> idx_t;
-    pub fn vnbrpoolReset(ctrl: *mut ctrl_t) -> std::ffi::c_void;
 
     pub fn irandArrayPermute(
         n: idx_t,
@@ -186,6 +175,8 @@ pub const METIS_OPTION_NOOUTPUT: moptions_et = 26;
 pub const METIS_OPTION_BALANCE: moptions_et = 27;
 pub const METIS_OPTION_GTYPE: moptions_et = 28;
 pub const METIS_OPTION_UBVEC: moptions_et = 29;
+/// doesn't exist in normal binary - used for testing normalized output
+pub const METIS_OPTION_OUTFILE: moptions_et = 30;
 
 pub type moptions_et = ::std::os::raw::c_uint;
 pub const METIS_PTYPE_RB: mptype_et = 0;
@@ -324,7 +315,7 @@ pub enum Rtype {
 }
 
 #[repr(u32)]
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Ctype {
     Rm = METIS_CTYPE_RM,
     Shem = METIS_CTYPE_SHEM,
@@ -642,7 +633,6 @@ pub struct vkrinfo_t {
 
 /// The following data structure stores holds information on degrees for k-way partition
 #[repr(C)]
-#[derive(Default)]
 pub struct ckrinfo_t {
     /// The internal degree of a vertex (sum of weights)
     pub id: idx_t,
@@ -653,13 +643,19 @@ pub struct ckrinfo_t {
     // FIXME?  Should we put a dummy field here to make the layout the same as `vkrinfo_t`?
     // kwayrefine::AllocateKWayPartitionMemory just casts one to the other, which is obviously
     // incorrect?
-    pub __gv_padding: idx_t,
+    pub __gv_padding: MaybeUninit<idx_t>,
 
     /// The number of neighboring subdomains
     pub nnbrs: idx_t,
 
     /// The index in the cnbr_t array where the nnbrs list of neighbors is stored
     pub inbr: idx_t,
+}
+
+impl ckrinfo_t {
+    pub const fn zero() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
 }
 
 /// The following data structure holds information on degrees for k-way partition
@@ -673,7 +669,7 @@ pub struct nrinfo_t {
 ///
 /// Gavin: I believe it stands for volume neighborhood
 #[repr(C)]
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct vnbr_t {
     /// The partition ID
     pub pid: idx_t,
@@ -687,7 +683,7 @@ pub struct vnbr_t {
 
 /// This data structure stores cut-based k-way refinement info about an
 /// adjacent subdomain for a given vertex.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct cnbr_t {
     /// The partition ID
@@ -696,5 +692,5 @@ pub struct cnbr_t {
     /// The sum of the weights of the adjacent edges
     pub ed: idx_t,
 
-    pub gv__: idx_t,
+    pub gv__: MaybeUninit<idx_t>,
 }

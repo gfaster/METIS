@@ -72,13 +72,17 @@ enum Version {
 
 const VAR: &str = "METIS_OVERRIDE_SYMS";
 static SYM_OVERRIDES: LazyLock<Overrides> = LazyLock::new(Overrides::init_overrides);
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Overrides {
     globs: Vec<(Glob<'static>, Version)>,
     exact: HashMap<Box<[u8]>, Version>,
 }
 
 impl Overrides {
+    fn empty() -> Self {
+        Overrides { globs: Vec::new(), exact: HashMap::new() }
+    }
+
     fn get(&self, name: impl AsRef<[u8]>) -> Version {
         let name = name.as_ref();
         let name = name.strip_suffix(&[0u8]).unwrap_or(name);
@@ -170,12 +174,12 @@ impl Overrides {
     fn init_overrides() -> Self {
         use std::io::Write;
         let Some(args) = std::env::var_os(VAR) else {
-            return Overrides::default();
+            return Overrides::empty();
         };
         let Ok(args) = args.into_string() else {
             let mut out = std::io::stderr();
             writeln!(out, "{VAR} is invalid utf-8").unwrap();
-            return Overrides::default();
+            return Overrides::empty();
         };
         Self::init_with(&args)
     }
@@ -229,6 +233,15 @@ fn get_dlerror() -> Option<String> {
 
 pub struct OverrideKey {
     _no_construct: (),
+}
+
+pub fn set_bin_overrides() {
+    if let Some(overrides) = std::env::var(VAR).ok() {
+        if cfg!(test) {
+            println!("\nsetting overrides: `{overrides}`")
+        }
+        LOCAL_OVERRIDES.with(|l| *l.borrow_mut() = Overrides::init_with(&overrides));
+    }
 }
 
 #[cfg_attr(not(test), expect(dead_code))]
@@ -361,6 +374,7 @@ impl ICall {
 }
 
 /// Helper for grouping functions -- very dumb and can get very slow if there are too many `*`
+#[derive(Clone)]
 pub struct Glob<'a> {
     template: Cow<'a, [u8]>,
 }

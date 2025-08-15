@@ -116,6 +116,7 @@ fn parse_inner<'a, 'o>(
             METIS_OPTION_BALANCE => unimplemented!(),
             METIS_OPTION_GTYPE => p.gtype = opt.parse_enum(val)?,
             METIS_OPTION_UBVEC => p.ubvecstr = Some(val.into()),
+            METIS_OPTION_OUTFILE => p.outfile = Some(val.into()),
             _ => panic!("unexpected option: {opt:?}"),
         }
     }
@@ -139,7 +140,7 @@ pub fn parse_standard(
         Ok(()) => return None,
         Err(e) if e.is_help() => {
             for line in help {
-                eprintln!("{line}");
+                println!("{line}");
             }
             return Some(ExitCode::SUCCESS);
         }

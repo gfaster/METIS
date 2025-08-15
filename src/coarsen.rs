@@ -1143,9 +1143,9 @@ pub extern "C" fn CreateCoarseGraph(
 
     let dovsize = ctrl.objtype == METIS_OBJTYPE_VOL;
     let cnvtxs = cnvtxs as usize;
-    let dropedges = ctrl.dropedges;
+    let dropedges = ctrl.dropedges != 0;
 
-    let mask = HTLENGTH;
+    const MASK: idx_t = HTLENGTH;
     const { assert!((HTLENGTH + 1).count_ones() == 1) }
 
     // ifset!(
@@ -1176,15 +1176,19 @@ pub extern "C" fn CreateCoarseGraph(
     /* Setup structures for dropedges */
     let mut nkeys = 0;
     // these 3 vars are only used when dropedges != 0, but I hope the optimizer will be good
-    let mut medianewgts = vec![-1; cnvtxs];
-    let mut keys = vec![0; nkeys as usize];
-    let mut noise = vec![0; cnvtxs];
-    if dropedges != 0 {
-        nkeys = 0;
-        for v in (0)..(nvtxs) {
-            nkeys = nkeys.max(xadj[(v + 1) as usize] - xadj[v as usize]);
-        }
-        nkeys = 2 * nkeys + 1;
+    let mut medianewgts: Vec<idx_t> = Vec::new();
+    let mut keys: Vec<idx_t> = Vec::new();
+    let mut noise: Vec<idx_t> = Vec::new();
+    if dropedges {
+        medianewgts = vec![-1; cnvtxs];
+        keys = vec![0; nkeys as usize];
+        noise = vec![0; cnvtxs];
+        // nkeys = 0;
+        // for v in (0)..(nvtxs) {
+        //     nkeys = nkeys.max(xadj[(v + 1) as usize] - xadj[v as usize]);
+        // }
+        // nkeys = 2 * nkeys + 1;
+        nkeys = xadj.windows(2).map(|w| w[1] - w[0]).max().unwrap_or_default();
 
         for v in (0)..(cnvtxs) {
             noise[v as usize] = irandInRange(128);
@@ -1211,7 +1215,7 @@ pub extern "C" fn CreateCoarseGraph(
     // cadjncy = cgraph.adjncy;
     // cadjwgt = cgraph.adjwgt;
 
-    let mut htable = vec![-1 as idx_t; mask as usize + 1]; /* hash table */
+    let mut htable = vec![-1 as idx_t; MASK as usize + 1]; /* hash table */
     let mut dtable = vec![-1 as idx_t; cnvtxs]; /* direct table */
 
     cxadj[0 as usize] = 0;
@@ -1259,14 +1263,14 @@ pub extern "C" fn CreateCoarseGraph(
         }
 
         /* take care of the edges */
-        if (xadj[(v + 1) as usize] - xadj[v as usize] + xadj[(u + 1) as usize] - xadj[u as usize])
-            < (mask >> 2)
+        if (xadj[v + 1] - xadj[v] + xadj[u + 1] - xadj[u]) < (MASK >> 2)
         {
             /* use mask */
             /* put the ID of the contracted node itself at the start, so that it can be
              * removed easily */
-            htable[cnvtxs & mask as usize] = 0;
+            htable[cnvtxs & MASK as usize] = 0;
             cadjncy[0 as usize] = cnvtxs as idx_t;
+            cadjwgt[0] = 0; // TODO: add this line to METIS in a PR
             nedges = 1;
 
             {
@@ -1275,9 +1279,9 @@ pub extern "C" fn CreateCoarseGraph(
                 for j in (istart)..(iend) {
                     let k = cmap[adjncy[j as usize] as usize];
                     // for (kk=k&mask; htable[kk as usize]!=-1 && cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
-                    let mut kk = k & mask;
+                    let mut kk = k & MASK;
                     while htable[kk as usize] != -1 && cadjncy[htable[kk as usize] as usize] != k {
-                        kk = (kk + 1) & mask
+                        kk = (kk + 1) & MASK
                     }
                     let m = htable[kk as usize];
                     if m == -1 {
@@ -1297,9 +1301,9 @@ pub extern "C" fn CreateCoarseGraph(
                 for j in (istart)..(iend) {
                     let k = cmap[adjncy[j as usize] as usize];
                     // for (kk=k&mask; htable[kk as usize]!=-1 && cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
-                    let mut kk = k & mask;
+                    let mut kk = k & MASK;
                     while htable[kk as usize] != -1 && cadjncy[htable[kk as usize] as usize] != k {
-                        kk = (kk + 1) & mask
+                        kk = (kk + 1) & MASK
                     }
                     let m = htable[kk as usize];
                     if m == -1 {
@@ -1318,9 +1322,9 @@ pub extern "C" fn CreateCoarseGraph(
             for j in (0..nedges).rev() {
                 let k = cadjncy[j as usize];
                 // for (kk=k&mask; cadjncy[htable[kk as usize] as usize]!=k; kk=((kk+1)&mask));
-                let mut kk = k & mask;
+                let mut kk = k & MASK;
                 while cadjncy[htable[kk as usize] as usize] != k {
-                    kk = (kk + 1) & mask;
+                    kk = (kk + 1) & MASK;
                 }
                 htable[kk as usize] = -1;
                 // TODO: Verify this
@@ -1382,7 +1386,7 @@ pub extern "C" fn CreateCoarseGraph(
 
         /* Determine the median weight of the incident edges, which will be used
         to keep an edge (u, v) iff wgt(u, v) >= min(medianewgts[u as usize], medianewgts[v as usize]) */
-        if dropedges != 0 {
+        if dropedges {
             assert!(nedges < nkeys, "{:}, {:}", nkeys, nedges);
             medianewgts[cnvtxs] = 8; /* default for island nodes */
             if nedges > 0 {
@@ -1392,7 +1396,7 @@ pub extern "C" fn CreateCoarseGraph(
                         + noise[cadjncy[j as usize] as usize];
                 }
                 // isortd(nedges, keys);
-                keys.sort_unstable();
+                keys.sort_unstable_by_key(|&k| std::cmp::Reverse(k));
                 medianewgts[cnvtxs] = keys[(nedges - 1).min(
                     (xadj[(v + 1) as usize] - xadj[v as usize] + xadj[(u + 1) as usize]
                         - xadj[u as usize])
@@ -1409,7 +1413,7 @@ pub extern "C" fn CreateCoarseGraph(
     }
 
     /* compact the adjacency structure of the coarser graph to keep only +ve edges */
-    if dropedges != 0 {
+    if dropedges {
         let mut droppedewgt = 0;
 
         // cadjncy = cgraph.adjncy;

@@ -885,7 +885,7 @@ pub extern "C" fn MoveGroupMinConnForVol(
 
         let myrinfo = &mut *graph.vkrinfo.add(i);
         if (*myrinfo).inbr == -1 {
-            (*myrinfo).inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
+            (*myrinfo).inbr = wspace::vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
             (*myrinfo).nnbrs = 0;
         }
         let mynbrs = std::slice::from_raw_parts(

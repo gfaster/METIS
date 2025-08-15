@@ -11,6 +11,7 @@ autobins = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["normalized"]
 # make behavior as close as possible to the original so that output can be
 # diff'd with the full original in A/B tests. For now, I am not making errors
 # the same. Goes together with patches for METIS and GKlib
@@ -26,6 +27,11 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "gpmetis"
+test = false
+
+[[test]]
+name = "bin_ab"
+required-features = ["normalized"]
 
 [dependencies]
 macros = {path = "./macros"}

@@ -43,6 +43,8 @@ const OPTIONS: &[getopt::Opt] = getopt::opt! {
 
     ("dbglvl",         Required,      METIS_OPTION_DBGLVL),
 
+    ("outfile",        Required,      METIS_OPTION_OUTFILE),
+
     ("help",           NoArg,         METIS_OPTION_HELP),
 };
 
@@ -70,7 +72,7 @@ const OPTIONS: &[getopt::Opt] = getopt::opt! {
 const HELPSTR: &[&str] =
 &[
 " ",
-"Usage: gpmetis [options] <graphfile> <nparts>",
+"Usage: gpmetis [options] graphfile nparts",
 " ",
 " Required parameters",
 "    graphfile   Stores the graph to be partitioned.",
@@ -225,6 +227,8 @@ fn error<T: std::fmt::Display>(msg: T) -> ExitCode {
 }
 
 fn main() -> ExitCode {
+    metis::set_bin_overrides();
+
     let mut params = params_t {
         ptype: METIS_PTYPE_KWAY as _,
         objtype: METIS_OBJTYPE_CUT as _,
@@ -372,7 +376,7 @@ fn main() -> ExitCode {
     } else {
         if !params.nooutput {
             gk_startcputimer(&mut params.iotimer);
-            metis::graphio::WritePartition(&params.filename, &part, params.nparts as idx_t);
+            metis::graphio::WritePartition(params.outfile.as_deref().unwrap_or(&params.filename), &part, params.nparts as idx_t);
             gk_stopcputimer(&mut params.iotimer);
         }
 

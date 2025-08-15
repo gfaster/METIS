@@ -96,7 +96,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
         );
     }
     /* allocate workspace memory */
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /* start the partitioning */
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));
@@ -160,14 +160,14 @@ pub fn MlevelKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t, part: *mut
         kwayrefine::AllocateKWayPartitionMemory(ctrl, cgraph);
 
         /* Release the work space */
-        FreeWorkSpace(ctrl);
+        wspace::FreeWorkSpace(ctrl);
 
         /* Compute the initial partitioning */
         InitKWayPartitioning(ctrl, cgraph);
 
         /* Re-allocate the work space */
-        AllocateWorkSpace(ctrl, graph);
-        AllocateRefinementWorkSpace(ctrl, graph.nedges + graph.nvtxs, 2 * cgraph.nedges);
+        wspace::AllocateWorkSpace(ctrl, graph);
+        wspace::AllocateRefinementWorkSpace(ctrl, graph.nedges + graph.nvtxs, 2 * cgraph.nedges);
 
         // ifset!(
         //     ctrl.dbglvl,

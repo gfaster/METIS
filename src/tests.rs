@@ -564,7 +564,7 @@ part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random
 
 #[test]
 fn identical_to_c_kmetis_cut() {
-    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 1, |mut g| {
+    ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 1, |mut g| {
         g.set_objective(Objtype::Cut);
         g.random_vwgt();
         g.random_adjwgt();
@@ -574,7 +574,7 @@ fn identical_to_c_kmetis_cut() {
 
 #[test]
 fn identical_to_c_kmetis_vol() {
-    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 1, |mut g| {
+    ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 1, |mut g| {
         g.set_objective(Objtype::Vol);
         g.random_vwgt();
         g.random_adjwgt();
@@ -584,7 +584,7 @@ fn identical_to_c_kmetis_vol() {
 
 #[test]
 fn identical_to_p_kmetis() {
-    ab_test_partition_test_graphs("*", Optype::Pmetis, 20, 1, |mut g| {
+    ab_test_partition_test_graphs("*:rs", Optype::Pmetis, 20, 1, |mut g| {
         g.random_vwgt();
         g.random_adjwgt();
         g
@@ -636,7 +636,7 @@ fn identical_to_c_kmetis_large() {
 
 #[test]
 fn identical_to_c_kmetis_multiconstraint() {
-    ab_test_partition_test_graphs("*", Optype::Kmetis, 20, 2, |mut g| {
+    ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 2, |mut g| {
         g.random_vwgt();
         g.call().unwrap();
         g

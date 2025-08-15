@@ -769,7 +769,7 @@ pub extern "C" fn CheckParams(ctrl: *const ctrl_t) -> libc::c_int {
 pub extern "C" fn FreeCtrl(ctrl: *mut *mut ctrl_t) {
     // ctrl_t *ctrl = *r_ctrl;
 
-    FreeWorkSpace(*ctrl);
+    wspace::FreeWorkSpace(*ctrl);
     gk::free_ref(&mut (**ctrl).tpwgts);
     gk::free_ref(&mut (**ctrl).pijbm);
     gk::free_ref(&mut (**ctrl).ubfactors);

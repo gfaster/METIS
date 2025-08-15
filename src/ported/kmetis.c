@@ -33,10 +33,10 @@ int c__METIS_PartGraphKway(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, idx_t *adjncy
   if (!gk_malloc_init()) 
     return METIS_ERROR_MEMORY;
 
-  gk_sigtrap();
-
-  if ((sigrval = gk_sigcatch()) != 0)
-    goto SIGTHROW;
+  // gk_sigtrap();
+  //
+  // if ((sigrval = gk_sigcatch()) != 0)
+  //   goto SIGTHROW;
 
   /* set up the run parameters */
   ctrl = SetupCtrl(METIS_OP_KMETIS, options, *ncon, *nparts, tpwgts, ubvec);
@@ -89,10 +89,10 @@ SIGTHROW:
   if (renumber)
     Change2FNumbering(*nvtxs, xadj, adjncy, part);
 
-  gk_siguntrap();
+  // gk_siguntrap();
   gk_malloc_cleanup(0);
 
-  return metis_rcode(sigrval);
+  return METIS_OK;
 }
 
 

@@ -132,7 +132,7 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
 
     debug_assert!(debug::check_adj(graph));
     /* allocate workspace memory */
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /* start the partitioning */
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, InitTimers(ctrl));

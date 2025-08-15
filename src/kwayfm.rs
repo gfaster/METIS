@@ -129,7 +129,7 @@ pub(crate) unsafe fn ensure_crinfo_init(
     debug_assert!(!graph_ckrinfo.is_null());
     let info = &mut *graph_ckrinfo.add(idx);
     if info.inbr == -1 {
-        info.inbr = cnbrpoolGetNext(ctrl, xadj[idx + 1] - xadj[idx]);
+        info.inbr = wspace::cnbrpoolGetNext(ctrl, xadj[idx + 1] - xadj[idx]);
         info.nnbrs = 0;
     }
 }
@@ -152,7 +152,24 @@ pub(crate) unsafe fn vrinfos<'a>(
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    util::valgrind_assert_init(slice);
     (info, slice)
+}
+
+/// ensures `vkrinfo` doesn't have `inbr == -1` by initializing it if necessary.
+#[expect(dead_code)]
+pub(crate) unsafe fn ensure_vrinfo_init(
+    ctrl: &mut ctrl_t,
+    graph_vkrinfo: *mut vkrinfo_t,
+    idx: usize,
+    xadj: &[idx_t],
+) {
+    debug_assert!(!graph_vkrinfo.is_null());
+    let info = &mut *graph_vkrinfo.add(idx);
+    if info.inbr == -1 {
+        info.inbr = wspace::vnbrpoolGetNext(ctrl, xadj[idx + 1] - xadj[idx]);
+        info.nnbrs = 0;
+    }
 }
 
 /// little helper to replace all the times we get a `vkrinfo_t` `&mut [vnbr_t]`. Note that if we
@@ -175,6 +192,7 @@ pub(crate) unsafe fn vrinfos_mut<'a>(
     debug_assert!(info.inbr != -1);
     let slice =
         std::slice::from_raw_parts_mut(ctrl_vnbrpool.add(info.inbr as usize), info.nnbrs as usize);
+    util::valgrind_assert_init(slice);
     (info, slice)
 }
 
@@ -201,7 +219,7 @@ pub(crate) unsafe fn UpdateAdjacentVertexInfoAndBND(
     // cnbr_t *mynbrs;
 
     if myrinfo.inbr == -1 {
-        myrinfo.inbr = cnbrpoolGetNext(ctrl, adjlen as idx_t);
+        myrinfo.inbr = wspace::cnbrpoolGetNext(ctrl, adjlen as idx_t);
         myrinfo.nnbrs = 0;
     }
     debug_assert!(debug::CheckRInfo(ctrl, myrinfo) != 0);
@@ -2960,11 +2978,16 @@ pub unsafe fn KWayVolUpdate(
      *=====================================================================*/
     if myidx == -1 {
         myidx = myrinfo.nnbrs;
-        myrinfo.nnbrs += 1;
         // may temporarily use an extra index
-        debug_assert!(myidx <= xadj[(v + 1) as usize] - xadj[v as usize]);
-        let (_myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, v);
-        mynbrs[myidx as usize].ned = 0;
+        debug_assert!(myidx <= xadj[v + 1] - xadj[v]);
+        *ctrl.vnbrpool.add((myrinfo.inbr + myrinfo.nnbrs) as usize) = vnbr_t { 
+            ned: 0,
+
+            // these two were previously uninit
+            pid: idx_t::MAX,
+            gv: idx_t::MAX
+        };
+        myrinfo.nnbrs += 1;
     }
     let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, v);
     myrinfo.ned += myrinfo.nid - mynbrs[myidx as usize].ned;
@@ -2995,9 +3018,9 @@ pub unsafe fn KWayVolUpdate(
 
         let myrinfo = graph.vkrinfo.add(ii);
         if (*myrinfo).inbr == -1 {
-            (*myrinfo).inbr = vnbrpoolGetNext(ctrl, xadj[(ii + 1) as usize] - xadj[ii]);
+            (*myrinfo).inbr = wspace::vnbrpoolGetNext(ctrl, xadj[(ii + 1) as usize] - xadj[ii]);
         }
-        let (mut myrinfo, mut mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
+        let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
 
         if me == from {
             inc_dec!(myrinfo.ned, myrinfo.nid, 1);
@@ -3017,15 +3040,21 @@ pub unsafe fn KWayVolUpdate(
                         /* All vertices adjacent to 'ii' need to be updated */
                         for jj in (xadj[ii])..(xadj[(ii + 1) as usize]) {
                             let u = adjncy[jj as usize] as usize;
-                            let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
+                            let (_orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
 
-                            for kk in (0)..(orinfo.nnbrs) {
-                                if onbrs[kk as usize].pid == from as idx_t {
-                                    onbrs[kk as usize].gv -= vsize[ii];
-                                    if vmarker[u as usize] == 0 {
+                            for nbr in &mut *onbrs {
+                                if nbr.pid == from as idx_t {
+                                    if nbr.gv.checked_sub(vsize[ii]).is_none() {
+                                        eprintln!("{onbrs:?}");
+                                        eprintln!("{vsize:?}");
+                                        eprintln!("vsize[{ii:?}] = {}", vsize[ii]);
+                                        panic!();
+                                    }
+                                    nbr.gv -= vsize[ii];
+                                    if vmarker[u] == 0 {
                                         /* Need to update boundary etc */
-                                        vmarker[u as usize] = 2;
-                                        modind[(nmod) as usize] = u as idx_t;
+                                        vmarker[u] = 2;
+                                        modind[nmod] = u as idx_t;
                                         nmod += 1;
                                     }
                                     break;
@@ -3086,9 +3115,9 @@ pub unsafe fn KWayVolUpdate(
                             let other = where_[u] as usize;
 
                             if u != v && other == to {
-                                let (orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
-                                for kk in (0)..(orinfo.nnbrs) {
-                                    onbrs[kk as usize].gv -= vsize[ii as usize];
+                                let (_orinfo, onbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, u);
+                                for nbr in onbrs {
+                                    nbr.gv -= vsize[ii as usize];
                                 }
 
                                 if vmarker[u] == 0 {
@@ -3108,10 +3137,14 @@ pub unsafe fn KWayVolUpdate(
 
             if !found {
                 // adding nbr, so need to re-construct nbrs slice
+                *ctrl.vnbrpool.add((myrinfo.inbr + myrinfo.nnbrs) as usize) = vnbr_t {
+                    pid: to as idx_t,
+                    ned: 1,
+                    // gv was left uninit before. Setting it to idx_t::MAX causes overflows in the
+                    // next loop
+                    gv: 0,
+                };
                 myrinfo.nnbrs += 1;
-                (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, ii);
-                mynbrs[myrinfo.nnbrs as usize - 1].pid = to as idx_t;
-                mynbrs[myrinfo.nnbrs as usize - 1].ned = 1;
                 vmarker[ii as usize] = 1; /* You do a complete .gv calculation */
 
                 /* All vertices adjacent to 'ii' need to be updated */
@@ -3194,8 +3227,8 @@ pub unsafe fn KWayVolUpdate(
 
         if vmarker[i as usize] == 1 {
             /* Only complete gain updates go through */
-            for k in (0)..(myrinfo.nnbrs) {
-                mynbrs[k as usize].gv = 0;
+            for nbr in &mut *mynbrs {
+                nbr.gv = 0;
             }
 
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
@@ -3203,16 +3236,16 @@ pub unsafe fn KWayVolUpdate(
                 let other = where_[ii as usize] as usize;
                 let (orinfo, onbrs) = vrinfos(graph.vkrinfo, ctrl.vnbrpool, ii);
 
-                for kk in (0)..(orinfo.nnbrs) {
-                    pmarker[onbrs[kk as usize].pid as usize] = kk;
+                for kk in 0..onbrs.len() {
+                    pmarker[onbrs[kk].pid as usize] = kk as idx_t;
                 }
                 pmarker[other as usize] = 1;
 
                 if me == other {
                     /* Find which domains 'i' is connected and 'ii' is not and update their gain */
-                    for k in (0)..(myrinfo.nnbrs) {
-                        if pmarker[mynbrs[k as usize].pid as usize] == -1 {
-                            mynbrs[k as usize].gv -= vsize[ii as usize];
+                    for nbr in &mut *mynbrs {
+                        if pmarker[nbr.pid as usize] == -1 {
+                            nbr.gv -= vsize[ii as usize];
                         }
                     }
                 } else {
@@ -3245,9 +3278,9 @@ pub unsafe fn KWayVolUpdate(
 
         /* Compute the overall gv for that node */
         myrinfo.gv = idx_t::MIN;
-        for k in (0)..(myrinfo.nnbrs) {
-            if mynbrs[k as usize].gv > myrinfo.gv {
-                myrinfo.gv = mynbrs[k as usize].gv;
+        for nbr in &*mynbrs {
+            if nbr.gv > myrinfo.gv {
+                myrinfo.gv = nbr.gv;
             }
         }
 

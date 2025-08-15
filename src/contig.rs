@@ -760,11 +760,7 @@ pub extern "C" fn MoveGroupContigForCut(
         let i = ind[iii as usize] as usize;
         let from = where_[i];
 
-        let myrinfo = &mut *graph.ckrinfo.add(i as usize);
-        if myrinfo.inbr == -1 {
-            myrinfo.inbr = cnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-            myrinfo.nnbrs = 0;
-        }
+        kwayfm::ensure_crinfo_init(ctrl, graph.ckrinfo, i, xadj);
         let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);
 
         /* find the location of 'to' in myrinfo or create it if it is not there */
@@ -886,7 +882,7 @@ pub extern "C" fn MoveGroupContigForVol(
         {
             let myrinfo = &mut *graph.vkrinfo.add(i);
             if myrinfo.inbr == -1 {
-                myrinfo.inbr = vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
+                myrinfo.inbr = wspace::vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
                 myrinfo.nnbrs = 0;
             }
         }

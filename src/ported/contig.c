@@ -423,6 +423,7 @@ void c__libmetis__EliminateComponents( ctrl_t *ctrl, graph_t *graph)
         }
       }
 
+      if (bestcid != -1)
       for (j=cptr[bestcid]; j<cptr[bestcid+1]; j++) {
         ASSERT(where[cind[j]] == i);
         cwhere[cind[j]] = i;

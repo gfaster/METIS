@@ -655,7 +655,11 @@ pub fn WritePartition(fname: &Path, part: &[idx_t], nparts: idx_t) {
     // char filename[MAXLINE as usize];
 
     // sprintf(filename, "%s.part.%"PRIDX, fname, nparts);
-    let filename = extend_filename(fname, format_args!(".part.{nparts}"));
+    let filename = if fname.extension() == Some(std::ffi::OsStr::new("graph")) {
+        &extend_filename(fname, format_args!(".part.{nparts}"))
+    } else {
+        fname
+    };
 
     // fpout = gk_fopen(filename, "w", __func__);
     let mut fpout = OpenOptions::new().write(true).truncate(true).open(filename).unwrap();

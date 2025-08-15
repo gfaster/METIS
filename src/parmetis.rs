@@ -106,7 +106,7 @@ pub extern "C" fn METIS_NodeNDP(
     let graph = graph.as_mut().unwrap();
 
     /* allocate workspace memory */
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /* do the nested dissection ordering  */
     // iset(2 * npes - 1, 0, sizes);
@@ -295,7 +295,7 @@ pub extern "C" fn METIS_ComputeVertexSeparator(
         std::ptr::null_mut(),
     );
 
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /*============================================================
      * Perform the bisection
@@ -361,7 +361,7 @@ pub extern "C" fn METIS_NodeRefine(
     );
 
     /* allocate workspace memory */
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /* set up the memory and the input partition */
     srefine::Allocate2WayNodePartitionMemory(ctrl, graph);
@@ -1097,7 +1097,7 @@ pub extern "C" fn METIS_CacheFriendlyReordering(
     // nparts = imax(nvtxs, part, 1)+1;
     // pwgts  = ismalloc(nparts+1, 0, "METIS_CacheFriendlyReordering: pwgts");
     let nparts = part.iter().copied().max().unwrap_or_default() as usize + 1;
-    let mut pwgts = vec![0; nparts];
+    let mut pwgts = vec![0; nparts+1];
 
     for i in (0)..(nvtxs) {
         pwgts[part[i as usize] as usize] += 1;

@@ -42,8 +42,8 @@ let
     ];
 
     cmakeFlags = [
-      "-DCMAKE_C_FLAGS_RELEASE=-O2"
-      "-DASSERT=ON"
+      # "-DCMAKE_C_FLAGS_RELEASE=-O2"
+      # "-DASSERT=ON" # generally don't want asserts to match release behavior
       "-DNORMALIZED=ON"
     ];
 
@@ -51,6 +51,7 @@ let
   };
 in
   pkgs.metis.overrideAttrs (finalAttrs: previousAttrs: rec {
+    pname = "metis-normalized";
     src = pkgs.fetchFromGitHub {
       owner = "KarypisLab";
       repo = "METIS";
@@ -75,10 +76,10 @@ in
     '';
 
     cmakeFlags = [
-      "-DCMAKE_C_FLAGS_RELEASE=-O2"
-      "-DCMAKE_C_FLAGS=-w"
+      # "-DCMAKE_C_FLAGS_RELEASE=-O2"
+      # "-DCMAKE_C_FLAGS=-w"
       "-DGKLIB_PATH=${gklib}"
-      "-DASSERT=1"
+      # "-DASSERT=ON" # generally don't want asserts to match release behavior
       "-DNORMALIZED=ON"
       # "-DASSERT2=1"
     ];

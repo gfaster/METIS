@@ -177,7 +177,7 @@ pub extern "C" fn METIS_NodeND(
     debug_assert!(checkgraph::CheckGraph(graph, ctrl.numflag, 1) != 0);
 
     /* allocate workspace memory */
-    AllocateWorkSpace(ctrl, graph);
+    wspace::AllocateWorkSpace(ctrl, graph);
 
     /* do the nested dissection ordering  */
     if ctrl.ccorder != 0 {

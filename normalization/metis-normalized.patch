@@ -21,6 +21,20 @@ index 591ece4..e849673 100644
  if(GKRAND)
    set(GK_COPTIONS "${GK_COPTIONS} -DUSE_GKRAND")
  endif(GKRAND)
+diff --git a/include/metis.h b/include/metis.h
+index 5000d1b..2e6cae3 100644
+--- a/include/metis.h
++++ b/include/metis.h
+@@ -292,7 +292,8 @@ typedef enum {
+   METIS_OPTION_NOOUTPUT,
+   METIS_OPTION_BALANCE,
+   METIS_OPTION_GTYPE,
+-  METIS_OPTION_UBVEC
++  METIS_OPTION_UBVEC,
++  METIS_OPTION_OUTFILE
+ } moptions_et;
+ 
+ 
 diff --git a/libmetis/CMakeLists.txt b/libmetis/CMakeLists.txt
 index fc6cec6..0c5f784 100644
 --- a/libmetis/CMakeLists.txt
@@ -51,11 +65,126 @@ index c18350f..50a7470 100644
  #define MAXLINE			1280000
  
  #define LTERM			(void **) 0	/* List terminator for gk_free() */
+diff --git a/libmetis/gklib.c b/libmetis/gklib.c
+index 4e17eac..0b22780 100644
+--- a/libmetis/gklib.c
++++ b/libmetis/gklib.c
+@@ -75,12 +75,14 @@ void rsortd(size_t n, real_t *base)
+ #undef r_gt
+ }
+ 
++/*
+ void ikvsorti(size_t n, ikv_t *base)
+ {
+ #define ikey_lt(a, b) ((a)->key < (b)->key)
+   GK_MKQSORT(ikv_t, base, n, ikey_lt);
+ #undef ikey_lt
+ }
++*/
+ 
+ /* Sorts based both on key and val */
+ void ikvsortii(size_t n, ikv_t *base)
+@@ -90,12 +92,14 @@ void ikvsortii(size_t n, ikv_t *base)
+ #undef ikeyval_lt
+ }
+ 
++/*
+ void ikvsortd(size_t n, ikv_t *base)
+ {
+ #define ikey_gt(a, b) ((a)->key > (b)->key)
+   GK_MKQSORT(ikv_t, base, n, ikey_gt);
+ #undef ikey_gt
+ }
++*/
+ 
+ void rkvsorti(size_t n, rkv_t *base)
+ {
+diff --git a/programs/cmdline_gpmetis.c b/programs/cmdline_gpmetis.c
+index 4260584..74f830d 100644
+--- a/programs/cmdline_gpmetis.c
++++ b/programs/cmdline_gpmetis.c
+@@ -45,6 +45,8 @@ static struct gk_option long_options[] = {
+ 
+   {"dbglvl",         1,      0,      METIS_OPTION_DBGLVL},
+ 
++  {"outfile",        1,      0,      METIS_OPTION_OUTFILE},
++
+   {"help",           0,      0,      METIS_OPTION_HELP},
+   {0,                0,      0,      0}
+ };
+@@ -370,6 +372,10 @@ params_t *parse_cmdline(int argc, char *argv[])
+         if (gk_optarg) params->dbglvl = (idx_t)atoi(gk_optarg);
+         break;
+ 
++      case METIS_OPTION_OUTFILE:
++        if (gk_optarg) params->outfile = gk_strdup(gk_optarg);
++        break;
++
+       case METIS_OPTION_HELP:
+         for (i=0; strlen(helpstr[i]) > 0; i++)
+           printf("%s\n", helpstr[i]);
+diff --git a/programs/cmdline_mpmetis.c b/programs/cmdline_mpmetis.c
+index 99c48ef..8bd85e7 100644
+--- a/programs/cmdline_mpmetis.c
++++ b/programs/cmdline_mpmetis.c
+@@ -37,6 +37,7 @@ static struct gk_option long_options[] = {
+   {"seed",           1,      0,      METIS_OPTION_SEED},
+ 
+   {"dbglvl",         1,      0,      METIS_OPTION_DBGLVL},
++  {"outfile",        1,      0,      METIS_OPTION_OUTFILE},
+ 
+   {"help",           0,      0,      METIS_OPTION_HELP},
+   {0,                0,      0,      0}
+@@ -315,6 +316,10 @@ params_t *parse_cmdline(int argc, char *argv[])
+         if (gk_optarg) params->dbglvl = (idx_t)atoi(gk_optarg);
+         break;
+ 
++      case METIS_OPTION_OUTFILE:
++        if (gk_optarg) params->outfile = gk_strdup(gk_optarg);
++        break;
++
+       case METIS_OPTION_HELP:
+         for (i=0; strlen(helpstr[i]) > 0; i++)
+           printf("%s\n", helpstr[i]);
+diff --git a/programs/cmdline_ndmetis.c b/programs/cmdline_ndmetis.c
+index a8f501c..0ddff2a 100644
+--- a/programs/cmdline_ndmetis.c
++++ b/programs/cmdline_ndmetis.c
+@@ -28,6 +28,8 @@ static struct gk_option long_options[] = {
+   {"nseps",          1,      0,      METIS_OPTION_NSEPS},
+   {"seed",           1,      0,      METIS_OPTION_SEED},
+   {"dbglvl",         1,      0,      METIS_OPTION_DBGLVL},
++  // TODO: fixup WritePermutation
++  // {"outfile",        1,      0,      METIS_OPTION_OUTFILE},
+   {"help",           0,      0,      METIS_OPTION_HELP},
+   {0,                0,      0,      0}
+ };
+@@ -255,6 +257,10 @@ params_t *parse_cmdline(int argc, char *argv[])
+         if (gk_optarg) params->dbglvl = (idx_t)atoi(gk_optarg);
+         break;
+ 
++      case METIS_OPTION_OUTFILE:
++        if (gk_optarg) params->outfile = gk_strdup(gk_optarg);
++        break;
++
+       case METIS_OPTION_HELP:
+         for (i=0; strlen(helpstr[i]) > 0; i++)
+           printf("%s\n", helpstr[i]);
 diff --git a/programs/gpmetis.c b/programs/gpmetis.c
-index 4b7e0b5..bb9ef45 100644
+index 4b7e0b5..92e846e 100644
 --- a/programs/gpmetis.c
 +++ b/programs/gpmetis.c
-@@ -232,6 +232,8 @@ void GPReportResults(params_t *params, graph_t *graph, idx_t *part, idx_t objval
+@@ -126,7 +126,8 @@ int main(int argc, char *argv[])
+     if (!params->nooutput) {
+       /* Write the solution */
+       gk_startcputimer(params->iotimer);
+-      WritePartition(params->filename, part, graph->nvtxs, params->nparts); 
++      WritePartition(params->outfile ? params->outfile : params->filename,
++                     part, graph->nvtxs, params->nparts); 
+       gk_stopcputimer(params->iotimer);
+     }
+ 
+@@ -232,6 +233,8 @@ void GPReportResults(params_t *params, graph_t *graph, idx_t *part, idx_t objval
  
    gk_stopcputimer(params->reporttimer);
  
@@ -64,7 +193,7 @@ index 4b7e0b5..bb9ef45 100644
    printf("\nTiming Information ----------------------------------------------------------\n");
    printf("  I/O:          \t\t %7.3"PRREAL" sec\n", gk_getcputimer(params->iotimer));
    printf("  Partitioning: \t\t %7.3"PRREAL" sec   (METIS time)\n", gk_getcputimer(params->parttimer));
-@@ -246,6 +248,7 @@ void GPReportResults(params_t *params, graph_t *graph, idx_t *part, idx_t objval
+@@ -246,6 +249,7 @@ void GPReportResults(params_t *params, graph_t *graph, idx_t *part, idx_t objval
      printf("  rusage.ru_maxrss:\t\t %7.3"PRREAL" MB\n", (real_t)(usage.ru_maxrss/(1024.0)));
    }
    printf("  proc/self/stat/VmPeak:\t %7.3"PRREAL" MB\n", (real_t)gk_GetProcVmPeak()/(1024.0*1024.0));
@@ -72,6 +201,27 @@ index 4b7e0b5..bb9ef45 100644
  #endif
  
    printf("******************************************************************************\n");
+diff --git a/programs/io.c b/programs/io.c
+index 1d07fd6..4ac4d4f 100644
+--- a/programs/io.c
++++ b/programs/io.c
+@@ -428,9 +428,14 @@ void WritePartition(char *fname, idx_t *part, idx_t n, idx_t nparts)
+   idx_t i;
+   char filename[MAXLINE];
+ 
+-  sprintf(filename, "%s.part.%"PRIDX, fname, nparts);
++  /* modify fname if ends in .graph, otherwise use as is */
++  if (strlen(fname) > strlen(".graph") 
++      && !strcmp(fname + (strlen(fname) - strlen(".graph")), ".graph")) {
++    snprintf(filename, MAXLINE, "%s.part.%"PRIDX, fname, nparts);
++    fname = filename;
++  }
+ 
+-  fpout = gk_fopen(filename, "w", __func__);
++  fpout = gk_fopen(fname, "w", __func__);
+ 
+   for (i=0; i<n; i++)
+     fprintf(fpout,"%" PRIDX "\n", part[i]);
 diff --git a/programs/m2gmetis.c b/programs/m2gmetis.c
 index bb2f2b0..661fea2 100644
 --- a/programs/m2gmetis.c

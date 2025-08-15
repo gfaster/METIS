@@ -67,6 +67,7 @@ pub mod params;
 pub mod scanf;
 
 mod dyncall;
+pub use dyncall::set_bin_overrides;
 
 pub(crate) mod blas;
 pub(crate) mod dal;
