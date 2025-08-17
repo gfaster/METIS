@@ -130,7 +130,7 @@ pub extern "C" fn SetupCtrl(
     /* setup the ubfactors */
     ctrl.ubfactors = gk::rsmalloc(
         ctrl.ncon as usize,
-        util::i2rubfactor(ctrl.ufactor),
+        util::i2rubfactor(ctrl.ufactor) as real_t,
         c"SetupCtrl: ubfactors",
     )
     .as_buf_ptr();
@@ -322,11 +322,20 @@ pub extern "C" fn PrintCtrl(ctrl: *const ctrl_t) {
             print!("{:4}=[", i);
             for j in (0)..(ctrl.ncon) {
                 mkslice!(ctrl->tpwgts, ctrl.ncon * ctrl.nparts);
-                print!(
-                    "{}{:.2e}",
-                    (if j == 0 { "" } else { " " }),
-                    tpwgts[(i * ctrl.ncon + j) as usize]
-                );
+                // C and Rust scientific notation formatting is slightly different
+                if cfg!(feature = "normalized") {
+                    print!(
+                        "{}{:.5}",
+                        (if j == 0 { "" } else { " " }),
+                        tpwgts[(i * ctrl.ncon + j) as usize]
+                    );
+                } else {
+                    print!(
+                        "{}{:.2e}",
+                        (if j == 0 { "" } else { " " }),
+                        tpwgts[(i * ctrl.ncon + j) as usize]
+                    );
+                }
             }
             print!("]");
         }

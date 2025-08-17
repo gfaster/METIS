@@ -772,8 +772,11 @@ pub extern "C" fn MoveGroupContigForCut(
             k += 1;
         }
         if k == myrinfo.nnbrs as usize {
-            mynbrs[k].pid = to;
-            mynbrs[k].ed = 0;
+            *ctrl.cnbrpool.add((myrinfo.inbr + myrinfo.nnbrs) as usize) = cnbr_t {
+                pid: to,
+                ed: 0,
+                gv__: std::mem::MaybeUninit::uninit(),
+            };
             myrinfo.nnbrs += 1;
         }
         let (myrinfo, mynbrs) = crinfos_mut(graph.ckrinfo, ctrl.cnbrpool, i);

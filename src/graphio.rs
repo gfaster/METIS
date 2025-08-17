@@ -45,6 +45,7 @@ fn strtoidx(s: &mut &str) -> Result<idx_t, <idx_t as FromStr>::Err> {
         .count();
     let ret = idx_t::from_str_radix(&s[..end], 10);
     *s = &s[end..];
+    *s = s.trim_start();
     ret
 }
 
@@ -72,6 +73,7 @@ fn strtoreal(s: &mut &str) -> Result<real_t, <real_t as FromStr>::Err> {
         .count();
     let ret = s[..end].parse();
     *s = &s[end..];
+    *s = s.trim_start();
     ret
 }
 
@@ -445,6 +447,7 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
 specified the weights are set to 1/nparts */
 /*************************************************************************/
 pub fn ReadTPwgts(params: &mut params_t, ncon: usize) {
+    assert!(ncon > 0);
     // idx_t i, j, from, to, fromcnum, tocnum, nleft;
     // real_t awgt=0.0, twgt;
     // char *line=std::ptr::null_mut(), *curstr, *newstr;
@@ -470,14 +473,16 @@ pub fn ReadTPwgts(params: &mut params_t, ncon: usize) {
     // fpin = gk_fopen(params.tpwgtsfile, "r", "ReadTPwgts: tpwgtsfile");
 
     // while (gk_getline(&line, &lnlen, fpin) != -1) {
-    let mut line = String::new();
-    while fpin.read_line(&mut line).unwrap() != 0 {
+    let mut buf = String::new();
+    while fpin.read_line(&mut buf).unwrap() != 0 {
         // gk_strchr_replace(line, " ", "");
-        let line = line.replace(" ", "");
+        // let line = line.replace(" ", "");
 
         /* start extracting the fields */
 
-        let mut curstr = line.as_str();
+        // gets rid of the LF in panic messages
+        let line = buf.as_str().trim_ascii_end();
+        let mut curstr = line;
         let from = match strtoidx(&mut curstr) {
             Ok(x) => x,
             Err(e) => panic!(
@@ -562,6 +567,7 @@ pub fn ReadTPwgts(params: &mut params_t, ncon: usize) {
                 params.tpwgts[(i as usize * ncon + j as usize) as usize] = awgt;
             }
         }
+        buf.clear();
     }
 
     // gk_fclose(fpin);

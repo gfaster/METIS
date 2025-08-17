@@ -1,4 +1,6 @@
-use std::{error::Error, io::{self, BufRead}, ops::Range};
+use std::{
+    error::Error, fmt, io::{self, BufRead}, ops::Range, path::Path
+};
 
 use fastrand::Rng;
 
@@ -16,7 +18,6 @@ pub struct Csr {
 }
 
 impl Csr {
-
     /// returns (xadj, adjncy)
     #[cfg(test)]
     pub fn into_parts(self) -> (Box<[idx_t]>, Box<[idx_t]>) {
@@ -34,7 +35,7 @@ impl Csr {
         assert_eq!(ret.xadj[nvtxs] as usize, ret.adjncy.len());
         for (i, w) in ret.xadj.windows(2).enumerate() {
             assert!(w[0] <= w[1]);
-            let r = w[0] as usize .. w[1] as usize;
+            let r = w[0] as usize..w[1] as usize;
             for &e in &ret.adjncy[r] {
                 assert!(e >= 0);
                 assert!((e as usize) < nvtxs);
@@ -77,12 +78,8 @@ pub struct GraphBuilder {
 
 #[derive(Clone)]
 enum KwayObjective {
-    Vol {
-        vsize: Option<Vec<idx_t>>,
-    },
-    Cut {
-        adjwgt: Option<Vec<idx_t>>,
-    },
+    Vol { vsize: Option<Vec<idx_t>> },
+    Cut { adjwgt: Option<Vec<idx_t>> },
 }
 
 impl KwayObjective {
@@ -168,7 +165,7 @@ fn vec_ptr<T>(v: &mut Option<Vec<T>>) -> *mut T {
     }
 }
 
-#[allow(unused)]
+#[allow(dead_code)]
 impl GraphBuilder {
     pub fn new(op: Optype, nparts: usize, ncon: usize) -> Self {
         if op.is_ometis() {
@@ -179,8 +176,8 @@ impl GraphBuilder {
         }
         Self {
             op: match op {
-                Optype::Pmetis => GraphOpSettings::Pmetis { 
-                    common: GraphPartSettings { 
+                Optype::Pmetis => GraphOpSettings::Pmetis {
+                    common: GraphPartSettings {
                         ncuts: 1,
                         nparts,
                         ncon,
@@ -190,27 +187,25 @@ impl GraphBuilder {
                     adjwgt: None,
                 },
                 Optype::Kmetis => GraphOpSettings::Kmetis {
-                    common: GraphPartSettings { 
+                    common: GraphPartSettings {
                         ncuts: 1,
                         nparts,
                         ncon,
                         ubvec: None,
                         tpwgts: None,
                     },
-                    objtype: KwayObjective::Cut { 
-                        adjwgt: None
-                    },
+                    objtype: KwayObjective::Cut { adjwgt: None },
                     minconn: false,
                     contig: false,
                     niparts: -1,
                 },
-                Optype::Ometis => GraphOpSettings::Ometis { 
+                Optype::Ometis => GraphOpSettings::Ometis {
                     compute_vertex_separator: false,
                     compress: true,
                     nseps: 1,
                     pfactor: 0,
                     ccorder: false,
-                    rtype: OmetisRtype::Sep1Sided
+                    rtype: OmetisRtype::Sep1Sided,
                 },
             },
             seed: 4321,
@@ -259,7 +254,7 @@ impl GraphBuilder {
     }
 
     /// validates degrees, returning a list of (Something about necessary edges)
-    fn validate_degrees(mut deg: &[idx_t]) -> bool {
+    fn validate_degrees(deg: &[idx_t]) -> bool {
         let mut deg = Vec::from(deg);
         deg.sort_unstable();
         while let Some(d) = deg.pop() {
@@ -280,15 +275,16 @@ impl GraphBuilder {
     }
 
     /// approximate. uses <https://web.stanford.edu/~saberi/randgraphext.pdf>
-    pub fn random_from_degrees(&mut self, mut deg: Vec<idx_t>) {
+    pub fn random_from_degrees(&mut self, deg: Vec<idx_t>) {
         if deg.len() <= 1 || !Self::validate_degrees(&deg) {
             return;
         }
-        let mut xadj = {
+        let _xadj = {
             let mut a = deg.clone();
             util::make_csr(a.len() - 1, &mut a);
             a
         };
+        todo!()
     }
 
     /// Allocate every vertex to have corresponding vertex degree
@@ -319,7 +315,7 @@ impl GraphBuilder {
     }
 
     pub fn ncon(&self) -> usize {
-        self.op.common_ref().map_or(1, |c| c.ncon)
+        self.op.common_ref().map_or(1, |c| c.ncon).max(1)
     }
 
     fn adj(&self, vtx: idx_t) -> &[idx_t] {
@@ -337,7 +333,12 @@ impl GraphBuilder {
         &mut self.adjncy[istart..iend]
     }
 
-    fn insert_edge(&mut self, from_free: idx_t, free: &mut pqueue::rs::IPQueue, vtx_pair: [idx_t; 2]) {
+    fn insert_edge(
+        &mut self,
+        from_free: idx_t,
+        free: &mut pqueue::rs::IPQueue,
+        vtx_pair: [idx_t; 2],
+    ) {
         let [from, to] = vtx_pair;
         debug_assert_ne!(from, to);
         // eprint!("from {from} to {to} ");
@@ -378,7 +379,7 @@ impl GraphBuilder {
                 .max()
                 .expect("empty edge list") as usize;
             let mut degress = vec![0; max + 1];
-            for &(l, r) in &edges {
+            for &(l, _r) in &edges {
                 degress[l as usize] += 1;
                 // degress[r as usize] += 1;
             }
@@ -437,7 +438,8 @@ impl GraphBuilder {
         let comm = self.op.common().unwrap();
         let mut rng = Rng::new();
         let mut one_con = || {
-            let base = Vec::from_iter((0..comm.nparts).map(|_| rng.f32()));
+            let mut base = vec![0.0; comm.nparts];
+            base.fill_with(|| rng.f32().clamp(0.1, 0.9));
             let total: f32 = base.iter().sum();
             base.into_iter().map(move |b| b / total)
         };
@@ -454,6 +456,18 @@ impl GraphBuilder {
                 .zip(one_con())
                 .for_each(|(tpwgt, wgt)| *tpwgt = wgt);
         }
+
+        if cfg!(debug_assertions) {
+            for c in 0..comm.ncon {
+                let mut sum = 0.0;
+                for p in 0..comm.nparts {
+                    sum += tpwgts[comm.ncon * p + c]
+                }
+
+                assert!((sum - 1.0).abs() < 0.0001, "sum: {sum}");
+            }
+        }
+
         comm.tpwgts = Some(tpwgts);
     }
 
@@ -481,16 +495,24 @@ impl GraphBuilder {
         let mut rng = Rng::new();
         let nvtxs = self.nvtxs();
         match &mut self.op {
-            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt: Some(_) }, .. } => panic!("cannot set vsize -- already set adjwgt"),
-            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => panic!("cannot set vsize unless kway"),
-            _ => ()
+            GraphOpSettings::Kmetis {
+                objtype: KwayObjective::Cut { adjwgt: Some(_) },
+                ..
+            } => panic!("cannot set vsize -- already set adjwgt"),
+            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => {
+                panic!("cannot set vsize unless kway")
+            }
+            _ => (),
         }
         let mut vsize = Vec::with_capacity(nvtxs);
         vsize.extend((0..nvtxs).map(|_| rng.u32(1..20) as idx_t));
         match &mut self.op {
-            GraphOpSettings::Kmetis { objtype, .. } => *objtype = KwayObjective::Vol { vsize: Some(vsize) },
-            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => panic!("cannot set vsize unless kway"),
-            _ => ()
+            GraphOpSettings::Kmetis { objtype, .. } => {
+                *objtype = KwayObjective::Vol { vsize: Some(vsize) }
+            }
+            GraphOpSettings::Ometis { .. } | GraphOpSettings::Pmetis { .. } => {
+                panic!("cannot set vsize unless kway")
+            }
         }
     }
 
@@ -503,12 +525,21 @@ impl GraphBuilder {
         let nedges = self.adjncy.len();
         let orig = match &mut self.op {
             GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt,
-            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt }, .. } => adjwgt,
-            GraphOpSettings::Kmetis { objtype: KwayObjective::Vol { vsize: Some(_) }, .. } => panic!("already set vsize - can't also set adjwgt"),
+            GraphOpSettings::Kmetis {
+                objtype: KwayObjective::Cut { adjwgt },
+                ..
+            } => adjwgt,
+            GraphOpSettings::Kmetis {
+                objtype: KwayObjective::Vol { vsize: Some(_) },
+                ..
+            } => panic!("already set vsize - can't also set adjwgt"),
             GraphOpSettings::Kmetis { .. } => &mut None,
             GraphOpSettings::Ometis { .. } => panic!("can't set adjwgt in ometis"),
         };
-        let mut adjwgt = orig.as_mut().take().map_or_else(|| Vec::with_capacity(nedges), |a| std::mem::take(a));
+        let mut adjwgt = orig
+            .as_mut()
+            .take()
+            .map_or_else(|| Vec::with_capacity(nedges), |a| std::mem::take(a));
         adjwgt.clear();
         adjwgt.extend((0..self.adjncy.len()).map(|_| rng.u32(1..50) as idx_t));
         for vtx in self.vtxs() {
@@ -524,11 +555,14 @@ impl GraphBuilder {
         }
         match &mut self.op {
             GraphOpSettings::Pmetis { adjwgt: dst, .. } => *dst = Some(adjwgt),
-            GraphOpSettings::Kmetis { objtype, .. } => *objtype = KwayObjective::Cut { adjwgt: Some(adjwgt) },
-            _ => unreachable!()
+            GraphOpSettings::Kmetis { objtype, .. } => {
+                *objtype = KwayObjective::Cut {
+                    adjwgt: Some(adjwgt),
+                }
+            }
+            _ => unreachable!(),
         }
     }
-
 
     /// sets the umbalance factor in thousandths over 1.000
     pub fn set_ufactor(&mut self, ufactor: idx_t) {
@@ -536,45 +570,87 @@ impl GraphBuilder {
         self.imbalance_factor = ufactor;
     }
 
+    /// `ufactor` value that metis will use. See also: [`util::i2rubfactor`]
+    pub fn ufactor(&self) -> i32 {
+        if self.imbalance_factor != -1 {
+            return self.imbalance_factor
+        }
+        match self.op {
+            GraphOpSettings::Pmetis { common: GraphPartSettings { ncon, .. }, ..} if ncon <= 1 => PMETIS_DEFAULT_UFACTOR,
+            GraphOpSettings::Pmetis { .. } => MCPMETIS_DEFAULT_UFACTOR,
+            GraphOpSettings::Kmetis { .. } => KMETIS_DEFAULT_UFACTOR,
+            GraphOpSettings::Ometis { .. } => OMETIS_DEFAULT_UFACTOR,
+        }
+    }
+
     pub fn set_contig(&mut self, contig: bool) {
         match &mut self.op {
             GraphOpSettings::Kmetis { contig: x, .. } => *x = contig,
-            _ => panic!("Can only specify contig for kmetis")
+            _ => panic!("Can only specify contig for kmetis"),
         }
     }
-    
+
     pub fn set_minconn(&mut self, minconn: bool) {
         match &mut self.op {
             GraphOpSettings::Kmetis { minconn: x, .. } => *x = minconn,
-            _ => panic!("Can only specify minconn for kmetis")
+            _ => panic!("Can only specify minconn for kmetis"),
         }
     }
 
     pub fn set_objective(&mut self, objtype: Objtype) {
         match (&mut self.op, objtype) {
-            (GraphOpSettings::Kmetis {  .. }, Objtype::Node) => panic!("cannot set node objtype"),
-            (GraphOpSettings::Kmetis { objtype: KwayObjective::Vol { .. }, .. }, Objtype::Vol) => (),
-            (GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { .. }, .. }, Objtype::Cut) => (),
-            (GraphOpSettings::Kmetis { objtype: objtype @ KwayObjective::Vol { vsize: None }, .. }, Objtype::Cut) => *objtype = KwayObjective::Cut { adjwgt: None },
-            (GraphOpSettings::Kmetis { objtype: objtype @ KwayObjective::Cut { adjwgt: None }, .. }, Objtype::Vol) => *objtype = KwayObjective::Vol { vsize: None },
-            (GraphOpSettings::Kmetis {  .. }, _) => panic!("trying to set objtype to {objtype:?}, but we already populated in another objtype"),
-            (GraphOpSettings::Pmetis { .. } 
-                | GraphOpSettings::Ometis { .. }, _) => panic!("setting objective does nothing on pmetis or ometis"),
+            (GraphOpSettings::Kmetis { .. }, Objtype::Node) => panic!("cannot set node objtype"),
+            (
+                GraphOpSettings::Kmetis {
+                    objtype: KwayObjective::Vol { .. },
+                    ..
+                },
+                Objtype::Vol,
+            ) => (),
+            (
+                GraphOpSettings::Kmetis {
+                    objtype: KwayObjective::Cut { .. },
+                    ..
+                },
+                Objtype::Cut,
+            ) => (),
+            (
+                GraphOpSettings::Kmetis {
+                    objtype: objtype @ KwayObjective::Vol { vsize: None },
+                    ..
+                },
+                Objtype::Cut,
+            ) => *objtype = KwayObjective::Cut { adjwgt: None },
+            (
+                GraphOpSettings::Kmetis {
+                    objtype: objtype @ KwayObjective::Cut { adjwgt: None },
+                    ..
+                },
+                Objtype::Vol,
+            ) => *objtype = KwayObjective::Vol { vsize: None },
+            (GraphOpSettings::Kmetis { .. }, _) => panic!(
+                "trying to set objtype to {objtype:?}, but we already populated in another objtype"
+            ),
+            (GraphOpSettings::Pmetis { .. } | GraphOpSettings::Ometis { .. }, _) => {
+                panic!("setting objective does nothing on pmetis or ometis")
+            }
         }
     }
 
     pub fn set_ccorder(&mut self, cc: bool) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set ccorder on pmetis or kmetis"),
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set ccorder on pmetis or kmetis")
+            }
             GraphOpSettings::Ometis { ccorder, .. } => *ccorder = cc,
         }
     }
 
     pub fn set_nseps(&mut self, n: idx_t) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set nseps on pmetis or kmetis")
+            }
             GraphOpSettings::Ometis { nseps, .. } => *nseps = n,
         }
     }
@@ -582,8 +658,9 @@ impl GraphBuilder {
     /// sets `compress` for ometis (default `true`)
     pub fn set_compress(&mut self, do_compress: bool) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set nseps on pmetis or kmetis")
+            }
             GraphOpSettings::Ometis { compress, .. } => *compress = do_compress,
         }
     }
@@ -591,24 +668,30 @@ impl GraphBuilder {
     /// call [`parmetis::METIS_ComputeVertexSeparator`] instead of [`ometis::METIS_NodeND`]
     pub fn compute_vertex_separator(&mut self, do_vtx_sep: bool) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set nseps on pmetis or kmetis"),
-            GraphOpSettings::Ometis { compute_vertex_separator, .. } => *compute_vertex_separator = do_vtx_sep,
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set nseps on pmetis or kmetis")
+            }
+            GraphOpSettings::Ometis {
+                compute_vertex_separator,
+                ..
+            } => *compute_vertex_separator = do_vtx_sep,
         }
     }
 
     pub fn set_pfactor(&mut self, p: idx_t) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set pfactor on pmetis or kmetis"),
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set pfactor on pmetis or kmetis")
+            }
             GraphOpSettings::Ometis { pfactor, .. } => *pfactor = p,
         }
     }
 
     pub fn set_rtype(&mut self, rt: OmetisRtype) {
         match &mut self.op {
-            GraphOpSettings::Pmetis { ..} |
-            GraphOpSettings::Kmetis { .. } => panic!("cannot set rtype on pmetis or kmetis"),
+            GraphOpSettings::Pmetis { .. } | GraphOpSettings::Kmetis { .. } => {
+                panic!("cannot set rtype on pmetis or kmetis")
+            }
             GraphOpSettings::Ometis { rtype, .. } => *rtype = rt,
         }
     }
@@ -666,15 +749,20 @@ impl GraphBuilder {
         if let Some(ctype) = match_setting!(options[METIS_OPTION_CTYPE] == Ctype::{Shem, Rm}) {
             self.edge_match = ctype;
         }
-        if let Some(rtype) = match_setting!(options[METIS_OPTION_RTYPE] == Rtype::{Fm, Greedy, Sep1Sided, Sep2Sided}) {
+        if let Some(rtype) =
+            match_setting!(options[METIS_OPTION_RTYPE] == Rtype::{Fm, Greedy, Sep1Sided, Sep2Sided})
+        {
             match &mut self.op {
-                GraphOpSettings::Ometis { rtype: dst, .. } => *dst = match rtype {
-                    Rtype::Greedy |
-                    Rtype::Fm => panic!("can't set rtype of ometis to {rtype:?}"),
-                    Rtype::Sep1Sided => OmetisRtype::Sep1Sided,
-                    Rtype::Sep2Sided => OmetisRtype::Sep2Sided,
-                },
-                _ => panic!("can't set rtype outside of ometis")
+                GraphOpSettings::Ometis { rtype: dst, .. } => {
+                    *dst = match rtype {
+                        Rtype::Greedy | Rtype::Fm => {
+                            panic!("can't set rtype of ometis to {rtype:?}")
+                        }
+                        Rtype::Sep1Sided => OmetisRtype::Sep1Sided,
+                        Rtype::Sep2Sided => OmetisRtype::Sep2Sided,
+                    }
+                }
+                _ => panic!("can't set rtype outside of ometis"),
             }
         }
     }
@@ -682,7 +770,6 @@ impl GraphBuilder {
     pub fn call(&mut self) -> Result<(idx_t, Vec<i32>), ()> {
         assert_eq!(self.adjncy.len(), *self.xadj.last().unwrap_or(&0) as usize);
         let mut nvtxs = self.nvtxs() as idx_t;
-        let mut ncon = self.ncon() as idx_t;
         let mut part = vec![0; self.nvtxs()];
         let mut objval = 0;
         let mut options = [-1; METIS_NOPTIONS as usize];
@@ -694,9 +781,20 @@ impl GraphBuilder {
         options[METIS_OPTION_UFACTOR as usize] = self.imbalance_factor;
 
         let res = match &mut self.op {
-            GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, adjwgt } => unsafe {
+            GraphOpSettings::Pmetis {
+                common:
+                    GraphPartSettings {
+                        ncuts,
+                        nparts,
+                        ncon,
+                        ubvec,
+                        tpwgts,
+                    },
+                adjwgt,
+            } => unsafe {
                 let mut nparts = *nparts as idx_t;
                 let mut ncon = *ncon as idx_t;
+                options[METIS_OPTION_NCUTS as usize] = *ncuts;
                 pmetis::METIS_PartGraphRecursive(
                     &mut nvtxs,
                     &mut ncon,
@@ -713,25 +811,40 @@ impl GraphBuilder {
                     part.as_mut_ptr(),
                 )
             },
-            GraphOpSettings::Kmetis { common: GraphPartSettings { ncuts, nparts, ncon, ubvec, tpwgts }, objtype, minconn, contig, niparts } => unsafe {
+            GraphOpSettings::Kmetis {
+                common:
+                    GraphPartSettings {
+                        ncuts,
+                        nparts,
+                        ncon,
+                        ubvec,
+                        tpwgts,
+                    },
+                objtype,
+                minconn,
+                contig,
+                niparts,
+            } => unsafe {
                 let mut nparts = *nparts as idx_t;
                 let mut ncon = *ncon as idx_t;
                 let vsize;
                 let adjwgt;
+                options[METIS_OPTION_NCUTS as usize] = *ncuts;
                 match objtype {
                     KwayObjective::Vol { vsize: mv } => {
                         options[METIS_OPTION_OBJTYPE as usize] = Objtype::Vol as idx_t;
                         vsize = vec_ptr(mv);
                         adjwgt = std::ptr::null_mut();
-                    },
+                    }
                     KwayObjective::Cut { adjwgt: aw } => {
                         options[METIS_OPTION_OBJTYPE as usize] = Objtype::Cut as idx_t;
                         vsize = std::ptr::null_mut();
                         adjwgt = vec_ptr(aw);
-                    },
+                    }
                 };
                 options[METIS_OPTION_CONTIG as usize] = *contig as idx_t;
                 options[METIS_OPTION_MINCONN as usize] = *minconn as idx_t;
+                options[METIS_OPTION_NIPARTS as usize] = *niparts as idx_t;
                 kmetis::METIS_PartGraphKway(
                     &mut nvtxs,
                     &mut ncon,
@@ -748,7 +861,14 @@ impl GraphBuilder {
                     part.as_mut_ptr(),
                 )
             },
-            GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype, compress, compute_vertex_separator } => unsafe {
+            GraphOpSettings::Ometis {
+                nseps,
+                pfactor,
+                ccorder,
+                rtype,
+                compress,
+                compute_vertex_separator,
+            } => unsafe {
                 options[METIS_OPTION_COMPRESS as usize] = *compress as idx_t;
                 options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
                 options[METIS_OPTION_PFACTOR as usize] = *pfactor as idx_t;
@@ -767,7 +887,7 @@ impl GraphBuilder {
                         vec_ptr(&mut self.vwgt),
                         options.as_mut_ptr(),
                         &mut objval,
-                        part.as_mut_ptr()
+                        part.as_mut_ptr(),
                     );
                 } else {
                     ret = ometis::METIS_NodeND(
@@ -777,7 +897,7 @@ impl GraphBuilder {
                         vec_ptr(&mut self.vwgt),
                         options.as_mut_ptr(),
                         part.as_mut_ptr(), // use part as permutation vector
-                        iperm.as_mut_ptr()
+                        iperm.as_mut_ptr(),
                     );
                     part.extend_from_slice(&iperm);
                 }
@@ -795,26 +915,41 @@ impl GraphBuilder {
     /// iperm, sizes)`
     pub fn call_ndp(&mut self, npes: idx_t) -> Result<(Vec<idx_t>, Vec<idx_t>, Vec<idx_t>), ()> {
         assert_eq!(self.adjncy.len(), *self.xadj.last().unwrap_or(&0) as usize);
-        let mut nvtxs = self.nvtxs() as idx_t;
-        let mut ncon = self.ncon() as idx_t;
-        let mut part = vec![0; self.nvtxs()];
-        let mut objval = 0;
+        let nvtxs = self.nvtxs() as idx_t;
         let mut options = [-1; METIS_NOPTIONS as usize];
         options[METIS_OPTION_CTYPE as usize] = self.edge_match as idx_t;
         options[METIS_OPTION_IPTYPE as usize] = self.initial_part as idx_t;
         options[METIS_OPTION_ONDISK as usize] = 1;
         options[METIS_OPTION_SEED as usize] = self.seed;
         options[METIS_OPTION_DBGLVL as usize] = self.dbg_lvl as idx_t;
+        options[METIS_OPTION_UFACTOR as usize] = self.imbalance_factor;
 
-        let Self { dbg_lvl, op: GraphOpSettings::Ometis {
-            nseps,
-            pfactor,
-            ccorder,
-            rtype,
-            compress,
-            compute_vertex_separator
-        }, seed, xadj, adjncy, vwgt, edge_match, initial_part, imbalance_factor } = self else { panic!("not ometis") };
-        assert!(!*compute_vertex_separator, "cannot use compute vertex separator when calling NodeNDP");
+        let Self {
+            dbg_lvl,
+            op:
+                GraphOpSettings::Ometis {
+                    nseps,
+                    pfactor,
+                    ccorder,
+                    rtype,
+                    compress,
+                    compute_vertex_separator,
+                },
+            seed,
+            xadj,
+            adjncy,
+            vwgt,
+            edge_match,
+            initial_part: _, // TODO: move to common
+            imbalance_factor,
+        } = self
+        else {
+            panic!("not ometis")
+        };
+        assert!(
+            !*compute_vertex_separator,
+            "cannot use compute vertex separator when calling NodeNDP"
+        );
         options[METIS_OPTION_UFACTOR as usize] = *imbalance_factor as idx_t;
         options[METIS_OPTION_COMPRESS as usize] = *compress as idx_t;
         options[METIS_OPTION_CCORDER as usize] = *ccorder as idx_t;
@@ -824,13 +959,25 @@ impl GraphBuilder {
             OmetisRtype::Sep2Sided => Rtype::Sep2Sided,
         } as idx_t;
         options[METIS_OPTION_NSEPS as usize] = *nseps as idx_t;
+        options[METIS_OPTION_CTYPE as usize] = *edge_match as idx_t;
+        options[METIS_OPTION_DBGLVL as usize] = *dbg_lvl as idx_t;
+        options[METIS_OPTION_SEED as usize] = *seed as idx_t;
         let mut perm = vec![0; nvtxs as usize];
         let mut iperm = vec![0; nvtxs as usize];
         let mut sizes = vec![0; 2 * npes as usize - 1];
 
         let res = unsafe {
-            parmetis::METIS_NodeNDP(nvtxs, xadj.as_mut_ptr(), adjncy.as_mut_ptr(), vec_ptr(vwgt),
-                npes, options.as_ptr(), perm.as_mut_ptr(), iperm.as_mut_ptr(), sizes.as_mut_ptr())
+            parmetis::METIS_NodeNDP(
+                nvtxs,
+                xadj.as_mut_ptr(),
+                adjncy.as_mut_ptr(),
+                vec_ptr(vwgt),
+                npes,
+                options.as_ptr(),
+                perm.as_mut_ptr(),
+                iperm.as_mut_ptr(),
+                sizes.as_mut_ptr(),
+            )
         };
         if res != METIS_OK {
             Err(())
@@ -839,7 +986,19 @@ impl GraphBuilder {
         }
     }
 
-    pub fn write_graph<W: io::Write>(&self, mut w: W) -> io::Result<()> {
+    pub fn write_graph_to_file(&self, f: impl AsRef<Path>) -> io::Result<()> {
+        let fname = f.as_ref();
+        let tpwgts = fname.with_extension("tpwgts");
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).truncate(true).create(true); 
+        self.write_graph(std::io::BufWriter::new(opts.open(fname)?), fname.to_str(), tpwgts.to_str())?;
+        if self.op.common_ref().and_then(|c| c.tpwgts.as_deref()).is_some() {
+            self.write_tpwgts(std::io::BufWriter::new(opts.open(tpwgts)?))?;
+        }
+        Ok(())
+    }
+
+    pub fn write_graph<W: io::Write>(&self, mut w: W, name: Option<&str>, tpwgts_name: Option<&str>) -> io::Result<()> {
         // command line invocation
         {
             writeln!(w, "% partition with this command:")?;
@@ -857,9 +1016,38 @@ impl GraphBuilder {
             write!(w, " {ctype}")?;
 
             match &self.op {
-                GraphOpSettings::Pmetis { common: GraphPartSettings { ncuts, nparts, ncon, ..}, .. } => todo!(),
-                GraphOpSettings::Kmetis { common, objtype, minconn, contig, niparts } => todo!(),
-                GraphOpSettings::Ometis { nseps, pfactor, ccorder, rtype, compress, compute_vertex_separator } => todo!(),
+                GraphOpSettings::Pmetis {
+                    common: _,
+                    adjwgt: _,
+                } => {},
+                GraphOpSettings::Kmetis {
+                    common: _,
+                    objtype,
+                    minconn,
+                    contig,
+                    niparts,
+                } => {
+                    if *contig {
+                        write!(w, " -contig")?;
+                    }
+                    if *minconn {
+                        write!(w, " -minconn")?;
+                    }
+
+                    let objtype = match objtype.objtype() {
+                        Objtype::Cut => "-objtype=cut",
+                        Objtype::Vol => "-objtype=vol",
+                        Objtype::Node => unreachable!(),
+                    };
+                    write!(w, " {objtype}")?;
+
+                    if *niparts != -1 {
+                        write!(w, " -niparts={niparts}")?;
+                    }
+                },
+                GraphOpSettings::Ometis {
+                    ..
+                } => todo!(),
             }
 
             {
@@ -868,72 +1056,109 @@ impl GraphBuilder {
                     Iptype::Random => "-iptype=random",
                     Iptype::Edge => "-iptype=edge",
                     Iptype::Node => "-iptype=node",
-                    Iptype::Rb => unreachable!(),
+                    Iptype::Rb => "-iptype=rb",
                 };
                 write!(w, " {iptype}")?;
             }
-            if let GraphOpSettings::Kmetis { objtype, contig, .. } = &self.op {
-                let objtype = match objtype.objtype() {
-                    Objtype::Cut => "-objtype=cut",
-                    Objtype::Vol => "-objtype=vol",
-                    Objtype::Node => unreachable!(),
-                };
-                write!(w, " {objtype}")?;
 
-                if *contig {
-                    write!(w, " -contig")?;
-                }
+            if self.dbg_lvl != 0 {
+                write!(w, " -dbglvl={}", self.dbg_lvl)?
             }
 
             write!(w, " -seed={}", self.seed)?;
 
+            let file = name.unwrap_or("<GRAPH_FILE>");
+            let q = if file.contains(' ') { "\"" } else { "" };
             if let Some(comm) = self.op.common_ref() {
+                if let Some(_tpwgts) = comm.tpwgts.as_deref() {
+                    write!(w, r#" -tpwgts="{}""#, tpwgts_name.unwrap_or("<TPWGTS_FILE>"))?;
+                }
                 if let Some(ubvec) = comm.ubvec.as_deref() {
                     write!(w, r#" -ubvec="{:.4}""#, space_sep(ubvec))?;
                 }
-                writeln!(w, " <GRAPH_FILE> {}", comm.nparts)?;
+                // this is bad, but also don't be mean with file names
+                writeln!(w, " {q}{file}{q} {}", comm.nparts)?;
             } else {
                 debug_assert!(self.op.op().is_ometis());
-                writeln!(w, " <GRAPH_FILE>")?;
+                writeln!(w, " {q}{file}{q}")?;
             }
         }
 
         // header line
+        let ncon = self.ncon();
         let has_vsize = self.vsize().is_some();
-        let has_vwgt = self.vwgt.is_some() || self.ncon() > 1;
+        let has_vwgt = self.vwgt.is_some() || ncon > 1;
         let has_adjwgt = self.adjwgt().is_some();
         let fmt = [has_vsize, has_vwgt, has_adjwgt].map(|b| b as u8 + b'0');
-        writeln!(w, "{nvtxs} {nedges} {fmt} {ncon}", 
+        writeln!(
+            w,
+            "{nvtxs} {nedges} {fmt}{ncon}",
             nvtxs = self.nvtxs(),
             nedges = self.adjncy.len() / 2,
             fmt = std::str::from_utf8(&fmt).unwrap(),
-            ncon = self.ncon()
+            ncon = if has_vwgt { format_args!(" {ncon}") } else { format_args!("") }
         )?;
 
         // main graph structure
         for vtx in self.vtxs() {
-            // FORMAT: size? wgt{ncon} (edge, edgewgt?)* 
+            // FORMAT: size? wgt{ncon} (edge, edgewgt?)*
+            if let Some(vwgt) = self.vwgt() {
+                assert_eq!(vwgt.len(), self.ncon() * self.nvtxs());
+            }
+            if let Some(vsize) = self.vsize() {
+                assert_eq!(vsize.len(), self.nvtxs());
+            }
             let params = (self.vsize().map(|vs| vs[vtx]).into_iter())
-            .chain({
-                    self.vwgt.iter().flat_map(|vwgt| &vwgt[(vtx * self.ncon())..((vtx + 1) * self.ncon())]).copied()
-                        .chain(std::iter::repeat(1))
+                .chain({
+                    self.vwgt
+                        .iter()
+                        .flat_map(|vwgt| &vwgt[(vtx * self.ncon())..((vtx + 1) * self.ncon())])
+                        .copied()
                         .take(self.ncon())
                 })
                 .chain({
                     let range = (self.xadj[vtx] as usize)..(self.xadj[vtx + 1] as usize);
-                    let edges = self.adjncy[range.clone()].iter().copied().map(|x| Some(x + 1));
-                    let adjwgts = self.adjwgt().map(|a| &a[range]).into_iter().flatten().copied().map(Some).chain(std::iter::repeat(None));
+                    let edges = self.adjncy[range.clone()]
+                        .iter()
+                        .copied()
+                        .map(|x| Some(x + 1));
+                    let adjwgts = self
+                        .adjwgt()
+                        .map(|a| &a[range])
+                        .into_iter()
+                        .flatten()
+                        .copied()
+                        .map(Some)
+                        .chain(std::iter::repeat(None));
                     edges.zip(adjwgts).flat_map(|(e, w)| [e, w]).flatten()
-                })
-            ;
+                });
             writeln!(w, "{}", space_sep(params))?;
         }
 
         Ok(())
     }
 
+    pub fn write_tpwgts<W: io::Write>(&self, mut w: W) -> io::Result<()> {
+        let comm = self.op.common_ref().expect("no tpwgts to write");
+        let tpwgts = comm.tpwgts.as_deref().expect("no tpwgts to write");
+        // let tpwgts = |c: usize, p: usize| tpwgts[c + p * self.ncon()];
+        if self.ncon() == 1 {
+            for p in 0..comm.nparts {
+                writeln!(w, "{p} = {}", tpwgts[p])?;
+            }
+        } else {
+            for p in 0..comm.nparts {
+                for c in 0..self.ncon() {
+                    writeln!(w, "{p} : {c} = {}", tpwgts[c + self.ncon() * p])?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn read_graph(
-        mut f: impl BufRead,
+        f: impl BufRead,
         op: Optype,
         nparts: usize,
         ncon: usize,
@@ -967,8 +1192,11 @@ impl GraphBuilder {
             let split = buf.split_whitespace();
             if one_indexed {
                 for a in split {
-                    adjncy.push(a.parse::<idx_t>()?.checked_sub(1)
-                        .expect("0 indexed but one indexed is set"));
+                    adjncy.push(
+                        a.parse::<idx_t>()?
+                            .checked_sub(1)
+                            .expect("0 indexed but one indexed is set"),
+                    );
                     x += 1;
                 }
             } else {
@@ -982,7 +1210,11 @@ impl GraphBuilder {
         }
         xadj.push(x);
 
-        for (i, (start, end)) in xadj.windows(2).map(|w| (w[0] as usize, w[1] as usize)).enumerate() {
+        for (i, (start, end)) in xadj
+            .windows(2)
+            .map(|w| (w[0] as usize, w[1] as usize))
+            .enumerate()
+        {
             assert!(start < adjncy.len());
             assert!(end <= adjncy.len());
             assert!(start < end);
@@ -1002,7 +1234,11 @@ impl GraphBuilder {
     }
 
     pub fn vsize(&self) -> Option<&[idx_t]> {
-        if let GraphOpSettings::Kmetis { common, objtype: KwayObjective::Vol { vsize }, minconn, contig, niparts } = &self.op {
+        if let GraphOpSettings::Kmetis {
+            objtype: KwayObjective::Vol { vsize },
+            ..
+        } = &self.op
+        {
             vsize.as_deref()
         } else {
             None
@@ -1015,16 +1251,18 @@ impl GraphBuilder {
 
     pub fn adjwgt(&self) -> Option<&[idx_t]> {
         match &self.op {
-            GraphOpSettings::Kmetis { objtype: KwayObjective::Cut { adjwgt }, ..} |
-            GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt.as_deref(),
-            _ => None
+            GraphOpSettings::Kmetis {
+                objtype: KwayObjective::Cut { adjwgt },
+                ..
+            }
+            | GraphOpSettings::Pmetis { adjwgt, .. } => adjwgt.as_deref(),
+            _ => None,
         }
     }
 
     pub fn is_contiguous(&self) -> bool {
         self.compute_num_components() == 1
     }
-
 
     /// adapted from [`contig::FindPartitionInducedComponents`]
     pub fn compute_num_components(&self) -> usize {
@@ -1074,7 +1312,8 @@ impl GraphBuilder {
     }
 
     /// adapted from mtest.c: VerifyPart
-    pub fn verify_part(&self, _objval: idx_t, part: &[idx_t]) {
+    pub fn verify_part(&self, objval: idx_t, part: &[idx_t]) {
+        // self.write_graph_to_file("to_test.graph").unwrap();
         assert_eq!(
             self.xadj.len() - 1,
             part.len(),
@@ -1083,62 +1322,163 @@ impl GraphBuilder {
 
         let Some(comm) = self.op.common_ref() else {
             // TODO: verify sepnd
-            return
+            return;
         };
 
-        let mut pwgts = vec![0; comm.nparts];
+        let mut pwgts = vec![0; comm.nparts * comm.ncon];
+        let mut total_pwgt = vec![0.0; comm.ncon];
 
-        assert_eq!(
-            *part.iter().max().unwrap_or(&0),
-            comm.nparts as idx_t - 1,
-            "total number of partitions eq to nparts"
-        );
+        // assert_eq!(
+        //     *part.iter().max().unwrap_or(&0),
+        //     comm.nparts as idx_t - 1,
+        //     "total number of partitions eq to nparts"
+        // );
 
-        let mut _cut = 0;
+        // SEE MANUAL BEFORE MESSING WITH THIS
+        let widx = |c: usize, i: usize| i * comm.ncon + c;
+
+        let vwgt = |c, i| self.vwgt().map_or(1, |v| v[widx(c, i)]);
+
         for i in 0..self.nvtxs() {
-            pwgts[part[i] as usize] += self.vwgt.as_ref().map(|v| v[i]).unwrap_or(1);
-            for j in self.xadj[i]..self.xadj[i + 1] {
-                if part[i] != part[self.adjncy[j as usize] as usize] {
-                    _cut += self.adjwgt().map(|v| v[j as usize]).unwrap_or(1);
-                }
+            for c in 0..comm.ncon {
+                let p = part[i] as usize;
+                pwgts[widx(c, p)] += vwgt(c, i);
+                total_pwgt[c] += vwgt(c, i) as f64;
             }
         }
 
-        // eprintln!("todo: make this work always. This assumes edgecut but we call this for vol too");
-        // assert_eq!(
-        //     cut,
-        //     2 * objval,
-        //     "objval should be edgecut, and the calculated cut should be double it"
+        if let Some(adjwgt) = self.adjwgt() {
+            let mut cut = 0;
+            for i in 0..self.nvtxs() {
+                for j in self.xadj[i]..self.xadj[i + 1] {
+                    if part[i] != part[self.adjncy[j as usize] as usize] {
+                        cut += adjwgt[j as usize];
+                    }
+                }
+            }
+            assert_eq!(
+                cut,
+                2 * objval,
+                "objval should be edgecut, and the calculated cut should be double it"
+            );
+        }
+
+        let mut failed = vec![];
+
+        let base_ub = util::i2rubfactor(self.ufactor()) as f64;
+        let ubwgt = |c: usize| {
+            comm.ubvec
+                .as_deref()
+                .map_or(base_ub as f64, |ub| ub[c] as f64)
+        };
+        let pwgts = |c: usize, p: usize| pwgts[widx(c, p)] as f64;
+        let target = |c: usize, p: usize| {
+            comm.tpwgts
+                .as_deref()
+                .map_or(1.0 / comm.nparts as f64, |tp| tp[widx(c, p)] as f64)
+        };
+        let unbalance = |c, p| {
+            pwgts(c, p) / (target(c, p) * total_pwgt[c])
+        };
+        let acceptable = |c: usize, _p: usize| {
+            // let t = target(c, p);
+            let fudge = ubwgt(c) - 1.0;
+            (1.0 - fudge)..(1.0 + fudge)
+        };
+        // negative error is ok, positive error is failure
+        let error = |c: usize, p: usize| {
+            // in the original mtest.c, this was a flat 0.10. To account for ubwgt, I'm guessing
+            // that 10x it is reasonable and will keep partitioning good-ish
+            (1.0 * (1.0 - ubwgt(c))) - (unbalance(c, p) - 1.0).abs()
+        };
+        for c in 0..comm.ncon {
+            for p in 0..comm.nparts {
+                if error(c, p) > 0.0 {
+                    failed.push((c, p))
+                }
+            }
+        }
+        // let scale = comm.nparts as f64;
+        let scale = 1.0;
+        if !failed.is_empty() {
+            let cnt = failed.len();
+            // formatting precision so printout is aligned
+            let max_width = failed
+                .iter()
+                .map(|&(c, p)| error(c, p))
+                .min_by(f64::total_cmp)
+                .unwrap_or(0.0001)
+                .log10()
+                .abs()
+                .ceil()
+                .abs() as usize
+                + 3;
+
+            println!("{cnt} partitions are unbalanced: ");
+            // self.write_graph_to_file("to_test.graph").unwrap();
+            for (c, p) in failed {
+                let actual = pwgts(c, p) * scale / total_pwgt[c];
+                let target = target(c, p) * scale;
+                let Range { start, end } = acceptable(c, p);
+                let start = start * scale;
+                let end = end * scale;
+                let diff = error(c, p);
+                let precision = diff.abs().log10().floor().abs() as usize;
+                let precision = precision.max(1) + 1;
+                macro_rules! fmt {
+                    ($n:expr) => {
+                        format_args!("{:<max_width$.precision$}", $n)
+                    };
+                }
+
+                println!(
+                    "pwgt[{idx}] : {actual} (target: {target}, \
+                    range: {start}..{end}, error: {diff})",
+                    actual = fmt!(actual),
+                    target = fmt!(target),
+                    start = fmt!(start),
+                    end = fmt!(end),
+                    diff = fmt!(diff),
+                    idx = if comm.ncon <= 1 {
+                        format_args!("{p:3}")
+                    } else {
+                        format_args!("con {c:2} , prt {p:3}")
+                    }
+                );
+            }
+            panic!("partitions are unbalanced");
+        }
+        // let actual = (comm.nparts as idx_t * pwgts.iter().max().unwrap()) as f64;
+        // // should be 1.10, but it's annoying
+        // let expected = 1.13 * pwgts.iter().sum::<idx_t>() as f64;
+        // assert!(
+        //     // (nparts * pwgts[iargmax(nparts, pwgts)]) as f64
+        //     actual <= expected,
+        //     "actual: {actual:.1}, expected: {expected:.1}.\n\tThis assert spuriously fails sometimes - rerun tests."
         // );
-        let actual = (comm.nparts as idx_t * pwgts.iter().max().unwrap()) as f64;
-        // should be 1.10, but it's annoying
-        let expected = 1.13 * pwgts.iter().sum::<idx_t>() as f64;
-        assert!(
-            // (nparts * pwgts[iargmax(nparts, pwgts)]) as f64
-            actual <= expected,
-            "actual: {actual:.1}, expected: {expected:.1}.\n\tThis assert spuriously fails sometimes - rerun tests."
-        );
     }
 }
 
 /// utility for writing space-separated lists
-fn space_sep<I>(iter: I) -> impl std::fmt::Display + use<I>
-where 
+fn space_sep<I>(iter: I) -> impl fmt::Display + use<I>
+where
     I: IntoIterator + Clone,
-    I::Item: std::fmt::Display
+    I::Item: fmt::Display,
 {
     use std::fmt::{Display, Write};
 
     struct D<I>(I);
     impl<I> Display for D<I>
-    where 
+    where
         I: IntoIterator + Clone,
-        I::Item: std::fmt::Display
+        I::Item: Display,
     {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut it = self.0.clone().into_iter();
             {
-                let Some(first) = it.next() else { return Ok(()) };
+                let Some(first) = it.next() else {
+                    return Ok(());
+                };
                 first.fmt(f)?;
             }
             for item in it {

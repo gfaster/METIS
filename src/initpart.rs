@@ -744,7 +744,7 @@ mod tests {
     fn ab_Init2WayPartition() {
         ab_test_partition_test_graphs("Init2WayPartition:rs", Optype::Pmetis, 8, 2, |mut g| {
             g.random_adjwgt();
-            g.random_tpwgts();
+            g.random_vwgt();
             g
         });
     }
@@ -762,17 +762,17 @@ mod tests {
         ab_test_partition_test_graphs("RandomBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
             g.set_initial_part_strategy(Iptype::Random);
             g.random_adjwgt();
-            g.random_tpwgts();
+            g.random_vwgt();
             g
         });
     }
 
     #[test]
     fn ab_McRandomBisection() {
-        ab_test_partition_test_graphs("McRandomBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
+        ab_test_partition_test_graphs("McRandomBisection:rs", Optype::Pmetis, 20, 3, |mut g| {
             g.set_initial_part_strategy(Iptype::Random);
             g.random_adjwgt();
-            g.random_tpwgts();
+            g.random_vwgt();
             g
         });
     }
@@ -781,15 +781,16 @@ mod tests {
     fn ab_GrowBisection() {
         ab_test_partition_test_graphs("GrowBisection:rs", Optype::Pmetis, 8, 1, |mut g| {
             g.random_adjwgt();
-            g.random_tpwgts();
+            g.random_vwgt();
             g
         });
     }
 
     #[test]
     fn ab_McGrowBisection() {
-        ab_test_partition_test_graphs("McGrowBisection:rs", Optype::Pmetis, 8, 3, |mut g| {
+        ab_test_partition_test_graphs("McGrowBisection:rs", Optype::Pmetis, 20, 3, |mut g| {
             g.random_adjwgt();
+            g.random_vwgt();
             g.random_tpwgts();
             g
         });

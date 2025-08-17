@@ -16,7 +16,7 @@ const OPTIONS: &[getopt::Opt] = getopt::opt! {
 
     ("ctype",          Required,      METIS_OPTION_CTYPE, {"rm" = METIS_CTYPE_RM, "shem" = METIS_CTYPE_SHEM}),
 
-    ("iptype",         Required,      METIS_OPTION_IPTYPE, {"grow" = METIS_IPTYPE_GROW, "random" = METIS_IPTYPE_RANDOM}),
+    ("iptype",         Required,      METIS_OPTION_IPTYPE, {"grow" = METIS_IPTYPE_GROW, "random" = METIS_IPTYPE_RANDOM, "rb" = METIS_IPTYPE_METISRB}),
 
     /* ("rtype",          Required,      METIS_OPTION_RTYPE, {"fm" = METIS_RTYPE_FM, "random" = METIS_RTYPE_RANDOM, "greedy" = METIS_RTYPE_GREEDY}), */
     /* ("balanced",       NoArg,         METIS_OPTION_BALANCE) , */
@@ -370,6 +370,11 @@ fn main() -> ExitCode {
         _ => unreachable!(),
     };
     gk_stopcputimer(&mut params.parttimer);
+
+    // when we mix-and match with printf and we output to a pipe, things are annoying
+    unsafe {
+        libc::fflush(std::ptr::null_mut());
+    }
 
     if status != METIS_OK {
         println!("\n***Metis returned with an error.");

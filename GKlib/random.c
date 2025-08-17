@@ -24,6 +24,7 @@ GK_MKRANDOM(gk_z,   size_t, ssize_t)
 GK_MKRANDOM(gk_zu,  size_t, size_t)
 
 
+#ifdef RS_NO_HARD_REPLACE /* replaced in gklib_replace.rs */
 
 /*************************************************************************/
 /*! GKlib's built in random number generator for portability across 
@@ -70,7 +71,6 @@ static int mti=NN+1;
 #endif /* USE_GKRAND */
 
 /* initializes mt[NN] with a seed */
-#ifdef RS_NO_HARD_REPLACE /* replaced in gklib_replace.rs */
 void gk_randinit(uint64_t seed)
 {
 #ifdef USE_GKRAND

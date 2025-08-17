@@ -38,8 +38,8 @@ pub const METISTITLE: &str = if !cfg!(feature = "normalized") {
 };
 
 /// converts a user provided ufactor into a real ubfactor
-pub fn i2rubfactor(ufactor: idx_t) -> real_t {
-    1.0 + 0.001 * ufactor as real_t
+pub fn i2rubfactor(ufactor: idx_t) -> metis::double {
+    1.0 + 0.001 * ufactor as metis::double
 }
 
 pub fn vec_ptr<T>(v: &mut Option<Vec<T>>) -> *mut T {

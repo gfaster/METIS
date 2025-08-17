@@ -66,6 +66,8 @@ pub mod graphio;
 pub mod params;
 pub mod scanf;
 
+pub(crate) use gklib_replace::*;
+
 mod dyncall;
 pub use dyncall::set_bin_overrides;
 
@@ -77,6 +79,7 @@ pub(crate) mod graph_gen;
 pub(crate) mod pqueue;
 pub(crate) mod gk_temp;
 use gk_temp::*;
+pub use gk_temp::double;
 pub use defs::*;
 
 #[macro_use]

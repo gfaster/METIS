@@ -11,6 +11,8 @@ pub use metis::bindings::{
 };
 
 
+const PRINT_CMDS: bool = true;
+
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Ver {
@@ -164,7 +166,7 @@ pub struct Params {
     // pub ncommon: idx_t,
 
     pub seed: Option<idx_t>,
-    pub dbglvl: Option<idx_t>,
+    pub dbglvl: Option<metis::moptions_et>,
 
 
     // nd params
@@ -288,6 +290,34 @@ impl Params {
             cmd.env("METIS_OVERRIDE_SYMS", *overrides);
         }
 
+        let tpr;
+        let tpw;
+        let tp_buf;
+        if !tpwgts.is_empty() {
+            use std::fmt::Write;
+            let (tpr_o, tpw_o) = io::pipe().unwrap();
+            unset_cloexec(&tpr_o).unwrap();
+            let ncon = tpwgts.len() / *nparts as usize;
+            let mut buf = String::new();
+            'done: for p in 0..*nparts as usize {
+                for c in 0..ncon {
+                    let Some(tpwgt) = tpwgts.get(p * ncon + c) else {
+                        break 'done
+                    };
+                    writeln!(buf, "{p} : {c} = {tpwgt}").unwrap();
+                }
+            }
+            tp_buf = buf;
+
+            cmd.arg(format!("--tpwgts=/proc/self/fd/{}", tpr_o.as_raw_fd()));
+            tpr = Some(tpr_o);
+            tpw = Some(tpw_o);
+        } else {
+            tp_buf = String::new();
+            tpr = None;
+            tpw = None;
+        }
+
         if let Some(ptype) = ptype {
             cmd.arg(match ptype {
                 Ptype::Kmetis => "-ptype=kway",
@@ -382,11 +412,20 @@ impl Params {
 
         // println!("{cmd:?}");
         unset_cloexec(&pw).unwrap();
+        if PRINT_CMDS {
+            eprintln!("{cmd:?}")
+        }
         let child = cmd.spawn().expect("could not spawn process");
         drop(pw);
+        drop(tpr);
 
         let mut partfile = String::new();
-        let output = PipedChild::new().reader(pr, &mut partfile).wait_with_output(child).expect("child failed");
+        let mut pipe = PipedChild::new();
+        if let Some(tpw) = tpw {
+            pipe.writer(tpw, tp_buf.as_bytes());
+        }
+        let output = pipe.reader(pr, &mut partfile).wait_with_output(child).expect("child failed");
+        drop(pipe);
 
         let parts = partfile.split_whitespace().map(|i| i.parse().unwrap()).collect();
 

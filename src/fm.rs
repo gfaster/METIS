@@ -170,7 +170,7 @@ pub extern "C" fn FM_2WayCutRefine(
                 ctrl.dbglvl,
                 METIS_DBG_MOVEINFO,
                 println!(
-                    "Moved {:6} from {:}. [({:3} {:3})] {:5} [({:4} {:4})]",
+                    "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]",
                     higain,
                     from,
                     ed[higain as usize] - id[higain as usize],
@@ -521,7 +521,7 @@ pub extern "C" fn FM_Mc2WayCutRefine(
             swaps[nswaps as usize] = higain as idx_t;
 
             if (ctrl.dbglvl & METIS_DBG_MOVEINFO) != 0 {
-                println!(
+                print!(
                     "Moved{:6} from {:}({:}) Gain:{:5}, Cut:{:5}, NPwgts:",
                     higain,
                     from,
@@ -530,7 +530,7 @@ pub extern "C" fn FM_Mc2WayCutRefine(
                     newcut,
                 );
                 for l in (0)..(ncon) {
-                    println!(
+                    print!(
                         "({:.3} {:.3})",
                         pwgts[l as usize] as real_t * invtvwgt[l as usize],
                         pwgts[(ncon + l) as usize] as real_t * invtvwgt[l as usize],
@@ -702,14 +702,14 @@ pub extern "C" fn Print2WayRefineStats(
     get_graph_slices!(ctrl, graph => invtvwgt pwgts);
     mkslice!(ntpwgts, 2 * ncon);
     if mincutorder == -2 {
-        println!("Parts: ");
-        println!(
-            "Nv-Nb[({:5} {:5})] ICut: {:6}",
+        print!("Parts: ");
+        print!(
+            "Nv-Nb[{:5} {:5}] ICut: {:6}",
             graph.nvtxs, graph.nbnd, graph.mincut,
         );
         print!(" [");
         for i in (0)..(ncon) {
-            println!(
+            print!(
                 "({:.3} {:.3} T:{:.3} {:.3})",
                 pwgts[i as usize] as real_t * invtvwgt[i as usize],
                 pwgts[(ncon + i) as usize] as real_t * invtvwgt[i as usize],
@@ -717,18 +717,18 @@ pub extern "C" fn Print2WayRefineStats(
                 ntpwgts[(ncon + i) as usize],
             );
         }
-        print!(
+        println!(
             "] LB: {:.3}({:+.3})",
             mcutil::ComputeLoadImbalance(graph, 2, ctrl.pijbm),
             deltabal,
         );
     } else {
-        println!(
+        print!(
             "\tMincut: {:6} at {:5} NBND {:6} NPwgts: [",
             graph.mincut, mincutorder, graph.nbnd,
         );
         for i in (0)..(graph.ncon) {
-            println!(
+            print!(
                 "({:.3} {:.3})",
                 pwgts[i as usize] as real_t * invtvwgt[i as usize],
                 pwgts[(graph.ncon + i) as usize] as real_t * invtvwgt[i as usize],

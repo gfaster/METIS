@@ -139,7 +139,12 @@ pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usiz
         LazyLock::new(graph_of::<6>()),
     ];
 
-    GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon)
+    let mut ret = GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon);
+    // ret.random_vwgt();
+    if !op.is_ometis() {
+        ret.random_tpwgts();
+    }
+    ret
 }
 
 /// Runs `f` on each of the small-ish graphs
@@ -313,7 +318,8 @@ fn part_graph_and_verify(
     partfn: Optype,
 ) {
     let exec = || {
-        let mut graph = read_graph(TestGraph::Elt4, partfn, nparts as usize, ncon as usize);
+        let _ov = crate::dyncall::set_bin_overrides();
+        let mut graph = read_graph(TestGraph::WebSpam, partfn, nparts as usize, ncon as usize);
 
         graph.set_from_options_arr(options);
 
@@ -323,6 +329,12 @@ fn part_graph_and_verify(
         if use_adjwgt {
             graph.random_vwgt();
         }
+
+        graph.enable_dbg(crate::DbgLvl::Info);
+        graph.enable_dbg(crate::DbgLvl::Coarsen);
+        graph.enable_dbg(crate::DbgLvl::Ipart);
+        graph.enable_dbg(crate::DbgLvl::Refine);
+        // graph.enable_dbg(crate::DbgLvl::MoveInfo);
 
         let res = graph.call();
 
@@ -564,9 +576,12 @@ part_test_hyper_set!(METIS_PartGraphRecursive as pmetis => [{Cut}, {Grow, Random
 
 #[test]
 fn identical_to_c_kmetis_cut() {
+    // If this fails, that means there's missing unit A/B tests elsewhere
     ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 1, |mut g| {
         g.set_objective(Objtype::Cut);
         g.random_vwgt();
+        g.random_ubvec();
+        g.random_tpwgts();
         g.random_adjwgt();
         g
     });
@@ -574,9 +589,12 @@ fn identical_to_c_kmetis_cut() {
 
 #[test]
 fn identical_to_c_kmetis_vol() {
+    // If this fails, that means there's missing unit A/B tests elsewhere
     ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 1, |mut g| {
         g.set_objective(Objtype::Vol);
         g.random_vwgt();
+        g.random_ubvec();
+        g.random_tpwgts();
         g.random_adjwgt();
         g
     });
@@ -584,6 +602,7 @@ fn identical_to_c_kmetis_vol() {
 
 #[test]
 fn identical_to_p_kmetis() {
+    // If this fails, that means there's missing unit A/B tests elsewhere
     ab_test_partition_test_graphs("*:rs", Optype::Pmetis, 20, 1, |mut g| {
         g.random_vwgt();
         g.random_adjwgt();
@@ -594,6 +613,7 @@ fn identical_to_p_kmetis() {
 #[test]
 #[ignore = "slow"]
 fn identical_to_c_kmetis_large() {
+    // If this fails, that means there's missing unit A/B tests elsewhere
     let mut rng = fastrand::Rng::with_seed(3971056);
     for trial in 0..1 {
         let prev_seed = fastrand::get_seed();
@@ -635,10 +655,29 @@ fn identical_to_c_kmetis_large() {
 }
 
 #[test]
+fn identical_to_c_pmetis_multiconstraint() {
+    // If this fails, that means there's missing/bad unit A/B tests elsewhere
+    ab_test_partition_test_graphs("*:rs", Optype::Pmetis, 20, 2, |mut g| {
+        g.random_vwgt();
+        g.set_initial_part_strategy(crate::Iptype::Grow);
+        // g.enable_dbg(crate::DbgLvl::Refine);
+        // g.enable_dbg(crate::DbgLvl::Info);
+        // g.enable_dbg(crate::DbgLvl::Ipart);
+        // g.write_graph_to_file("itc_mcpmetis.graph").unwrap();
+        g
+    });
+}
+
+#[test]
 fn identical_to_c_kmetis_multiconstraint() {
+    // If this fails, that means there's missing/bad unit A/B tests elsewhere
     ab_test_partition_test_graphs("*:rs", Optype::Kmetis, 20, 2, |mut g| {
         g.random_vwgt();
-        g.call().unwrap();
+        g.set_initial_part_strategy(crate::Iptype::Grow);
+        // g.enable_dbg(crate::DbgLvl::Refine);
+        // g.enable_dbg(crate::DbgLvl::Info);
+        // g.enable_dbg(crate::DbgLvl::Ipart);
+        // g.write_graph_to_file("identical_to_c_kmetis_multiconstraint.graph").unwrap();
         g
     });
 }

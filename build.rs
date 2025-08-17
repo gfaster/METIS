@@ -103,8 +103,12 @@ fn main() {
             if ndebug {
                 b.define("NDEBUG", "");
             }
+            if cfg!(feature = "normalized") {
+                b.define("NORMALIZED", "");
+            }
         })
         .define("_FILE_OFFSET_BITS", "64")
+        // .flag("-fsanitize=address")
         .flag("-fno-strict-aliasing")
         .flag("-std=c99")
         .warnings(false)
@@ -124,7 +128,11 @@ fn main() {
             if ndebug {
                 b.define("NDEBUG", "");
             }
+            if cfg!(feature = "normalized") {
+                b.define("NORMALIZED", "1");
+            }
         })
+        // .flag("-fsanitize=address")
         .flag("-fno-strict-aliasing")
         .warnings(false)
         .compile("metis_unported")
@@ -136,7 +144,16 @@ fn main() {
     make_so(&ported_files);
 
     // println!("cargo:rustc-link-search=GKlib/build/install/lib");
+
+    if cfg!(feature = "normalized") {
+        println!("cargo:rustc-rerun-if-env-changed=METIS_NORM_FUNCTIONS");
+        println!("cargo:rustc-link-lib=functions");
+        if let Some(path) = std::env::var("METIS_NORM_FUNCTIONS").ok() {
+            println!("cargo:rustc-link-search={path}");
+        }
+    }
     println!("cargo:rustc-link-lib=GKlib");
+
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=GKlib");
     println!("cargo:rustc-link-arg=-Wl,--export-dynamic");
@@ -157,7 +174,11 @@ fn make_so(source: &[PathBuf]) {
             if ndebug {
                 b.define("NDEBUG", "");
             }
+            if cfg!(feature = "normalized") {
+                b.define("NORMALIZED", "1");
+            }
         })
+        // .flag("-fsanitize=address")
         .flag("-fno-strict-aliasing")
         .warnings(false)
         .compile_intermediates()
@@ -169,8 +190,8 @@ fn make_so(source: &[PathBuf]) {
     let out = env::var("OUT_DIR").unwrap();
     let outfile = format!("{out}/libmetis_ported.so");
     println!("cargo::rustc-env=LIBMETIS_PORTED={outfile}");
-    let mut cmd = Command::new("ld")
-        .arg("--shared")
+    let mut cmd = Command::new("ld");
+    cmd.arg("--shared")
         .arg("-o")
         .arg(outfile)
         .args(objs)
@@ -179,9 +200,15 @@ fn make_so(source: &[PathBuf]) {
         .arg("-lc")
         .arg("-lm")
         .arg("-lmetis_unported")
-        .arg("-lGKlib")
-        .spawn()
+        .arg("-lGKlib");
+    if cfg!(feature = "normalized") {
+        if let Some(path) = std::env::var("METIS_NORM_FUNCTIONS").ok() {
+            cmd.arg(format!("-L{path}"));
+        }
+        cmd.arg("-lnormalization-functions");
+    }
+    let mut child = cmd.spawn()
         .unwrap();
-    let status = cmd.wait().unwrap();
+    let status = child.wait().unwrap();
     assert!(status.success())
 }

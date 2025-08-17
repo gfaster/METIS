@@ -454,7 +454,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
 
             /* Sort the connections according to their cut */
             // ikvsorti(ncand2, cand2);
-            cand2.sort_unstable_by_key(|cand| cand.key);
+            ikvsorti(&mut cand2);
 
             /* Two schemes are used for eliminating subdomain edges.
             The first, tries to eliminate subdomain edges by moving remote groups
@@ -534,7 +534,7 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                     }
 
                     // ikvsortd(ncand, cand);
-                    cand.sort_unstable_by_key(|kv| std::cmp::Reverse(kv.key));
+                    ikvsortd(&mut cand);
 
                     ifset!(
                         ctrl.dbglvl,

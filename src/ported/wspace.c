@@ -85,7 +85,11 @@ void c__libmetis__AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_ma
 IFUNC(void, FreeWorkSpace, (ctrl_t *ctrl));
 void c__libmetis__FreeWorkSpace(ctrl_t *ctrl)
 {
+#ifndef NORMALIZED
   gk_mcoreDestroy(&ctrl->mcore, ctrl->dbglvl&METIS_DBG_INFO);
+#else
+  gk_mcoreDestroy(&ctrl->mcore, 0);
+#endif
 
   IFSET(ctrl->dbglvl, METIS_DBG_INFO,
       printf(" nbrpool statistics\n" 

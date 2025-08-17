@@ -30,7 +30,7 @@ name = "gpmetis"
 test = false
 
 [[test]]
-name = "bin_ab"
+name = "ab_bin"
 required-features = ["normalized"]
 
 [dependencies]

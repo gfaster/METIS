@@ -12,6 +12,7 @@
  */
 
 use super::bindings::*;
+use super::gk_temp::double;
 use std::io::BufRead;
 use std::ptr;
 use std::{error::Error, ffi::c_void};
@@ -213,17 +214,22 @@ pub fn iargmin(x: &[idx_t], incx: usize) -> usize {
     min / incx
 }
 
-/// converts a user provided ufactor into a real ubfactor
-pub fn i2rubfactor(ufactor: idx_t) -> real_t {
-    1.0 + 0.001 * (ufactor as f32)
+/// converts a user provided ufactor into a real ubfactor. This used to be a macro, hence the
+/// return type
+pub fn i2rubfactor(ufactor: idx_t) -> double {
+    1.0 + 0.001 * (ufactor as double)
 }
 
 /// gk_mkblas.h routine
 pub fn rscale(n: usize, alpha: real_t, mut x: &mut [real_t], incx: usize) -> &mut [real_t] {
-    for _ in 0..n {
+    if n == 0 {
+        return x;
+    }
+    for _ in 0..(n - 1) {
         x[0] *= alpha;
         x = &mut x[incx..];
     }
+    x[0] *= alpha;
     x
 }
 

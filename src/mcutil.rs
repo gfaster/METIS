@@ -188,9 +188,9 @@ pub extern "C" fn BetterBalance2Way(
     // real_t nrm1=0.0, nrm2=0.0;
     mkslice!(x, n);
     mkslice!(y, n);
-    let nrm1: real_t = x.iter().filter(|&&x| x > 0.0).sum();
-    let nrm2: real_t = y.iter().filter(|&&y| y > 0.0).sum();
-    (nrm1 < nrm2) as _
+    let nrm1: real_t = x.iter().filter(|&&x| x > 0.0).map(|i| i.powi(2)).sum();
+    let nrm2: real_t = y.iter().filter(|&&y| y > 0.0).map(|i| i.powi(2)).sum();
+    (nrm2 < nrm1) as _
     // for (--n; n>=0; n--) {
     //   if (x[n] > 0) nrm1 += x[n]*x[n];
     //   {
@@ -458,9 +458,8 @@ mod tests {
 
     #[test]
     fn ab_BetterBalance2Way() {
-        ab_test_partition_test_graphs("BetterBalance2Way:rs", Optype::Pmetis, 8, 2, |mut g| {
-            g.set_seed(4321);
-            g.random_adjwgt();
+        ab_test_partition_test_graphs("BetterBalance2Way:rs", Optype::Pmetis, 20, 2, |mut g| {
+            g.random_vwgt();
             g.random_tpwgts();
             g
         });

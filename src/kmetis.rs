@@ -104,7 +104,7 @@ pub unsafe extern "C" fn METIS_PartGraphKway(
 
     // iset(*nvtxs, 0, part);
     part.write_bytes(0, *nvtxs as usize);
-    if ctrl.dbglvl & 512 != 0 {
+    if ctrl.dbglvl & METIS_DBG_SECRET_KWAY_BLOCK != 0 {
         *objval = if *nparts == 1 {
             0
         } else {
@@ -239,10 +239,11 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     //options[METIS_OPTION_DBGLVL]    = ctrl.dbglvl;
 
     // ubvec = rmalloc(graph.ncon, "InitKWayPartitioning: ubvec");
-    let mut ubvec = vec![0.0 as real_t; graph.ncon as usize];
+    let mut ubvec: Vec<real_t> = vec![0.0; graph.ncon as usize];
     mkslice_mut!(ctrl->ubfactors, graph.ncon);
     for i in 0..(graph.ncon as usize) {
-        ubvec[i] = (ubfactors[i] as f64).powf(1.0 / (ctrl.nparts as f64).ln()) as real_t;
+        // ubvec[i] = (real_t)pow(ctrl->ubfactors[i], 1.0/log(ctrl->nparts));
+        ubvec[i] = (ubfactors[i] as double).powf(1.0 / (ctrl.nparts as double).ln()) as real_t;
     }
 
     match ctrl.objtype {
@@ -522,7 +523,7 @@ pub fn BalanceAndRefineLP(
 
     let mut pwgts = vec![0; nparts as usize];
 
-    let ubfactor: real_t = util::i2rubfactor(ctrl.ufactor);
+    let ubfactor: real_t = util::i2rubfactor(ctrl.ufactor) as real_t;
     let tvwgt: idx_t = vwgt.iter().sum::<idx_t>();
     let maxpwgt: idx_t = ((ubfactor * tvwgt as real_t) / nparts as real_t) as idx_t;
     let minpwgt: idx_t = ((1.0 * tvwgt as real_t) / (ubfactor * nparts as real_t)) as idx_t;
@@ -558,8 +559,8 @@ pub fn BalanceAndRefineLP(
             break;
         }
         // I may choose to recreate this macro impl if it's too slow
-        // irandArrayPermute(nvtxs, perm, nvtxs / 8, 1);
-        fastrand::shuffle(&mut perm);
+        irandArrayPermute(nvtxs as idx_t, perm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
+        // fastrand::shuffle(&mut perm);
         let mut nmoves = 0;
 
         for ii in 0..nvtxs {
@@ -687,4 +688,61 @@ pub fn BalanceAndRefineLP(
     }
 
     // WCOREPOP;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::tests::ab_test_partition_test_graphs;
+
+    use super::*;
+
+    #[test]
+    fn ab_METIS_PartGraphKway() {
+        ab_test_partition_test_graphs("METIS_PartGraphKway:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelKWayPartitioning() {
+        ab_test_partition_test_graphs("MlevelKWayPartitioning:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_InitKWayPartitioning() {
+        ab_test_partition_test_graphs("InitKWayPartitioning:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_InitKWayPartitioning_mc_tpwgt() {
+        ab_test_partition_test_graphs("InitKWayPartitioning:rs", Optype::Kmetis, 20, 2, |mut g| {
+            g.random_vwgt();
+            g.random_tpwgts();
+            g.random_ubvec();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    #[ignore = "I don't care about this right now"]
+    fn ab_BlockKWayPartitioning() {
+        ab_test_partition_test_graphs("BlockKWayPartitioning:rs", Optype::Kmetis, 20, 1, |mut g| {
+            g.enable_dbg(DbgLvl::SecretKwayBlock);
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
 }

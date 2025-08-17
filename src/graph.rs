@@ -124,13 +124,13 @@ pub extern "C" fn SetupGraph(
         for i in (0)..(ncon) {
             mkslice_mut!(vwgt, ncon * nvtxs);
             // (*graph).tvwgt[i]    = isum(nvtxs, vwgt+i, ncon);
-            *(*graph).tvwgt.add(i) = vwgt.iter().skip(i).step_by(ncon).sum::<idx_t>();
-            *(*graph).invtvwgt.add(i) = 1.0
+            *(*graph).tvwgt.add(i) = vwgt[i..].iter().step_by(ncon).sum::<idx_t>();
+            *(*graph).invtvwgt.add(i) = (1.0_f64
                 / (if *(*graph).tvwgt.add(i) > 0 {
-                    *(*graph).tvwgt.add(i) as real_t
+                    *(*graph).tvwgt.add(i) as f64
                 } else {
-                    1.0
-                });
+                    1.0_f64
+                })) as real_t;
         }
 
         if ctrl.objtype == METIS_OBJTYPE_VOL {
@@ -190,7 +190,6 @@ pub extern "C" fn SetupGraph_tvwgt(graph: *mut graph_t) {
     // idx_t i;
 
     let ncon = graph.ncon as usize;
-    let _nvtxs = graph.nvtxs as usize;
     if graph.tvwgt == std::ptr::null_mut() {
         graph.tvwgt = imalloc(ncon, c"SetupGraph_tvwgt: tvwgt".as_ptr()) as *mut idx_t;
     }
@@ -204,13 +203,14 @@ pub extern "C" fn SetupGraph_tvwgt(graph: *mut graph_t) {
         // tvwgt[i] = isum(graph.nvtxs, graph.vwgt + i, graph.ncon);
         // invtvwgt[i] = 1.0 / (if graph.tvwgt[i] > 0 { graph.tvwgt[i] } else { 1 });
         // TODO: I don't think this gets specialized well
+        // Using skip rather than `i..' to handle the nvtxs = 0 case
         tvwgt[i] = vwgt.iter().skip(i).step_by(ncon).sum();
-        invtvwgt[i] = 1.0
+        invtvwgt[i] = (1.0
             / (if tvwgt[i] > 0 {
-                tvwgt[i] as real_t
+                tvwgt[i] as double
             } else {
                 1.0
-            });
+            })) as real_t;
     }
 }
 

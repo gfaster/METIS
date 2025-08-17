@@ -8,7 +8,7 @@
 \author Copyright 1997-2009, Regents of the University of Minnesota
 \version\verbatim $Id: pmetis.c 10513 2011-07-07 22:06:03Z karypis $ \endverbatim
 */
-use crate::{debug::CheckBnd, *};
+use crate::*;
 
 /*************************************************************************/
 /* \ingroup api
@@ -113,11 +113,10 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
 
     /* set up the run parameters */
     let ctrl = options::SetupCtrl(METIS_OP_PMETIS, options, *ncon, *nparts, tpwgts, ubvec);
-    if ctrl.is_null() {
+    let Some(ctrl) = ctrl.as_mut() else {
         eprintln!("input error");
         return METIS_ERROR_INPUT;
-    }
-    let ctrl = ctrl.as_mut().unwrap();
+    };
 
     /* if required, change the numbering to 0 */
     // no.
@@ -139,7 +138,7 @@ pub unsafe extern "C" fn METIS_PartGraphRecursive(
     // ifset!(ctrl.dbglvl, METIS_DBG_TIME, gk_startcputimer(ctrl.TotalTmr));
 
     // iset(*nvtxs, 0, part);
-    mkslice_mut!(part, *nparts);
+    mkslice_mut!(part, *nvtxs);
     part.fill(0);
     *objval = if *nparts == 1 {
         0
@@ -193,16 +192,16 @@ pub extern "C" fn MlevelRecursiveBisection(
     /* determine the weights of the two partitions as a function of the weight of the
     target partition weights */
     // WCOREPUSH;
-    let mut tpwgts2 = vec![0.0; 2 * ncon as usize];
+    let mut tpwgts2: Vec<real_t> = vec![0.0; 2 * ncon as usize];
     mkslice_mut!(tpwgts, ncon * ctrl.nparts as usize);
     for i in (0)..(ncon) {
         // tpwgts2[i] = rsum((nparts >> 1), tpwgts + i, ncon);
         tpwgts2[i] = tpwgts[i..]
             .iter()
             .step_by(ncon)
-            .take((nparts as usize) >> 1)
+            .take(nparts >> 1)
             .sum();
-        tpwgts2[ncon + i] = 1.0 - tpwgts2[i];
+        tpwgts2[ncon + i] = (1.0 - tpwgts2[i] as double) as real_t;
     }
 
     /* perform the bisection */
@@ -210,7 +209,7 @@ pub extern "C" fn MlevelRecursiveBisection(
 
     // WCOREPOP;
 
-    // not a slice because idt we know the len
+    // not a slice because we're likely operating on a coarse graph, so nvtxs isn't right
     // mkslice_mut!(part, nvtxs);
     assert!(!part.is_null());
 
@@ -243,27 +242,35 @@ pub extern "C" fn MlevelRecursiveBisection(
         let wsum: real_t = tpwgts[i..]
             .iter()
             .step_by(ncon)
-            .take((nparts as usize) >> 1)
+            .take(nparts >> 1)
             .sum();
+
         // rscale((nparts >> 1), 1.0 / wsum, tpwgts + i, ncon);
+
+        // Yes, this float casting is required in some cases for parity with C
+        // At least in one case, it actually make the part worse
+        let alpha = (1.0_f64 / wsum as f64) as real_t;
         tpwgts[i..]
             .iter_mut()
             .step_by(ncon)
-            .take((nparts as usize) >> 1)
-            .map(|w| *w *= 1.0 / wsum)
-            .last();
+            .take(nparts >> 1)
+            .for_each(|w| *w *= alpha);
+
         // rscale(
         //     nparts - (nparts >> 1),
         //     1.0 / (1.0 - wsum),
         //     tpwgts + (nparts >> 1) * ncon + i,
         //     ncon,
         // );
+
+        // Yes, this float casting is required in some cases for parity with C
+        // At least in one case, it actually make the part worse
+        let alpha = (1.0_f64 / (1.0_f64 - wsum as f64)) as real_t;
         tpwgts[((nparts >> 1) * ncon + i)..]
             .iter_mut()
             .step_by(ncon)
             .take(nparts - (nparts >> 1))
-            .map(|w| *w *= 1.0 / (1.0 - wsum))
-            .last();
+            .for_each(|w| *w *= alpha);
     }
 
     /* Do the recursive call */
@@ -555,4 +562,85 @@ pub extern "C" fn SplitGraphPart(
     *r_rgraph = rgraph;
 
     // WCOREPOP;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use crate::tests::ab_test_partition_test_graphs;
+
+    use super::*;
+
+    #[test]
+    fn ab_METIS_PartGraphRecursive() {
+        ab_test_partition_test_graphs("METIS_PartGraphRecursive:rs", Optype::Pmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelRecursiveBisection() {
+        ab_test_partition_test_graphs("MlevelRecursiveBisection:rs", Optype::Pmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelRecursiveBisection_tpwgt() {
+        ab_test_partition_test_graphs("MlevelRecursiveBisection:rs", Optype::Pmetis, 20, 1, |mut g| {
+            // had issues with some subtlety in tpwgt
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelRecursiveBisection_mc() {
+        ab_test_partition_test_graphs("MlevelRecursiveBisection:rs", Optype::Pmetis, 20, 2, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+
+        // previously revealed some subtler bugs
+        ab_test_partition_test_graphs("MlevelRecursiveBisection:rs", Optype::Pmetis, 80, 2, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MlevelRecursiveBisection_mc_tpwgt() {
+        // had issues with some subtlety in tpwgt
+        ab_test_partition_test_graphs("MlevelRecursiveBisection:rs", Optype::Pmetis, 20, 2, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g.random_tpwgts();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_MultilevelBisect() {
+        ab_test_partition_test_graphs("MultilevelBisect:rs", Optype::Pmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
+
+    #[test]
+    fn ab_SplitGraphPart() {
+        ab_test_partition_test_graphs("SplitGraphPart:rs", Optype::Pmetis, 20, 1, |mut g| {
+            g.random_vwgt();
+            g.random_adjwgt();
+            g
+        });
+    }
 }

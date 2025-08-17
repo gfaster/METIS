@@ -115,7 +115,7 @@ pub extern "C" fn FreeWorkSpace(ctrl: *mut ctrl_t) {
 
     gk_mcoreDestroy(
         &mut ctrl.mcore,
-        (ctrl.dbglvl & METIS_DBG_INFO) as std::ffi::c_int,
+        if !cfg!(feature = "normalized") { (ctrl.dbglvl & METIS_DBG_INFO) as std::ffi::c_int } else { 0 },
     );
 
     ifset!(

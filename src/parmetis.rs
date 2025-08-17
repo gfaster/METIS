@@ -1085,13 +1085,13 @@ pub extern "C" fn METIS_CacheFriendlyReordering(
     maxdegree += 1;
     let mut levels: Vec<_> = (0..nvtxs)
         .map(|i| {
-            (
-                -pos[i as usize] * maxdegree + xadj[(i + 1) as usize] - xadj[i as usize],
-                i as idx_t,
-            )
+            ikv_t {
+                key: -pos[i as usize] * maxdegree + xadj[(i + 1) as usize] - xadj[i as usize],
+                val: i as idx_t,
+            }
         })
         .collect();
-    levels.sort_unstable_by_key(|&(key, _val)| std::cmp::Reverse(key));
+    ikvsortd(&mut levels);
 
     /* figure out the partitions */
     // nparts = imax(nvtxs, part, 1)+1;
@@ -1105,8 +1105,8 @@ pub extern "C" fn METIS_CacheFriendlyReordering(
     util::make_csr(nparts, &mut pwgts);
 
     for i in (0)..(nvtxs) {
-        let pwgt = &mut pwgts[part[levels[i].1 as usize] as usize];
-        old2new[levels[i as usize].1 as usize] = *pwgt;
+        let pwgt = &mut pwgts[part[levels[i].val as usize] as usize];
+        old2new[levels[i as usize].val as usize] = *pwgt;
         *pwgt += 1;
     }
 

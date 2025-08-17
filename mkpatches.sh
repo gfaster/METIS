@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-set -x
+# set -x
 
 METIS_DIR="${1:-$HOME/projects/repos/METIS}"
 GKLIB_DIR="${2:-$HOME/projects/repos/GKlib}"

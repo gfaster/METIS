@@ -281,8 +281,13 @@ void c__libmetis__PrintCtrl(ctrl_t *ctrl)
       if (i%modnum == 0)
         printf("\n     ");
       printf("%4"PRIDX"=[", i);
+#ifdef NORMALIZED
+      for (j=0; j<ctrl->ncon; j++) 
+        printf("%s%.5f", (j==0 ? "" : " "), (double)ctrl->tpwgts[i*ctrl->ncon+j]);
+#else
       for (j=0; j<ctrl->ncon; j++) 
         printf("%s%.2e", (j==0 ? "" : " "), (double)ctrl->tpwgts[i*ctrl->ncon+j]);
+#endif
       printf("]");
     }
     printf("\n");

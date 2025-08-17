@@ -1,3 +1,110 @@
+diff --git a/Makefile b/Makefile
+deleted file mode 100644
+index 8fe67e7..0000000
+--- a/Makefile
++++ /dev/null
+@@ -1,101 +0,0 @@
+-# Configuration options.
+-i64        = not-set
+-r64        = not-set
+-gdb        = not-set
+-assert     = not-set
+-assert2    = not-set
+-debug      = not-set
+-gprof      = not-set
+-valgrind   = not-set
+-openmp     = not-set
+-shared     = not-set
+-cc         = not-set
+-prefix     = ~/local
+-gklib_path = ~/local
+-
+-
+-# Basically proxies everything to the builddir cmake.
+-
+-BUILDDIR = build
+-
+-IDXWIDTH  = "\#define IDXTYPEWIDTH 32"
+-REALWIDTH = "\#define REALTYPEWIDTH 32"
+-
+-# Process configuration options.
+-CONFIG_FLAGS = -DCMAKE_VERBOSE_MAKEFILE=1
+-ifneq ($(gklib_path), not-set)
+-    CONFIG_FLAGS += -DGKLIB_PATH=$(abspath $(gklib_path))
+-endif
+-ifneq ($(prefix), not-set)
+-    CONFIG_FLAGS += -DCMAKE_INSTALL_PREFIX=$(prefix)
+-endif
+-ifneq ($(i64), not-set)
+-    IDXWIDTH  = "\#define IDXTYPEWIDTH 64"
+-endif
+-ifneq ($(r64), not-set)
+-    REALWIDTH = "\#define REALTYPEWIDTH 64"
+-endif
+-ifneq ($(gdb), not-set)
+-    CONFIG_FLAGS += -DGDB=$(gdb)
+-endif
+-ifneq ($(assert), not-set)
+-    CONFIG_FLAGS += -DASSERT=$(assert)
+-endif
+-ifneq ($(assert2), not-set)
+-    CONFIG_FLAGS += -DASSERT2=$(assert2)
+-endif
+-ifneq ($(debug), not-set)
+-    CONFIG_FLAGS += -DDEBUG=$(debug)
+-endif
+-ifneq ($(gprof), not-set)
+-    CONFIG_FLAGS += -DGPROF=$(gprof)
+-endif
+-ifneq ($(valgrind), not-set)
+-    CONFIG_FLAGS += -DVALGRIND=$(valgrind)
+-endif
+-ifneq ($(openmp), not-set)
+-    CONFIG_FLAGS += -DOPENMP=$(openmp)
+-endif
+-ifneq ($(shared), not-set)
+-    CONFIG_FLAGS += -DSHARED=1
+-endif
+-ifneq ($(cc), not-set)
+-    CONFIG_FLAGS += -DCMAKE_C_COMPILER=$(cc)
+-endif
+-
+-VERNUM=5.1.0
+-PKGNAME=metis-$(VERNUM)
+-
+-define run-config
+-mkdir -p $(BUILDDIR)
+-mkdir -p $(BUILDDIR)/xinclude
+-echo $(IDXWIDTH) > $(BUILDDIR)/xinclude/metis.h
+-echo $(REALWIDTH) >> $(BUILDDIR)/xinclude/metis.h
+-cat include/metis.h >> $(BUILDDIR)/xinclude/metis.h
+-cp include/CMakeLists.txt $(BUILDDIR)/xinclude
+-cd $(BUILDDIR) && cmake $(CURDIR) $(CONFIG_FLAGS)
+-endef
+-
+-all clean install:
+-	@if [ ! -f $(BUILDDIR)/Makefile ]; then \
+-		more BUILD.txt; \
+-	else \
+-	  	make -C $(BUILDDIR) $@ $(MAKEFLAGS); \
+-	fi
+-
+-uninstall:
+-	xargs rm < $(BUILDDIR)/install_manifest.txt
+-
+-config: distclean
+-	$(run-config)
+-
+-distclean:
+-	rm -rf $(BUILDDIR)
+-
+-remake:
+-	find . -name CMakeLists.txt -exec touch {} ';'
+-
+-dist:
+-	utils/mkdist.sh $(PKGNAME)
+-
+-.PHONY: config distclean all clean install uninstall remake dist
 diff --git a/conf/gkbuild.cmake b/conf/gkbuild.cmake
 index 591ece4..e849673 100644
 --- a/conf/gkbuild.cmake
@@ -99,6 +206,40 @@ index 4e17eac..0b22780 100644
  
  void rkvsorti(size_t n, rkv_t *base)
  {
+diff --git a/libmetis/options.c b/libmetis/options.c
+index 3f846cf..f5aab13 100644
+--- a/libmetis/options.c
++++ b/libmetis/options.c
+@@ -274,8 +274,13 @@ void PrintCtrl(ctrl_t *ctrl)
+       if (i%modnum == 0)
+         printf("\n     ");
+       printf("%4"PRIDX"=[", i);
++#ifndef NORMALIZED
+       for (j=0; j<ctrl->ncon; j++) 
+         printf("%s%.2e", (j==0 ? "" : " "), (double)ctrl->tpwgts[i*ctrl->ncon+j]);
++#else
++      for (j=0; j<ctrl->ncon; j++) 
++        printf("%s%.5f", (j==0 ? "" : " "), (double)ctrl->tpwgts[i*ctrl->ncon+j]);
++#endif
+       printf("]");
+     }
+     printf("\n");
+diff --git a/libmetis/wspace.c b/libmetis/wspace.c
+index 92853c3..878eae8 100644
+--- a/libmetis/wspace.c
++++ b/libmetis/wspace.c
+@@ -79,7 +79,11 @@ void AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrp
+ /*************************************************************************/
+ void FreeWorkSpace(ctrl_t *ctrl)
+ {
++#ifndef NORMALIZED
+   gk_mcoreDestroy(&ctrl->mcore, ctrl->dbglvl&METIS_DBG_INFO);
++#else
++  gk_mcoreDestroy(&ctrl->mcore, 0);
++#endif
+ 
+   IFSET(ctrl->dbglvl, METIS_DBG_INFO,
+       printf(" nbrpool statistics\n" 
 diff --git a/programs/cmdline_gpmetis.c b/programs/cmdline_gpmetis.c
 index 4260584..74f830d 100644
 --- a/programs/cmdline_gpmetis.c

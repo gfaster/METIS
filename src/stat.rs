@@ -82,13 +82,13 @@ pub extern "C" fn ComputePartitionInfoBipartite(
                 " ({:5.3} out of {:5.3})",
                 (nparts as real_t)
                     * (kpwgts[(ncon * util::iargmax(&kpwgts[j..], ncon) + j) as usize] as real_t)
-                    / (kpwgts[cntrng!((j), (nparts))]
+                    / (kpwgts[j..]
                         .iter()
                         .step_by(ncon)
                         .sum::<idx_t>() as real_t),
                 (nparts as real_t)
                     * (vwgt[(ncon * util::iargmax(&vwgt[j..], ncon) + j) as usize] as real_t)
-                    / (kpwgts[cntrng!((j), (nparts))]
+                    / (kpwgts[j..]
                         .iter()
                         .step_by(ncon)
                         .sum::<idx_t>() as real_t)
@@ -270,7 +270,7 @@ pub unsafe fn ComputePartitionInfo(params: &params_t, graph: &graph_t, where_: &
     /* Report on balance */
     print!(" - Balance:\n");
     for j in 0..ncon {
-        let tvwgt = kpwgts[cntrng!((j), (nparts))]
+        let tvwgt = kpwgts[j..]
             .iter()
             .step_by(ncon)
             .sum::<idx_t>();
@@ -285,12 +285,12 @@ pub unsafe fn ComputePartitionInfo(params: &params_t, graph: &graph_t, where_: &
                 // k = i;
             }
         }
-        print!(
-            "     constraint #{:}:  {:5.3} out of {:5.3}\n",
+        println!(
+            "     constraint #{:}:  {:5.3} out of {:5.3}",
             j,
             unbalance,
             nparts as real_t * vwgt[ncon * util::iargmax(&vwgt[j..], ncon) + j] as real_t
-                / (kpwgts[cntrng!((j), (nparts))]
+                / (kpwgts[j..]
                     .iter()
                     .step_by(ncon)
                     .sum::<idx_t>() as real_t)

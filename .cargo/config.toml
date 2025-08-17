@@ -3,8 +3,8 @@
 [target.x86_64-unknown-linux-gnu]
 # Use frame pointers since the dispatch breaks perf call traces
 rustflags = [
-	"-C force-frame-pointers=on",
+	"-Cforce-frame-pointers=on",
 	"-Zbox-noalias=false",
 	"-Zmutable-noalias=false",
-	"-Zsanitizer=address"
+	# "-Zsanitizer=address"
 ]

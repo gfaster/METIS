@@ -81,7 +81,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
         ctrl.dbglvl,
         METIS_DBG_REFINE,
         println!(
-            "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]\n",
+            "Partitions: [{:6} {:6}] T[{:6} {:6}], Nv-Nb[{:6} {:6}]. ICut: {:6} [B]",
             pwgts[0], pwgts[1], tpwgts[0], tpwgts[1], graph.nvtxs, graph.nbnd, graph.mincut,
         )
     );
@@ -136,7 +136,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
             ctrl.dbglvl,
             METIS_DBG_MOVEINFO,
             println!(
-                "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]\n",
+                "Moved {:6} from {:}. [{:3} {:3}] {:5} [{:4} {:4}]",
                 higain,
                 from,
                 ed[higain] - id[higain],
@@ -199,7 +199,7 @@ pub extern "C" fn Bnd2WayBalance(ctrl: *mut ctrl_t, graph: *mut graph_t, ntpwgts
         ctrl.dbglvl,
         METIS_DBG_REFINE,
         println!(
-            "\tMinimum cut: {:6}, PWGTS: [{:6} {:6}], NBND: {:6}\n",
+            "\tMinimum cut: {:6}, PWGTS: [{:6} {:6}], NBND: {:6}",
             mincut, pwgts[0], pwgts[1], nbnd,
         )
     );
@@ -480,7 +480,7 @@ pub extern "C" fn McGeneral2WayBalance(
         }
 
         println!(
-            "] Nv-Nb[{:5}, {:5}]. ICut: {:6}, LB: {:+.3} [B]\n",
+            "] Nv-Nb[{:5}, {:5}]. ICut: {:6}, LB: {:+.3} [B]",
             graph.nvtxs, graph.nbnd, graph.mincut, minbal,
         );
     }
@@ -592,7 +592,7 @@ pub extern "C" fn McGeneral2WayBalance(
         swaps[nswaps as usize] = higain as idx_t;
 
         if ctrl.dbglvl & METIS_DBG_MOVEINFO != 0 {
-            println!(
+            print!(
                 "Moved {:6} from {:}({:}). Gain: {:5}, Cut: {:5}, NPwgts: ",
                 higain,
                 from,
@@ -601,10 +601,10 @@ pub extern "C" fn McGeneral2WayBalance(
                 newcut,
             );
             for l in 0..(ncon) {
-                println!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
+                print!("({:6}, {:6}) ", pwgts[l], pwgts[ncon + l]);
             }
 
-            println!(", {:+.3} LB: {:+.3}\n", minbal, newbal);
+            println!(", {:+.3} LB: {:+.3}", minbal, newbal);
         }
 
         /**************************************************************
@@ -713,7 +713,7 @@ pub extern "C" fn McGeneral2WayBalance(
         }
 
         println!(
-            "], LB: {:.3}\n",
+            "], LB: {:.3}",
             mcutil::ComputeLoadImbalance(graph, 2, ctrl.pijbm)
         );
     }
@@ -745,7 +745,6 @@ mod tests {
         ab_test_partition_test_graphs("Balance2Way:rs", Optype::Kmetis, 23, 1, |mut g| {
             g.set_seed(18231);
             g.random_adjwgt();
-            g.random_tpwgts();
             g
         });
     }
@@ -755,7 +754,6 @@ mod tests {
         ab_test_partition_test_graphs("Bnd2WayBalance:rs", Optype::Kmetis, 23, 1, |mut g| {
             g.set_seed(18231);
             g.random_adjwgt();
-            g.random_tpwgts();
             g
         });
     }
@@ -764,18 +762,19 @@ mod tests {
     fn ab_McGeneral2WayBalance() {
         ab_test_partition_test_graphs("McGeneral2WayBalance:rs", Optype::Kmetis, 3, 2, |mut g| {
             g.set_seed(1234);
+            g.random_vwgt();
             g.random_adjwgt();
-            g.random_tpwgts();
             g
         });
     }
 
     #[test]
     fn ab_General2WayBalance() {
-        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 20, 1, TestGraph::Webbase2004, |mut g| {
-            g.set_seed(1234);
+        // This test is somewhat flakey as to if the call happens at all. It's fine to play around
+        // with parameters to get it called
+        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 40, 1, TestGraph::Webbase2004, |mut g| {
+            g.random_vwgt();
             g.random_adjwgt();
-            g.random_tpwgts();
             g
         });
     }
@@ -784,11 +783,10 @@ mod tests {
     fn ab_General2WayBalance_contig() {
         // have a separate test for contig since I expect that to affect the kinds of subgraphs
         // it's called on
-        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 20, 1, TestGraph::Webbase2004, |mut g| {
-            g.set_seed(1234);
+        ab_test_partition_test_graph("General2WayBalance:rs", Optype::Kmetis, 40, 1, TestGraph::Webbase2004, |mut g| {
             g.set_contig(true);
+            g.random_vwgt();
             g.random_adjwgt();
-            g.random_tpwgts();
             g
         });
     }

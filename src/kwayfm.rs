@@ -547,7 +547,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
         BNDTYPE_BALANCE
     };
 
-    let _ffactor = 0.0;
+    let _ffactor: real_t = 0.0;
     // WCOREPUSH;
 
     /* Link the graph fields */
@@ -573,7 +573,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
     for i in (0)..(nparts) {
         maxpwgts[i] = (tpwgts[i] * *graph.tvwgt as f32 * ubfactor) as idx_t;
-        minpwgts[i] = (tpwgts[i] * *graph.tvwgt as f32 * (1.0 / ubfactor)) as idx_t;
+        minpwgts[i] = (tpwgts[i] as double * *graph.tvwgt as double * (1.0 / ubfactor as double)) as idx_t;
     }
 
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
@@ -1091,7 +1091,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
     for i in (0)..(nparts) {
         maxpwgts[i as usize] = (tpwgts[i as usize] * tvwgt[0] as real_t * *ctrl.ubfactors) as idx_t;
         minpwgts[i as usize] =
-            (tpwgts[i as usize] * tvwgt[0] as real_t * (1.0 / *ctrl.ubfactors)) as idx_t;
+            (tpwgts[i as usize] as double * tvwgt[0] as double * (1.0 / *ctrl.ubfactors as double)) as idx_t;
     }
 
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
@@ -1625,7 +1625,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 * ubfactors[j as usize]) as idx_t;
             /*minpwgts[(i*ncon+j) as usize]  = ctrl.tpwgts[(i*ncon+j) as usize]*graph.tvwgt[j as usize]*(.9/ubfactors[j as usize]);*/
             minpwgts[(i * ncon + j) as usize] =
-                (tpwgts[(i * ncon + j) as usize] * tvwgt[j as usize] as real_t * 0.2) as idx_t;
+                (tpwgts[(i * ncon + j) as usize] as double * tvwgt[j as usize] as double * 0.2) as idx_t;
         }
     }
 
@@ -2241,7 +2241,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 * ubfactors[j as usize]) as idx_t;
             /*minpwgts[(i*ncon+j) as usize]  = ctrl.tpwgts[(i*ncon+j) as usize]*graph.tvwgt[j as usize]*(.9/ubfactors[j as usize]); */
             minpwgts[(i * ncon + j) as usize] =
-                (tpwgts[(i * ncon + j) as usize] * tvwgt[j as usize] as real_t * 0.2) as idx_t;
+                (tpwgts[(i * ncon + j) as usize] as double * tvwgt[j as usize] as double * 0.2) as idx_t;
         }
     }
 
@@ -3385,7 +3385,7 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     for i in (0)..(nparts) {
         maxpwgts[i as usize] = (tpwgts[i as usize] * *graph.tvwgt as f32 * ubfactor) as idx_t;
         minpwgts[i as usize] =
-            (tpwgts[i as usize] * *graph.tvwgt as f32 * (0.95 / ubfactor)) as idx_t;
+            (tpwgts[i as usize] as double * *graph.tvwgt as double * (0.95 / ubfactor as double)) as idx_t;
     }
 
     /* go and determine the positive gain valid swaps */

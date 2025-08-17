@@ -98,7 +98,7 @@ pub extern "C" fn CoarsenGraph(ctrl: *mut ctrl_t, graph: *mut graph_t) -> *mut g
         debug_assert!(checkgraph::CheckGraph(graph, 0, 1) != 0);
 
         if !((*graph).nvtxs > ctrl.CoarsenTo
-            && ((*graph).nvtxs as real_t) < COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
+            && ((*graph).nvtxs as double) < COARSEN_FRACTION * (*(*graph).finer).nvtxs as double
             && (*graph).nedges > (*graph).nvtxs / 2)
         {
             break;
@@ -153,8 +153,8 @@ pub extern "C" fn CoarsenGraphNlevels(
         }
 
         /* set the maximum allowed coarsest vertex weight */
-        for i in (0)..(graph.ncon) {
-            *ctrl.maxvwgt.add(i as usize) = 3 * tvwgt[i as usize] / (2 * ctrl.CoarsenTo);
+        for i in (0)..(graph.ncon as usize) {
+            *ctrl.maxvwgt.add(i) = (1.5 * tvwgt[i] as double / (ctrl.CoarsenTo as double)) as idx_t;
         }
     }
 
@@ -195,7 +195,7 @@ pub extern "C" fn CoarsenGraphNlevels(
         assert!(checkgraph::CheckGraph(graph, 0, 1) != 0);
 
         if (*graph).nvtxs < ctrl.CoarsenTo
-            || ((*graph).nvtxs as real_t) > COARSEN_FRACTION * (*(*graph).finer).nvtxs as real_t
+            || ((*graph).nvtxs as double) > COARSEN_FRACTION * (*(*graph).finer).nvtxs as double
             || (*graph).nedges < (*graph).nvtxs / 2
         {
             break;
@@ -257,7 +257,7 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
     low-degree vertices */
     irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
+    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as double) as idx_t;
     for i in (0)..(nvtxs) {
         let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as double).sqrt() as idx_t;
         degrees[i as usize] = avgdegree.min(bnum);
@@ -438,7 +438,7 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
     let avgdegree = (4.0 * (xadj[nvtxs] as usize / nvtxs) as double) as idx_t;
     for i in (0)..(nvtxs) {
-        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as double).sqrt() as idx_t;
         degrees[i as usize] = (if bnum > avgdegree { avgdegree } else { bnum }) as idx_t;
     }
     bucketsort::BucketSortKeysInc(
@@ -621,7 +621,7 @@ pub extern "C" fn Match_2Hop(
         &mut nunmatched,
         64,
     );
-    if (nunmatched as double) > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs as f64 {
+    if (nunmatched as double) > 1.5 * UNMATCHEDFOR2HOP * graph.nvtxs as double {
         cnvtxs = Match_2HopAny(
             ctrl,
             graph,
@@ -632,7 +632,7 @@ pub extern "C" fn Match_2Hop(
             3,
         );
     }
-    if (nunmatched as double) > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs as f64 {
+    if (nunmatched as double) > 2.0 * UNMATCHEDFOR2HOP * graph.nvtxs as double {
         cnvtxs = Match_2HopAny(
             ctrl,
             graph,
@@ -794,15 +794,10 @@ pub extern "C" fn Match_2HopAll(
     /*ifset!(ctrl.dbglvl, METIS_DBG_COARSEN, println!("IN: nunmatched: %zu\t", nunmatched)); */
 
     // WCOREPUSH;
-    #[derive(Clone, Copy, Default)]
-    struct KeyVal {
-        key: idx_t,
-        val: idx_t,
-    }
 
     /* collapse vertices with identical adjancency lists */
     // keys = ikvwspacemalloc(ctrl, nunmatched);
-    let mut keys = vec![KeyVal::default(); nunmatched];
+    let mut keys = vec![ikv_t::default(); nunmatched];
     let mut ncand = 0;
     for pi in (0)..(nvtxs) {
         let i = perm[pi as usize] as usize;
@@ -817,7 +812,8 @@ pub extern "C" fn Match_2HopAll(
             ncand += 1;
         }
     }
-    keys[..ncand].sort_unstable_by_key(|k| k.key);
+
+    ikvsorti(&mut keys[..ncand]);
     // ikvsorti(ncand, keys);
 
     let mut mark: Vec<idx_t> = vec![0; nvtxs];
@@ -907,9 +903,9 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
 
     irandArrayPermute(nvtxs as idx_t, tperm.as_mut_ptr(), nvtxs as idx_t / 8, 1);
 
-    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as real_t) as idx_t;
+    let avgdegree = (4.0 * (xadj[nvtxs] / nvtxs as idx_t) as f64) as idx_t;
     for i in (0)..(nvtxs) {
-        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as real_t).sqrt() as idx_t;
+        let bnum = ((1 + xadj[(i + 1) as usize] - xadj[i as usize]) as f64).sqrt() as idx_t;
         degrees[i as usize] = if bnum > avgdegree { avgdegree } else { bnum };
     }
     bucketsort::BucketSortKeysInc(
@@ -1174,26 +1170,27 @@ pub extern "C" fn CreateCoarseGraph(
     };
 
     /* Setup structures for dropedges */
-    let mut nkeys = 0;
+    let mut nkeys: usize = 0;
     // these 3 vars are only used when dropedges != 0, but I hope the optimizer will be good
     let mut medianewgts: Vec<idx_t> = Vec::new();
     let mut keys: Vec<idx_t> = Vec::new();
     let mut noise: Vec<idx_t> = Vec::new();
     if dropedges {
         medianewgts = vec![-1; cnvtxs];
-        keys = vec![0; nkeys as usize];
         noise = vec![0; cnvtxs];
         // nkeys = 0;
         // for v in (0)..(nvtxs) {
         //     nkeys = nkeys.max(xadj[(v + 1) as usize] - xadj[v as usize]);
         // }
         // nkeys = 2 * nkeys + 1;
-        nkeys = xadj.windows(2).map(|w| w[1] - w[0]).max().unwrap_or_default();
+        nkeys = xadj.windows(2).map(|w| w[1] - w[0]).max().unwrap_or_default() as usize;
+        keys = vec![0; nkeys];
 
         for v in (0)..(cnvtxs) {
             noise[v as usize] = irandInRange(128);
         }
     }
+    let nkeys = nkeys;
 
     /* Initialize the coarser graph */
     debug_assert!(cnvtxs > 0);
@@ -1221,7 +1218,7 @@ pub extern "C" fn CreateCoarseGraph(
     cxadj[0 as usize] = 0;
     let mut cnvtxs: usize = 0;
     let mut cnedges = 0;
-    let mut nedges;
+    let mut nedges: usize;
     for v in (0)..(nvtxs) {
         let u = match_[v as usize] as usize;
         if u < v {
@@ -1287,7 +1284,7 @@ pub extern "C" fn CreateCoarseGraph(
                     if m == -1 {
                         cadjncy[nedges as usize] = k;
                         cadjwgt[nedges as usize] = adjwgt[j as usize];
-                        htable[kk as usize] = nedges;
+                        htable[kk as usize] = nedges as idx_t;
                         nedges += 1;
                     } else {
                         cadjwgt[m as usize] += adjwgt[j as usize];
@@ -1309,7 +1306,7 @@ pub extern "C" fn CreateCoarseGraph(
                     if m == -1 {
                         cadjncy[nedges as usize] = k;
                         cadjwgt[nedges as usize] = adjwgt[j as usize];
-                        htable[kk as usize] = nedges;
+                        htable[kk as usize] = nedges as idx_t;
                         nedges += 1;
                     } else {
                         cadjwgt[m as usize] += adjwgt[j as usize];
@@ -1344,7 +1341,7 @@ pub extern "C" fn CreateCoarseGraph(
                 if m == -1 {
                     cadjncy[nedges as usize] = k;
                     cadjwgt[nedges as usize] = adjwgt[j as usize];
-                    dtable[k as usize] = nedges;
+                    dtable[k as usize] = nedges as idx_t;
                     nedges += 1;
                 } else {
                     cadjwgt[m as usize] += adjwgt[j as usize];
@@ -1360,7 +1357,7 @@ pub extern "C" fn CreateCoarseGraph(
                     if m == -1 {
                         cadjncy[nedges as usize] = k;
                         cadjwgt[nedges as usize] = adjwgt[j as usize];
-                        dtable[k as usize] = nedges;
+                        dtable[k as usize] = nedges as idx_t;
                         nedges += 1;
                     } else {
                         cadjwgt[m as usize] += adjwgt[j as usize];
@@ -1396,8 +1393,8 @@ pub extern "C" fn CreateCoarseGraph(
                         + noise[cadjncy[j as usize] as usize];
                 }
                 // isortd(nedges, keys);
-                keys.sort_unstable_by_key(|&k| std::cmp::Reverse(k));
-                medianewgts[cnvtxs] = keys[(nedges - 1).min(
+                keys[..nedges].sort_unstable_by_key(|&k| std::cmp::Reverse(k));
+                medianewgts[cnvtxs] = keys[(nedges as idx_t - 1).min(
                     (xadj[(v + 1) as usize] - xadj[v as usize] + xadj[(u + 1) as usize]
                         - xadj[u as usize])
                         >> 1,
@@ -1409,7 +1406,7 @@ pub extern "C" fn CreateCoarseGraph(
         cadjwgt = &mut cadjwgt[nedges as usize..];
         cnedges += nedges;
         cnvtxs += 1;
-        cxadj[cnvtxs] = cnedges;
+        cxadj[cnvtxs] = cnedges as idx_t;
     }
 
     /* compact the adjacency structure of the coarser graph to keep only +ve edges */
@@ -1450,14 +1447,14 @@ pub extern "C" fn CreateCoarseGraph(
                     droppedewgt += cadjwgt[j as usize];
                 }
             }
-            cxadj[u as usize] = cnedges;
+            cxadj[u as usize] = cnedges as idx_t;
         }
         util::shift_csr(cnvtxs, cxadj);
 
         (*cgraph).droppedewgt = droppedewgt;
     }
 
-    (*cgraph).nedges = cnedges;
+    (*cgraph).nedges = cnedges as idx_t;
 
     for j in (0)..(ncon) {
         mkslice_mut!(cgraph->tvwgt, ncon);

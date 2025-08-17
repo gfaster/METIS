@@ -1,27 +1,8 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ 
+aux-normalization,
+pkgs ? import <nixpkgs> {}
+}:
 let
-  aux-impls = pkgs.stdenv.mkDerivation rec {
-    pname = "functions";
-    version = "dev";
-
-    src = ./normalization;
-
-    nativeBuildInputs = with pkgs; [ rustc ];
-
-    buildPhase = ''
-      runHook preBuild
-      rustc functions.rs
-      runHook postBuild
-    '';
-
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out/lib
-      mv libfunctions.a $out/lib
-      runHook postInstall
-    '';
-  };
-
   gklib = pkgs.stdenv.mkDerivation rec {
     pname = "gklib";
     version = "dev";
@@ -34,7 +15,7 @@ let
     };
 
     buildInputs = [
-      aux-impls
+      aux-normalization
     ];
 
     patches = [
@@ -42,25 +23,32 @@ let
     ];
 
     cmakeFlags = [
-      # "-DCMAKE_C_FLAGS_RELEASE=-O2"
+      "-DCMAKE_C_FLAGS_RELEASE=-O1"
       # "-DASSERT=ON" # generally don't want asserts to match release behavior
       "-DNORMALIZED=ON"
     ];
 
     nativeBuildInputs = with pkgs; [ cmake ];
   };
-in
-  pkgs.metis.overrideAttrs (finalAttrs: previousAttrs: rec {
+
+  metis = pkgs.stdenv.mkDerivation rec {
     pname = "metis-normalized";
+    version = "5.2.1";
+
     src = pkgs.fetchFromGitHub {
       owner = "KarypisLab";
       repo = "METIS";
-      rev = "v5.2.1";
-      hash = "sha256-eddLR6DvZ+2LeR0DkknN6zzRvnW+hLN2qeI+ETUPcac=";
+      rev = "a6e6a2cfa92f93a3ee2971ebc9ddfc3b0b581ab2";
+      hash = "sha256-VObeibIQtZ8bFnFo2jXsCh8pqEdVkVOtCBBSvZ4lDEM=";
     };
 
+    nativeBuldInputs = [ ];
+
+    # for whatever reason, cmake has to be in buildInputs and doesn't work in
+    # nativeBuildInputs
     buildInputs = [
-      aux-impls
+      pkgs.cmake
+      aux-normalization
     ];
 
     patches = [
@@ -73,14 +61,19 @@ in
       echo "#define REALTYPEWIDTH 32" >> build/xinclude/metis.h
       cat include/metis.h >> build/xinclude/metis.h
       cp include/CMakeLists.txt build/xinclude
-    '';
+      '';
+
+    dontStrip = true;
 
     cmakeFlags = [
-      # "-DCMAKE_C_FLAGS_RELEASE=-O2"
-      # "-DCMAKE_C_FLAGS=-w"
+      "-DCMAKE_C_FLAGS_RELEASE=-O1"
+      "-DCMAKE_C_FLAGS=-w"
       "-DGKLIB_PATH=${gklib}"
       # "-DASSERT=ON" # generally don't want asserts to match release behavior
       "-DNORMALIZED=ON"
-      # "-DASSERT2=1"
+      # "-DASSERT2=ON"
     ];
-  })
+    };
+in
+  metis
+  # pkgs.enableDebugging (pkgs.callPackage metis {})

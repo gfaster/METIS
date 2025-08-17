@@ -1,7 +1,11 @@
 { pkgs ? import <nixpkgs> {} }:
 let
+  aux-normalization = pkgs.callPackage ./normalization/aux-normalization.nix { };
+  metis-normalized = pkgs.callPackage ./metis-normalized.nix { inherit aux-normalization; };
+
   overrides = (builtins.fromTOML (builtins.readFile ./rust-toolchain.toml));
   libPath = with pkgs; lib.makeLibraryPath [
+    aux-normalization
     # load external libraries that you need in your rust project here
   ];
 
@@ -52,35 +56,40 @@ let
     ];
   });
 
-  metis-normalized = pkgs.callPackage ./metis-normalized.nix { };
 in
   pkgs.mkShell rec {
     name = "metis";
 
     METIS_NORM = metis-normalized;
+    METIS_NORM_SRC = metis-normalized.src;
+
+    METIS_NORM_FUNCTIONS = pkgs.lib.makeLibraryPath [ aux-normalization ];
 
     buildInputs = with pkgs; [
       clang
       llvmPackages_latest.bintools
       rustup
-      guile
       new_metis
+
       cloc
+      valgrind
+      guile
+      ocamlPackages.magic-trace linuxKernel.packages.linux_5_10.perf
     ];
     RUSTC_VERSION = overrides.toolchain.channel;
     # https://github.com/rust-lang/rust-bindgen#environment-variables
     LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
+
+    # See: https://sourceware.org/gdb/current/onlinedocs/gdb.html/File-Options.html
+    # See: https://nixos.wiki/wiki/Debug_Symbols
     shellHook = ''
       export PATH=$PATH:''${CARGO_HOME:-~/.cargo}/bin
       export PATH=$PATH:''${RUSTUP_HOME:-~/.rustup}/toolchains/$RUSTC_VERSION-x86_64-unknown-linux-gnu/bin/
+
+      alias norm-gdb="gdb -d ${metis-normalized.src}/programs -d \
+        ${metis-normalized.src}/libmetis -d ${metis-normalized.src}/include -x gdb/options_pp.scm"
       '';
-    # Add precompiled library to rustc search path
-    RUSTFLAGS = (builtins.map (a: ''-L ${a}/lib'') [
-      # add libraries here (e.g. pkgs.libvmi)
-    ]) ++ [
-        "-Zbox-noalias=false"
-        "-Zmutable-noalias=false"
-      ];
+
     LD_LIBRARY_PATH = libPath;
     # Add glibc, clang, glib, and other headers to bindgen search path
     BINDGEN_EXTRA_CLANG_ARGS = 
@@ -96,6 +105,6 @@ in
         ''-I${pkgs.glib.out}/lib/glib-2.0/include/''
       ];
 
-
+    # needed for dyncall system
     hardeningDisable = ["bindnow"];
   }

@@ -208,6 +208,7 @@ pub const METIS_DBG_MOVEINFO: mdbglvl_et = 32;
 pub const METIS_DBG_SEPINFO: mdbglvl_et = 64;
 pub const METIS_DBG_CONNINFO: mdbglvl_et = 128;
 pub const METIS_DBG_CONTIGINFO: mdbglvl_et = 256;
+pub const METIS_DBG_SECRET_KWAY_BLOCK: mdbglvl_et = 512;
 pub const METIS_DBG_MEMORY: mdbglvl_et = 2048;
 pub type mdbglvl_et = ::std::os::raw::c_uint;
 pub const METIS_OBJTYPE_CUT: mobjtype_et = 0;
@@ -234,6 +235,7 @@ pub enum DbgLvl {
     SepInfo = METIS_DBG_SEPINFO, 
     ConnInfo = METIS_DBG_CONNINFO, 
     ContigInfo = METIS_DBG_CONTIGINFO, 
+    SecretKwayBlock = METIS_DBG_SECRET_KWAY_BLOCK,
     Memory = METIS_DBG_MEMORY, 
 }
 
