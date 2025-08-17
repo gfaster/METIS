@@ -33,17 +33,16 @@ mod replace_decl {
 #[cfg(not(feature = "normalized"))]
 mod replace_decl {
     use crate::ikv_t;
+    use std::cell::Cell;
 
-    #[no_mangle]
-    pub unsafe extern "C" fn libmetis__ikvsorti(n: usize, ikv: *mut ikv_t) {
+    #[metis_func(no_c)]
+    pub unsafe extern "C" fn ikvsorti(n: usize, ikv: *mut ikv_t) {
         crate::mkslice_mut!(ikv, n);
         ikv.sort_unstable_by_key(|kv| kv.key);
-        ikvsorti(ikv)
     }
 
-    #[no_mangle]
-    #[cfg(not(feature = "normalized"))]
-    pub unsafe extern "C" fn libmetis__ikvsortd(n: usize, ikv: *mut ikv_t) {
+    #[metis_func(no_c)]
+    pub unsafe extern "C" fn ikvsortd(n: usize, ikv: *mut ikv_t) {
         crate::mkslice_mut!(ikv, n);
         ikv.sort_unstable_by_key(|kv| std::cmp::Reverse(kv.key));
     }
@@ -76,7 +75,6 @@ mod replace_decl {
     }
 
     #[no_mangle]
-    #[inline(never)]
     pub extern "C" fn gk_randint32() -> u32 {
         // must be positive, or you get horrible segfaults!
         (gk_randint64() & 0x7FFFFFFF) as u32

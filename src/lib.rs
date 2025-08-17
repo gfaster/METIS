@@ -14,6 +14,16 @@
 // I don't know the differences between C and Rust precedence to be instantly confident
 #![warn(clippy::precedence_bits)]
 
+// Will have to change later
+#![allow(clippy::upper_case_acronyms)]
+
+// waaay too many of these for now. Fixing them will have its own commit. Also might hide `double`
+// usage
+#![allow(clippy::unnecessary_cast)]
+
+// I don't like these lints
+#![allow(clippy::needless_return, clippy::let_and_return)]
+
 // #![warn(
 //     clippy::as_pointer_underscore,
 // )]
