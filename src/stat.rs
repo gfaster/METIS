@@ -35,19 +35,15 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     get_graph_slices_optional!(graph => vwgt adjwgt);
     mkslice!(where_, nvtxs);
 
-    let vwgt_vec: Vec<idx_t>;
-    let vwgt: &[idx_t] = if vwgt.is_none() {
-        vwgt_vec = vec![1; nvtxs];
-        &vwgt_vec
+    let vwgt = if let Some(vwgt) = vwgt {
+        vwgt
     } else {
-        vwgt.unwrap()
-    };
-    let adjwgt_vec: Vec<idx_t>;
-    let adjwgt: &[idx_t] = if adjwgt.is_none() {
-        adjwgt_vec = vec![1; xadj[nvtxs] as usize];
-        &adjwgt_vec
+        &vec![1; nvtxs]
+    }; 
+    let adjwgt = if let Some(adjwgt) = adjwgt {
+        adjwgt
     } else {
-        adjwgt.unwrap()
+        &vec![1; xadj[nvtxs] as usize]
     };
 
     print!(
@@ -68,8 +64,8 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     }
 
     if ncon == 1 {
-        print!(
-            "\tBalance: {:5.3} out of {:5.3}\n",
+        println!(
+            "\tBalance: {:5.3} out of {:5.3}",
             (nparts as real_t) * (kpwgts[util::iargmax(&kpwgts[..nparts], 1)] as real_t)
                 / (kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() as real_t),
             (nparts as real_t) * (vwgt[util::iargmax(&vwgt[..nvtxs], 1)] as real_t)
@@ -94,7 +90,7 @@ pub extern "C" fn ComputePartitionInfoBipartite(
                         .sum::<idx_t>() as real_t)
             );
         }
-        print!("\n");
+        println!();
     }
 
     /* Compute p-adjncy information */
@@ -130,8 +126,8 @@ pub extern "C" fn ComputePartitionInfoBipartite(
             .iter()
             .sum::<idx_t>();
     }
-    print!(
-        "Min/Max/Avg/Bal # of adjacent     subdomains: {:5} {:5} {:5} {:7.3}\n",
+    println!(
+        "Min/Max/Avg/Bal # of adjacent     subdomains: {:5} {:5} {:5} {:7.3}",
         kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
         kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
         kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
@@ -144,8 +140,8 @@ pub extern "C" fn ComputePartitionInfoBipartite(
             .iter()
             .sum::<idx_t>();
     }
-    print!(
-        "Min/Max/Avg/Bal # of adjacent subdomain cuts: {:5} {:5} {:5} {:7.3}\n",
+    println!(
+        "Min/Max/Avg/Bal # of adjacent subdomain cuts: {:5} {:5} {:5} {:7.3}",
         kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
         kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
         kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
@@ -156,8 +152,8 @@ pub extern "C" fn ComputePartitionInfoBipartite(
     for i in (0)..(nparts) {
         kpwgts[i as usize] = padjwgt[cntrng!(i * nparts, nparts)].iter().sum::<idx_t>();
     }
-    print!(
-        "Min/Max/Avg/Bal/Frac # of interface    nodes: {:5} {:5} {:5} {:7.3} {:7.3}\n",
+    println!(
+        "Min/Max/Avg/Bal/Frac # of interface    nodes: {:5} {:5} {:5} {:7.3} {:7.3}",
         kpwgts[util::iargmin(&kpwgts[..nparts], 1)],
         kpwgts[util::iargmax(&kpwgts[..nparts], 1)],
         kpwgts[..nparts].iter().step_by(1).sum::<idx_t>() / (nparts as idx_t),
@@ -268,21 +264,18 @@ pub unsafe fn ComputePartitionInfo(params: &params_t, graph: &graph_t, where_: &
     }
 
     /* Report on balance */
-    print!(" - Balance:\n");
+    println!(" - Balance:");
     for j in 0..ncon {
         let tvwgt = kpwgts[j..]
             .iter()
             .step_by(ncon)
             .sum::<idx_t>();
-        // let mut k = 0;
-        let mut unbalance =
-            kpwgts[0 * ncon + j] as real_t / (tpwgts[0 * ncon + j] * tvwgt as real_t);
-        for i in 1..nparts {
+        let mut unbalance = f32::NEG_INFINITY;
+        for i in 0..nparts {
             if unbalance < kpwgts[i * ncon + j] as real_t / (tpwgts[i * ncon + j] * tvwgt as real_t)
             {
                 unbalance =
                     kpwgts[i * ncon + j] as real_t / (tpwgts[i * ncon + j] * tvwgt as real_t);
-                // k = i;
             }
         }
         println!(
@@ -296,7 +289,7 @@ pub unsafe fn ComputePartitionInfo(params: &params_t, graph: &graph_t, where_: &
                     .sum::<idx_t>() as real_t)
         );
     }
-    print!("\n");
+    println!();
 
     if ncon == 1 {
         let tvwgt = kpwgts[..nparts].iter().step_by(1).sum::<idx_t>();
@@ -379,43 +372,41 @@ pub unsafe fn ComputePartitionInfo(params: &params_t, graph: &graph_t, where_: &
         cind.as_mut_ptr(),
     ) as usize;
     if ncmps == nparts {
-        print!(" - Each partition is contiguous.\n");
-    } else {
-        if contig::IsConnected(graph, 0) != 0 {
-            let mut nover = 0;
-            for i in 0..ncmps {
-                cpwgts[where_[cind[cptr[i] as usize] as usize] as usize] += 1;
-                if cpwgts[where_[cind[cptr[i] as usize] as usize] as usize] == 2 {
-                    nover += 1;
-                }
+        println!(" - Each partition is contiguous.");
+    } else if contig::IsConnected(graph, 0) != 0 {
+        let mut nover = 0;
+        for i in 0..ncmps {
+            cpwgts[where_[cind[cptr[i] as usize] as usize] as usize] += 1;
+            if cpwgts[where_[cind[cptr[i] as usize] as usize] as usize] == 2 {
+                nover += 1;
             }
-            print!(
-                " - There are {:} non-contiguous partitions.\n   \
-                    Total components after removing the cut edges: {:},\n   \
-                    max components: {:} for pid: {:}.\n",
-                nover,
-                ncmps,
-                cpwgts[..nparts]
-                    .iter()
-                    .copied()
-                    .step_by(1)
-                    .max()
-                    .unwrap_or_default(),
-                util::iargmax(&cpwgts, 1)
-            );
-        } else {
-            print!(
-                " - The original graph had {:} connected components and the resulting\n   \
-                 partitioning after removing the cut edges has {:} components.",
-                contig::FindPartitionInducedComponents(
-                    graph,
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut()
-                ),
-                ncmps
-            );
         }
+        print!(
+            " - There are {:} non-contiguous partitions.\n   \
+                Total components after removing the cut edges: {:},\n   \
+                max components: {:} for pid: {:}.\n",
+            nover,
+            ncmps,
+            cpwgts[..nparts]
+                .iter()
+                .copied()
+                .step_by(1)
+                .max()
+                .unwrap_or_default(),
+            util::iargmax(&cpwgts, 1)
+        );
+    } else {
+        print!(
+            " - The original graph had {:} connected components and the resulting\n   \
+             partitioning after removing the cut edges has {:} components.",
+            contig::FindPartitionInducedComponents(
+                graph,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut()
+            ),
+            ncmps
+        );
     }
 
     // gk_free((void **)&cptr, &cind, &cpwgts, LTERM);

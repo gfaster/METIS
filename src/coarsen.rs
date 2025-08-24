@@ -378,12 +378,10 @@ pub extern "C" fn Match_RM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
             match_[i as usize] = i as idx_t;
             cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
-        } else {
-            if i as idx_t <= match_[i as usize] {
-                cmap[match_[i as usize] as usize] = cnvtxs;
-                cmap[i as usize] = cnvtxs;
-                cnvtxs += 1;
-            }
+        } else if i as idx_t <= match_[i as usize] {
+            cmap[match_[i as usize] as usize] = cnvtxs;
+            cmap[i as usize] = cnvtxs;
+            cnvtxs += 1;
         }
     }
 
@@ -568,12 +566,10 @@ pub extern "C" fn Match_SHEM(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
             match_[i as usize] = i as idx_t;
             cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
-        } else {
-            if i as idx_t <= match_[i as usize] {
-                cmap[match_[i as usize] as usize] = cnvtxs;
-                cmap[i as usize] = cnvtxs;
-                cnvtxs += 1;
-            }
+        } else if i as idx_t <= match_[i as usize] {
+            cmap[match_[i as usize] as usize] = cnvtxs;
+            cmap[i as usize] = cnvtxs;
+            cnvtxs += 1;
         }
     }
 
@@ -951,98 +947,96 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
                             break;
                         }
                     }
-                } else {
-                    if ncon == 1 {
-                        /* Find a max JC pair, subject to maxvwgt constraints */
-                        if xadj[(i + 1) as usize] - xadj[i as usize] < avgdegree {
-                            marker[i as usize] = i as idx_t;
-                            let mut bscore = 0.0;
-                            let mut mytwgt = 0;
-                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-                                mytwgt += 1; //adjwgt[j as usize];
-                                vec[adjncy[j as usize] as usize] = 1; //adjwgt[j as usize];
-                            }
+                } else if ncon == 1 {
+                    /* Find a max JC pair, subject to maxvwgt constraints */
+                    if xadj[(i + 1) as usize] - xadj[i as usize] < avgdegree {
+                        marker[i as usize] = i as idx_t;
+                        let mut bscore = 0.0;
+                        let mut mytwgt = 0;
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            mytwgt += 1; //adjwgt[j as usize];
+                            vec[adjncy[j as usize] as usize] = 1; //adjwgt[j as usize];
+                        }
 
-                            /* single constraint pairing */
-                            // #ifdef XXX
-                            //               for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
-                            //                 ii = adjncy[j as usize];
-                            //                 if (marker[ii as usize] == i || match_[ii as usize] != UNMATCHED || vwgt[i as usize]+vwgt[ii as usize] > maxvwgt[0 as usize])
-                            //         {
-                            //             continue;
-                            //         }
-                            //
-                            //                 ctwgt = xtwgt = 0;
-                            //                 for jj in (xadj[ii as usize])..(xadj[(ii+1) as usize]) {
-                            //                   xtwgt += adjwgt[jj as usize];
-                            //                   if (vec[adjncy[jj as usize] as usize] > 0)
-                            //         {
-                            //             ctwgt += vec[adjncy[jj as usize] as usize] + adjwgt[jj as usize];
-                            //         }
-                            //                   else if (adjncy[jj as usize] == i) {
-                            //                     ctwgt += adjwgt[jj as usize];
-                            //                     xtwgt -= adjwgt[jj as usize];
-                            //                   }
-                            //                 }
-                            //
-                            //                 score = 1.0*ctwgt/(mytwgt+xtwgt-ctwgt);
-                            //                 if (score > bscore) {
-                            //                   bscore = score;
-                            //                   maxidx = ii;
-                            //                 }
-                            //                 marker[ii as usize] = i;
-                            //               }
-                            // #endif
+                        /* single constraint pairing */
+                        // #ifdef XXX
+                        //               for j in (xadj[i as usize])..(xadj[(i+1) as usize]) {
+                        //                 ii = adjncy[j as usize];
+                        //                 if (marker[ii as usize] == i || match_[ii as usize] != UNMATCHED || vwgt[i as usize]+vwgt[ii as usize] > maxvwgt[0 as usize])
+                        //         {
+                        //             continue;
+                        //         }
+                        //
+                        //                 ctwgt = xtwgt = 0;
+                        //                 for jj in (xadj[ii as usize])..(xadj[(ii+1) as usize]) {
+                        //                   xtwgt += adjwgt[jj as usize];
+                        //                   if (vec[adjncy[jj as usize] as usize] > 0)
+                        //         {
+                        //             ctwgt += vec[adjncy[jj as usize] as usize] + adjwgt[jj as usize];
+                        //         }
+                        //                   else if (adjncy[jj as usize] == i) {
+                        //                     ctwgt += adjwgt[jj as usize];
+                        //                     xtwgt -= adjwgt[jj as usize];
+                        //                   }
+                        //                 }
+                        //
+                        //                 score = 1.0*ctwgt/(mytwgt+xtwgt-ctwgt);
+                        //                 if (score > bscore) {
+                        //                   bscore = score;
+                        //                   maxidx = ii;
+                        //                 }
+                        //                 marker[ii as usize] = i;
+                        //               }
+                        // #endif
 
-                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-                                let ii = adjncy[j as usize];
-                                for jj in (xadj[ii as usize])..(xadj[(ii + 1) as usize]) {
-                                    let iii = adjncy[jj as usize] as usize;
+                        for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                            let ii = adjncy[j as usize];
+                            for jj in (xadj[ii as usize])..(xadj[(ii + 1) as usize]) {
+                                let iii = adjncy[jj as usize] as usize;
 
-                                    if marker[iii] == i as idx_t
-                                        || match_[iii] != UNMATCHED
-                                        || vwgt[i as usize] + vwgt[iii] > maxvwgt[0 as usize]
-                                    {
-                                        continue;
-                                    }
-
-                                    let mut ctwgt = 0;
-                                    let mut xtwgt = 0;
-                                    for jjj in (xadj[iii])..(xadj[(iii + 1) as usize]) {
-                                        xtwgt += 1; //adjwgt[jjj as usize];
-                                        if vec[adjncy[jjj as usize] as usize] > 0 {
-                                            ctwgt += 2; //vec[adjncy[jjj as usize] as usize] + adjwgt[jjj as usize];
-                                        } else if adjncy[jjj as usize] == i as idx_t {
-                                            ctwgt += 10 * adjwgt[jjj as usize];
-                                        }
-                                    }
-
-                                    let score = 1.0 * (ctwgt / (mytwgt + xtwgt)) as real_t;
-                                    //println!("{:} {:} {:} %.4f", mytwgt, xtwgt, ctwgt, score);
-                                    if score > bscore {
-                                        bscore = score;
-                                        maxidx = iii;
-                                    }
-                                    marker[iii] = i as idx_t;
+                                if marker[iii] == i as idx_t
+                                    || match_[iii] != UNMATCHED
+                                    || vwgt[i as usize] + vwgt[iii] > maxvwgt[0 as usize]
+                                {
+                                    continue;
                                 }
-                            }
 
-                            /* reset vec array */
-                            for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-                                vec[adjncy[j as usize] as usize] = -1;
+                                let mut ctwgt = 0;
+                                let mut xtwgt = 0;
+                                for jjj in (xadj[iii])..(xadj[(iii + 1) as usize]) {
+                                    xtwgt += 1; //adjwgt[jjj as usize];
+                                    if vec[adjncy[jjj as usize] as usize] > 0 {
+                                        ctwgt += 2; //vec[adjncy[jjj as usize] as usize] + adjwgt[jjj as usize];
+                                    } else if adjncy[jjj as usize] == i as idx_t {
+                                        ctwgt += 10 * adjwgt[jjj as usize];
+                                    }
+                                }
+
+                                let score = 1.0 * (ctwgt / (mytwgt + xtwgt)) as real_t;
+                                //println!("{:} {:} {:} %.4f", mytwgt, xtwgt, ctwgt, score);
+                                if score > bscore {
+                                    bscore = score;
+                                    maxidx = iii;
+                                }
+                                marker[iii] = i as idx_t;
                             }
                         }
-                    } else {
-                        /* multi-constraint version */
+
+                        /* reset vec array */
                         for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
-                            let k = adjncy[j as usize] as usize;
-                            if match_[k as usize] == UNMATCHED
-                                // && ivecaxpylez(ncon, 1, vwgt[(i * ncon)..], vwgt[(k * ncon)..], maxvwgt))
-                                && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt)
-                            {
-                                maxidx = k;
-                                break;
-                            }
+                            vec[adjncy[j as usize] as usize] = -1;
+                        }
+                    }
+                } else {
+                    /* multi-constraint version */
+                    for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {
+                        let k = adjncy[j as usize] as usize;
+                        if match_[k as usize] == UNMATCHED
+                            // && ivecaxpylez(ncon, 1, vwgt[(i * ncon)..], vwgt[(k * ncon)..], maxvwgt))
+                            && util::ivecaxpylez(1, &vwgt[cntrng!(i * ncon, ncon)], &vwgt[cntrng!(k * ncon, ncon)], maxvwgt)
+                        {
+                            maxidx = k;
+                            break;
                         }
                     }
                 }
@@ -1066,12 +1060,10 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
             match_[i as usize] = i as idx_t;
             cmap[i as usize] = cnvtxs;
             cnvtxs += 1;
-        } else {
-            if i as idx_t <= match_[i as usize] {
-                cmap[match_[i as usize] as usize] = cnvtxs;
-                cmap[i as usize] = cnvtxs;
-                cnvtxs += 1;
-            }
+        } else if i as idx_t <= match_[i as usize] {
+            cmap[match_[i as usize] as usize] = cnvtxs;
+            cmap[i as usize] = cnvtxs;
+            cnvtxs += 1;
         }
     }
 
@@ -1089,7 +1081,7 @@ pub extern "C" fn Match_JC(ctrl: *mut ctrl_t, graph: *mut graph_t) -> idx_t {
  */
 /*************************************************************************/
 #[metis_func]
-pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+pub extern "C" fn PrintCGraphStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i;
@@ -1122,7 +1114,7 @@ pub extern "C" fn CreateCoarseGraph(
     graph: *mut graph_t,
     cnvtxs: idx_t,
     match_: *mut idx_t,
-) -> () {
+) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t j, jj, k, kk, l, m, istart, iend, nvtxs, nedges, ncon,
@@ -1539,7 +1531,7 @@ pub extern "C" fn ReAdjustMemory(
     _ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     cgraph: *mut graph_t,
-) -> () {
+) {
     let graph = graph.as_mut().unwrap();
     let cgraph = cgraph.as_mut().unwrap();
     if cgraph.nedges > 10000 && (cgraph.nedges as real_t) < 0.9 * graph.nedges as real_t {

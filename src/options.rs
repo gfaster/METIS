@@ -210,101 +210,101 @@ pub extern "C" fn Setup2WayBalMultipliers(
 pub extern "C" fn PrintCtrl(ctrl: *const ctrl_t) {
     // idx_t i, j, modnum;
     let ctrl = ctrl.as_ref().unwrap();
-    print!(" Runtime parameters:\n");
+    println!(" Runtime parameters:");
 
     print!("   Objective type: ");
     match ctrl.objtype {
-        METIS_OBJTYPE_CUT => print!("METIS_OBJTYPE_CUT\n"),
+        METIS_OBJTYPE_CUT => println!("METIS_OBJTYPE_CUT"),
 
-        METIS_OBJTYPE_VOL => print!("METIS_OBJTYPE_VOL\n"),
+        METIS_OBJTYPE_VOL => println!("METIS_OBJTYPE_VOL"),
 
-        METIS_OBJTYPE_NODE => print!("METIS_OBJTYPE_NODE\n"),
+        METIS_OBJTYPE_NODE => println!("METIS_OBJTYPE_NODE"),
 
-        _ => print!("Unknown!\n"),
+        _ => println!("Unknown!"),
     }
 
     print!("   Coarsening type: ");
     match ctrl.ctype {
-        METIS_CTYPE_RM => print!("METIS_CTYPE_RM\n"),
+        METIS_CTYPE_RM => println!("METIS_CTYPE_RM"),
 
-        METIS_CTYPE_SHEM => print!("METIS_CTYPE_SHEM\n"),
+        METIS_CTYPE_SHEM => println!("METIS_CTYPE_SHEM"),
 
-        _ => print!("Unknown!\n"),
+        _ => println!("Unknown!"),
     }
 
     print!("   Initial partitioning type: ");
     match ctrl.iptype {
-        METIS_IPTYPE_GROW => print!("METIS_IPTYPE_GROW\n"),
+        METIS_IPTYPE_GROW => println!("METIS_IPTYPE_GROW"),
 
-        METIS_IPTYPE_RANDOM => print!("METIS_IPTYPE_RANDOM\n"),
+        METIS_IPTYPE_RANDOM => println!("METIS_IPTYPE_RANDOM"),
 
-        METIS_IPTYPE_EDGE => print!("METIS_IPTYPE_EDGE\n"),
+        METIS_IPTYPE_EDGE => println!("METIS_IPTYPE_EDGE"),
 
-        METIS_IPTYPE_NODE => print!("METIS_IPTYPE_NODE\n"),
+        METIS_IPTYPE_NODE => println!("METIS_IPTYPE_NODE"),
 
-        METIS_IPTYPE_METISRB => print!("METIS_IPTYPE_METISRB\n"),
+        METIS_IPTYPE_METISRB => println!("METIS_IPTYPE_METISRB"),
 
-        _ => print!("Unknown!\n"),
+        _ => println!("Unknown!"),
     }
 
     print!("   Refinement type: ");
     match ctrl.rtype {
-        METIS_RTYPE_FM => print!("METIS_RTYPE_FM\n"),
+        METIS_RTYPE_FM => println!("METIS_RTYPE_FM"),
 
-        METIS_RTYPE_GREEDY => print!("METIS_RTYPE_GREEDY\n"),
+        METIS_RTYPE_GREEDY => println!("METIS_RTYPE_GREEDY"),
 
-        METIS_RTYPE_SEP2SIDED => print!("METIS_RTYPE_SEP2SIDED\n"),
+        METIS_RTYPE_SEP2SIDED => println!("METIS_RTYPE_SEP2SIDED"),
 
-        METIS_RTYPE_SEP1SIDED => print!("METIS_RTYPE_SEP1SIDED\n"),
+        METIS_RTYPE_SEP1SIDED => println!("METIS_RTYPE_SEP1SIDED"),
 
-        _ => print!("Unknown!\n"),
+        _ => println!("Unknown!"),
     }
 
-    print!(
-        "   Perform a 2-hop matching: {}\n",
+    println!(
+        "   Perform a 2-hop matching: {}",
         if ctrl.no2hop != 0 { "No" } else { "Yes" }
     );
 
-    print!(
-        "   On disk storage: {}\n",
+    println!(
+        "   On disk storage: {}",
         if ctrl.ondisk != 0 { "Yes" } else { "No" }
     );
-    print!(
-        "   Drop edges: {}\n",
+    println!(
+        "   Drop edges: {}",
         if ctrl.dropedges != 0 { "Yes" } else { "No" }
     );
 
-    print!("   Number of balancing constraints: {:}\n", ctrl.ncon);
-    print!("   Number of refinement iterations: {:}\n", ctrl.niter);
-    print!("   Number of initial partitionings: {:}\n", ctrl.nIparts);
-    print!("   Random number seed: {:}\n", ctrl.seed);
+    println!("   Number of balancing constraints: {:}", ctrl.ncon);
+    println!("   Number of refinement iterations: {:}", ctrl.niter);
+    println!("   Number of initial partitionings: {:}", ctrl.nIparts);
+    println!("   Random number seed: {:}", ctrl.seed);
 
     if ctrl.optype == METIS_OP_OMETIS {
-        print!("   Number of separators: {:}\n", ctrl.nseps);
-        print!(
-            "   Compress graph prior to ordering: {}\n",
+        println!("   Number of separators: {:}", ctrl.nseps);
+        println!(
+            "   Compress graph prior to ordering: {}",
             if ctrl.compress != 0 { "Yes" } else { "No" }
         );
-        print!(
-            "   Detect & order connected components separately: {}\n",
+        println!(
+            "   Detect & order connected components separately: {}",
             if ctrl.ccorder != 0 { "Yes" } else { "No" }
         );
-        print!(
-            "   Prunning factor for high degree vertices: {:}\n",
+        println!(
+            "   Prunning factor for high degree vertices: {:}",
             ctrl.pfactor
         );
     } else {
-        print!("   Number of partitions: {:}\n", ctrl.nparts);
-        print!("   Number of cuts: {:}\n", ctrl.ncuts);
-        print!("   User-supplied ufactor: {:}\n", ctrl.ufactor);
+        println!("   Number of partitions: {:}", ctrl.nparts);
+        println!("   Number of cuts: {:}", ctrl.ncuts);
+        println!("   User-supplied ufactor: {:}", ctrl.ufactor);
 
         if ctrl.optype == METIS_OP_KMETIS {
-            print!(
-                "   Minimize connectivity: {}\n",
+            println!(
+                "   Minimize connectivity: {}",
                 if ctrl.minconn != 0 { "Yes" } else { "No" }
             );
-            print!(
-                "   Create contiguous partitions: {}\n",
+            println!(
+                "   Create contiguous partitions: {}",
                 if ctrl.contig != 0 { "Yes" } else { "No" }
             );
         }
@@ -339,7 +339,7 @@ pub extern "C" fn PrintCtrl(ctrl: *const ctrl_t) {
             }
             print!("]");
         }
-        print!("\n");
+        println!();
     }
 
     print!("   Allowed maximum load imbalance: ");
@@ -347,9 +347,9 @@ pub extern "C" fn PrintCtrl(ctrl: *const ctrl_t) {
     for i in (0)..(ctrl.ncon) {
         print!("{:.3} ", ubfactors[i as usize]);
     }
-    print!("\n");
+    println!();
 
-    print!("\n");
+    println!();
 }
 
 /*************************************************************************/
@@ -452,7 +452,7 @@ pub extern "C" fn CheckParams(ctrl: *const ctrl_t) -> libc::c_int {
                     .step_by(ctrl.ncon as usize)
                     .sum::<real_t>();
                 // let sum = rsum(ctrl.nparts, ctrl.tpwgts+i, ctrl.ncon);
-                if sum < 0.99 || sum > 1.01 {
+                if !(0.99..=1.01).contains(&sum) {
                     ifset!(
                         dbglvl,
                         METIS_DBG_INFO,
@@ -598,7 +598,7 @@ pub extern "C" fn CheckParams(ctrl: *const ctrl_t) -> libc::c_int {
                     .iter()
                     .step_by(ctrl.ncon as usize)
                     .sum::<real_t>();
-                if sum < 0.99 || sum > 1.01 {
+                if !(0.99..=1.01).contains(&sum) {
                     ifset!(
                         dbglvl,
                         METIS_DBG_INFO,

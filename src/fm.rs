@@ -219,14 +219,12 @@ pub extern "C" fn FM_2WayCutRefine(
                                 .update(k as idx_t, (ed[k as usize] - id[k as usize]) as real_t);
                         }
                     }
-                } else {
-                    if ed[k as usize] > 0 {
-                        /* It will now become a boundary vertex */
-                        BNDInsert!(nbnd, bndind, bndptr, k);
-                        if moved[k as usize] == -1 {
-                            queues[where_[k as usize] as usize]
-                                .insert(k as idx_t, (ed[k as usize] - id[k as usize]) as real_t);
-                        }
+                } else if ed[k as usize] > 0 {
+                    /* It will now become a boundary vertex */
+                    BNDInsert!(nbnd, bndind, bndptr, k);
+                    if moved[k as usize] == -1 {
+                        queues[where_[k as usize] as usize]
+                            .insert(k as idx_t, (ed[k as usize] - id[k as usize]) as real_t);
                     }
                 }
             }
@@ -585,18 +583,16 @@ pub extern "C" fn FM_Mc2WayCutRefine(
                                 .update(k, rgain as real_t);
                         }
                     }
-                } else {
-                    if ed[k as usize] > 0 {
-                        /* It will now become a boundary vertex */
-                        BNDInsert!(nbnd, bndind, bndptr, k as usize);
-                        if moved[k as usize] == -1 {
-                            //rgain = 1.0*(ed[k as usize]-id[k as usize])/sqrt(vwgt[(k*ncon+qnum[k) as usize] as usize]+1);
-                            //rgain = (ed[k as usize]-id[k as usize] > 0 ?
-                            //              1.0*(ed[k as usize]-id[k as usize])/sqrt(vwgt[(k*ncon+qnum[k) as usize] as usize]+1) : ed[k as usize]-id[k as usize]);
-                            let rgain = ed[k as usize] - id[k as usize];
-                            queues[2 * qnum[k as usize] as usize + where_[k as usize] as usize]
-                                .insert(k, rgain as real_t);
-                        }
+                } else if ed[k as usize] > 0 {
+                    /* It will now become a boundary vertex */
+                    BNDInsert!(nbnd, bndind, bndptr, k as usize);
+                    if moved[k as usize] == -1 {
+                        //rgain = 1.0*(ed[k as usize]-id[k as usize])/sqrt(vwgt[(k*ncon+qnum[k) as usize] as usize]+1);
+                        //rgain = (ed[k as usize]-id[k as usize] > 0 ?
+                        //              1.0*(ed[k as usize]-id[k as usize])/sqrt(vwgt[(k*ncon+qnum[k) as usize] as usize]+1) : ed[k as usize]-id[k as usize]);
+                        let rgain = ed[k as usize] - id[k as usize];
+                        queues[2 * qnum[k as usize] as usize + where_[k as usize] as usize]
+                            .insert(k, rgain as real_t);
                     }
                 }
             }

@@ -128,7 +128,7 @@ fn read_ws(source: &mut io::Cursor<&[u8]>) -> Result {
     let rem = backing[bi..].trim_ascii_start();
     let diff = backing[bi..].len() - rem.len();
     if diff == 0 {
-        return Err("No whitespace")?;
+        Err("No whitespace")?;
     }
     bi += diff;
     source.set_position(bi as u64);
@@ -150,7 +150,7 @@ fn read_str(source: &mut io::Cursor<&[u8]>, s: &str) -> Result {
                 .count();
         } else {
             if Some(&s) != backing.get(bi) {
-                return Err("string literal did not match")?;
+                Err("string literal did not match")?;
             }
             bi += 1;
         }

@@ -181,7 +181,7 @@ fn fn_pointer_of_sig(sig: &Signature, errors: &mut ErrorCollector) -> proc_macro
 
     let inputs = sig.inputs.pairs().map(|p| match p {
         syn::punctuated::Pair::Punctuated(arg, comma) => {
-            syn::punctuated::Pair::Punctuated(bare_arg(arg), comma.clone())
+            syn::punctuated::Pair::Punctuated(bare_arg(arg), *comma)
         },
         syn::punctuated::Pair::End(arg) => {
             syn::punctuated::Pair::End(bare_arg(arg))
@@ -190,7 +190,7 @@ fn fn_pointer_of_sig(sig: &Signature, errors: &mut ErrorCollector) -> proc_macro
 
     syn::TypeBareFn {
         lifetimes: None,
-        unsafety: sig.unsafety.clone(),
+        unsafety: sig.unsafety,
         abi: sig.abi.clone(),
         fn_token: sig.fn_token,
         paren_token: sig.paren_token,

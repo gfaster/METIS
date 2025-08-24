@@ -97,7 +97,7 @@ fn valid_optstr(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
-        && !s.starts_with(|c: char| c == '-' || c == '_')
+        && !s.starts_with(['-', '_'])
 }
 
 pub enum ParsedOption<'a, 'o> {
@@ -201,7 +201,7 @@ pub fn parse_options<'a, 'o>(
                 let nonopt = nonopts.pop_front()?;
                 return Some(Ok(ParsedOption::Nonopt(nonopt)));
             };
-            let next: &str = &next;
+            let next: &str = next;
 
             // '--' means all remaining arguments are non-options
             if next == "--" {

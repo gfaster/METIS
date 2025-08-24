@@ -223,7 +223,7 @@ fn mkopt(p: &params_t) -> [idx_t; METIS_NOPTIONS as usize] {
 
 fn error<T: std::fmt::Display>(msg: T) -> ExitCode {
     println!("{msg}");
-    return ExitCode::FAILURE;
+    ExitCode::FAILURE
 }
 
 fn main() -> ExitCode {
@@ -247,7 +247,7 @@ fn main() -> ExitCode {
 
     gk_startcputimer(&mut params.iotimer);
 
-    let graph = unsafe { &mut *metis::graphio::ReadGraph(&mut params) };
+    let graph = unsafe { &mut *metis::graphio::ReadGraph(&params) };
     metis::graphio::ReadTPwgts(&mut params, graph.ncon as usize);
 
     gk_stopcputimer(&mut params.iotimer);
@@ -287,7 +287,7 @@ fn main() -> ExitCode {
     if let Some(ubstr) = params.ubvecstr.as_deref() {
         let mut ubvec = vec![0.0; graph.ncon as usize];
         let mut ubs = ubstr.split_whitespace();
-        for i in 0..ubvec.len() {
+        for (i, ubi) in ubvec.iter_mut().enumerate() {
             let Some(ub) = ubs.next() else {
                 return error(format_args!("Missing entry {i} of ubvec [{ubstr}]."));
             };
@@ -299,7 +299,7 @@ fn main() -> ExitCode {
                     ));
                 }
             };
-            ubvec[i] = ub;
+            *ubi = ub;
         }
         params.ubvec = Some(ubvec);
     }
@@ -314,15 +314,14 @@ fn main() -> ExitCode {
         }
     }
 
-    if params.iptype == -1 {
-        if params.ptype == METIS_PTYPE_RB as _ {
+    if params.iptype == -1
+        && params.ptype == METIS_PTYPE_RB as _ {
             if graph.ncon == 1 {
                 params.iptype = METIS_IPTYPE_GROW as _
             } else {
                 params.iptype = METIS_IPTYPE_RANDOM as _
             }
         }
-    }
 
     print_gp_info(&params, graph);
 
@@ -399,35 +398,35 @@ fn main() -> ExitCode {
 }
 
 fn print_gp_info(params: &params_t, graph: &graph_t) {
-    print!("******************************************************************************\n");
-    print!("{METISTITLE}\n");
-    print!(
-        " (HEAD: {}, Built on: {}, {})\n",
+    println!("******************************************************************************");
+    println!("{METISTITLE}");
+    println!(
+        " (HEAD: {}, Built on: {}, {})",
         SVNINFO, __DATE__, __TIME__
     );
-    print!(
-        " size of idx_t: {}bits, real_t: {}bits, idx_t *: {}bits\n",
-        8 * size_of::<idx_t>(),
+    println!(
+        " size of idx_t: {}bits, real_t: {}bits, idx_t *: {}bits",
+        (idx_t::BITS as usize),
         8 * size_of::<real_t>(),
         8 * size_of::<&idx_t>()
     );
-    print!("\n");
-    print!("Graph Information -----------------------------------------------------------\n");
-    print!(
-        " Name: {}, #Vertices: {}, #Edges: {}, #Parts: {}\n",
+    println!();
+    println!("Graph Information -----------------------------------------------------------");
+    println!(
+        " Name: {}, #Vertices: {}, #Edges: {}, #Parts: {}",
         params.filename.display(),
         graph.nvtxs,
         graph.nedges / 2,
         params.nparts
     );
     if graph.ncon > 1 {
-        print!(" Balancing constraints: {}\n", graph.ncon);
+        println!(" Balancing constraints: {}", graph.ncon);
     }
 
-    print!("\n");
-    print!("Options ---------------------------------------------------------------------\n");
-    print!(
-        " ptype={}, objtype={}, ctype={}, rtype={}, iptype={}\n",
+    println!();
+    println!("Options ---------------------------------------------------------------------");
+    println!(
+        " ptype={}, objtype={}, ctype={}, rtype={}, iptype={}",
         PTYPE_NAMES[params.ptype as usize],
         OBJTYPE_NAMES[params.objtype as usize],
         CTYPE_NAMES[params.ctype as usize],
@@ -435,8 +434,8 @@ fn print_gp_info(params: &params_t, graph: &graph_t) {
         IPTYPE_NAMES[params.iptype as usize]
     );
 
-    print!(
-        " dbglvl={}, ufactor={:.3}, no2hop={}, minconn={}, contig={}\n",
+    println!(
+        " dbglvl={}, ufactor={:.3}, no2hop={}, minconn={}, contig={}",
         params.dbglvl,
         i2rubfactor(params.ufactor),
         if params.no2hop { "YES" } else { "NO" },
@@ -444,14 +443,14 @@ fn print_gp_info(params: &params_t, graph: &graph_t) {
         if params.contig { "YES" } else { "NO" }
     );
 
-    print!(
-        " ondisk={}, nooutput={}\n",
+    println!(
+        " ondisk={}, nooutput={}",
         if params.ondisk { "YES" } else { "NO" },
         if params.nooutput { "YES" } else { "NO" }
     );
 
-    print!(
-        " seed={}, niparts={}, niter={}, ncuts={}\n",
+    println!(
+        " seed={}, niparts={}, niter={}, ncuts={}",
         params.seed, params.niparts, params.niter, params.ncuts
     );
 
@@ -464,16 +463,16 @@ fn print_gp_info(params: &params_t, graph: &graph_t) {
         for i in it {
             print!(" {i:.2}");
         }
-        print!(")\n");
+        println!(")");
     }
 
-    print!("\n");
+    println!();
     match params.ptype as _ {
-        METIS_PTYPE_RB => print!(
-            "Recursive Partitioning ------------------------------------------------------\n"
+        METIS_PTYPE_RB => println!(
+            "Recursive Partitioning ------------------------------------------------------"
         ),
-        METIS_PTYPE_KWAY => print!(
-            "Direct k-way Partitioning ---------------------------------------------------\n"
+        METIS_PTYPE_KWAY => println!(
+            "Direct k-way Partitioning ---------------------------------------------------"
         ),
         _ => unreachable!(),
     }
@@ -489,16 +488,16 @@ fn report_gp_results(params: &mut params_t, graph: &graph_t, part: &[idx_t], _ob
 
     if !cfg!(feature = "normalized") {
         print!("\nTiming Information ----------------------------------------------------------\n");
-        print!(
-            "  I/O:          \t\t {:7.3} sec\n",
+        println!(
+            "  I/O:          \t\t {:7.3} sec",
             gk_getcputimer(params.iotimer)
         );
-        print!(
-            "  Partitioning: \t\t {:7.3} sec   (METIS time)\n",
+        println!(
+            "  Partitioning: \t\t {:7.3} sec   (METIS time)",
             gk_getcputimer(params.parttimer)
         );
-        print!(
-            "  Reporting:    \t\t {:7.3} sec\n",
+        println!(
+            "  Reporting:    \t\t {:7.3} sec",
             gk_getcputimer(params.reporttimer)
         );
     }
@@ -514,5 +513,5 @@ fn report_gp_results(params: &mut params_t, graph: &graph_t, part: &[idx_t], _ob
     //   print!("  proc/self/stat/VmPeak:\t {:7.3} MB\n", (real_t)gk_GetProcVmPeak()/(1024.0*1024.0));
     // #endif
 
-    print!("******************************************************************************\n");
+    println!("******************************************************************************");
 }

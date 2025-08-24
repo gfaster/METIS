@@ -240,7 +240,7 @@ pub extern "C" fn UpdateEdgeSubDomainGraph(
                 adids_u[j] = adids_u[nads - 1];
                 adwgts_u[j] = adwgts_u[nads - 1];
                 nads -= 1;
-                if r_maxndoms != std::ptr::null_mut() && (nads + 1) as idx_t == *r_maxndoms {
+                if !r_maxndoms.is_null() && (nads + 1) as idx_t == *r_maxndoms {
                     *r_maxndoms = cnads[(util::iargmax(cnads, 1)) as usize];
                 }
             }
@@ -275,9 +275,9 @@ pub extern "C" fn UpdateEdgeSubDomainGraph(
             adwgts_u = std::slice::from_raw_parts_mut(adwgts[u], nads + 1);
             adwgts_u[nads] = ewgt;
             nads += 1;
-            if r_maxndoms != std::ptr::null_mut() && nads as idx_t > *r_maxndoms {
-                print!(
-                    "You just increased the maxndoms: {:} {:}\n",
+            if !r_maxndoms.is_null() && nads as idx_t > *r_maxndoms {
+                println!(
+                    "You just increased the maxndoms: {:} {:}",
                     nads, *r_maxndoms
                 );
                 *r_maxndoms = nads as idx_t;
@@ -605,16 +605,15 @@ pub extern "C" fn EliminateSubDomainEdges(ctrl: *mut ctrl_t, graph: *mut graph_t
                                     )
                                 );
 
-                                if nads[k as usize] + nadd < nads[me] {
-                                    if target2 == usize::MAX
+                                if nads[k as usize] + nadd < nads[me]
+                                    && (target2 == usize::MAX
                                         || nads[target2] + bestnadd > nads[k] + nadd
                                         || (nads[target2] + bestnadd == nads[k] + nadd
-                                            && bestnadd > nadd)
+                                            && bestnadd > nadd))
                                     {
                                         target2 = k;
                                         bestnadd = nadd;
                                     }
-                                }
 
                                 if nadd == 0 {
                                     target = k;
@@ -884,16 +883,16 @@ pub extern "C" fn MoveGroupMinConnForVol(
         let from = where_[i as usize] as usize;
 
         let myrinfo = &mut *graph.vkrinfo.add(i);
-        if (*myrinfo).inbr == -1 {
-            (*myrinfo).inbr = wspace::vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
-            (*myrinfo).nnbrs = 0;
+        if myrinfo.inbr == -1 {
+            myrinfo.inbr = wspace::vnbrpoolGetNext(ctrl, xadj[i + 1] - xadj[i]);
+            myrinfo.nnbrs = 0;
         }
         let mynbrs = std::slice::from_raw_parts(
-            ctrl.vnbrpool.add((*myrinfo).inbr as usize),
-            (*myrinfo).nnbrs as usize,
+            ctrl.vnbrpool.add(myrinfo.inbr as usize),
+            myrinfo.nnbrs as usize,
         );
 
-        let mut xgain = if (*myrinfo).nid == 0 && (*myrinfo).ned > 0 {
+        let mut xgain = if myrinfo.nid == 0 && myrinfo.ned > 0 {
             vsize[i as usize]
         } else {
             0

@@ -276,6 +276,8 @@ impl Params {
             overrides,
         } = self;
 
+        let _ = ubvec;
+
         println!("Calling {filename:?} with {ver:?}");
 
         let (pr, pw) = io::pipe().unwrap();

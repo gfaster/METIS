@@ -396,7 +396,7 @@ pub extern "C" fn SplitGraphPart(
     graph: *mut graph_t,
     r_lgraph: *mut *mut graph_t,
     r_rgraph: *mut *mut graph_t,
-) -> () {
+) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, j, k, l, istart, iend, mypart, nvtxs, ncon, snvtxs[2], snedges[2];

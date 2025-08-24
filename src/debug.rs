@@ -23,7 +23,7 @@ pub extern "C" fn ComputeCut(graph: *const graph_t, where_: *const idx_t) -> idx
     mkslice!(where_, nvtxs);
 
     let mut cut = 0;
-    if graph.adjwgt == std::ptr::null_mut() {
+    if graph.adjwgt.is_null() {
         // I don't think this is ever hit
         for i in (0)..(nvtxs as usize) {
             for j in (xadj[i as usize])..(xadj[(i + 1) as usize]) {

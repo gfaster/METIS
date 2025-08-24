@@ -174,7 +174,7 @@ impl DirectAccessList {
 
 impl From<pqueue::rs::IPQueue> for DirectAccessList {
     fn from(value: pqueue::rs::IPQueue) -> Self {
-        value.to_dal()
+        value.into_dal()
     }
 }
 

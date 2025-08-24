@@ -86,6 +86,9 @@
 //! fuzzing)
 //!
 
+// the original has a few that we would like to keep
+#![allow(clippy::absurd_extreme_comparisons)]
+
 use crate::*;
 
 /*
@@ -858,24 +861,22 @@ fn mmdupd(
                                                 /* 'node' is not yet considered. */
                                                 marker[node as usize] = *tag;
                                                 deg += qsize[node as usize];
-                                            } else {
-                                                if backward[node as usize] == 0 {
-                                                    if forward[node as usize] == 2 {
-                                                        /* 'node' is indistinguishable from 'enode'.*/
-                                                        /* merge them into a new supernode.         */
-                                                        qsize[enode as usize] +=
-                                                            qsize[node as usize];
-                                                        qsize[node as usize] = 0;
-                                                        marker[node as usize] = idx_t::MAX;
-                                                        forward[node as usize] = -enode;
+                                            } else if backward[node as usize] == 0 {
+                                                if forward[node as usize] == 2 {
+                                                    /* 'node' is indistinguishable from 'enode'.*/
+                                                    /* merge them into a new supernode.         */
+                                                    qsize[enode as usize] +=
+                                                        qsize[node as usize];
+                                                    qsize[node as usize] = 0;
+                                                    marker[node as usize] = idx_t::MAX;
+                                                    forward[node as usize] = -enode;
+                                                    backward[node as usize] = -idx_t::MAX;
+                                                } else {
+                                                    /* 'node' is outmacthed by 'enode' */
+                                                    if backward[node as usize] == 0 {
                                                         backward[node as usize] = -idx_t::MAX;
-                                                    } else {
-                                                        /* 'node' is outmacthed by 'enode' */
-                                                        if backward[node as usize] == 0 {
-                                                            backward[node as usize] = -idx_t::MAX;
-                                                        }
-                                                    };
-                                                }
+                                                    }
+                                                };
                                             }
                                         }
                                     }

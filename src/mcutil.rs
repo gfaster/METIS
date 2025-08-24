@@ -162,8 +162,8 @@ pub extern "C" fn BetterVBalance(
         sum1 += (v_vwgt[i] + u1_vwgt[i]) as real_t * invtvwgt[i];
         sum2 += (v_vwgt[i] + u2_vwgt[i]) as real_t * invtvwgt[i];
     }
-    sum1 = sum1 / ncon as real_t;
-    sum2 = sum2 / ncon as real_t;
+    sum1 /= ncon as real_t;
+    sum2 /= ncon as real_t;
 
     let mut diff1 = 0.0;
     let mut diff2 = 0.0;

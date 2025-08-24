@@ -83,9 +83,9 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
 
             if i == k {
                 if verbose {
-                    print!(
+                    println!(
                         "Vertex {:} contains a self-loop \
-                  (i.e., diagonal entry in the matrix)!\n",
+                  (i.e., diagonal entry in the matrix)!",
                         i + numflag
                     );
                 }
@@ -97,8 +97,8 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
                         if let Some(adjwgt) = adjwgt {
                             if adjwgt[l as usize] != adjwgt[j as usize] {
                                 if verbose {
-                                    print!(
-                                        "Edges (u:{:} v:{:} wgt:{:}) and (v:{:} u:{:} wgt:{:}) do not have the same weight!\n",
+                                    println!(
+                                        "Edges (u:{:} v:{:} wgt:{:}) and (v:{:} u:{:} wgt:{:}) do not have the same weight!",
                                         i + numflag,
                                         k + numflag,
                                         adjwgt[j as usize],
@@ -117,7 +117,7 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
                 // if (l == xadj[(k+1) as usize])
                 if !found {
                     if verbose {
-                        print!("Missing edge: ({:} {:})!\n", k + numflag, i + numflag);
+                        println!("Missing edge: ({:} {:})!", k + numflag, i + numflag);
                     }
                     err += 1;
                 }
@@ -127,8 +127,8 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
                 htable[k as usize] += 1;
             } else {
                 if verbose {
-                    print!(
-                        "Edge {:} from vertex {:} is repeated {:} times\n",
+                    println!(
+                        "Edge {:} from vertex {:} is repeated {:} times",
                         k + numflag,
                         i + numflag,
                         htable[k as usize]
@@ -145,9 +145,9 @@ pub extern "C" fn CheckGraph(graph: *mut graph_t, numflag: c_int, verbose: c_int
     }
 
     if err > 0 && verbose {
-        print!(
+        println!(
             "A total of {:} errors exist in the input file. \
-            Correct them, and run again!\n",
+            Correct them, and run again!",
             err
         );
     }

@@ -43,11 +43,11 @@ use crate::*;
 /*************************************************************************/
 #[metis_func(no_pfx)]
 pub extern "C" fn METIS_NodeND(
-    nvtxs: *mut idx_t,
+    nvtxs: *const idx_t,
     xadj: *mut idx_t,
     adjncy: *mut idx_t,
     vwgt: *mut idx_t,
-    options: *mut idx_t,
+    options: *const idx_t,
     perm: *mut idx_t,
     iperm: *mut idx_t,
 ) -> c_int {
@@ -118,7 +118,7 @@ pub extern "C" fn METIS_NodeND(
             piperm.as_mut_ptr(),
             ctrl.pfactor,
         );
-        if graph == std::ptr::null_mut() {
+        if graph.is_null() {
             /* if there was no prunning, cleanup the pfactor */
             std::mem::take(&mut piperm);
             ctrl.pfactor = 0.0;
@@ -143,7 +143,7 @@ pub extern "C" fn METIS_NodeND(
             cptr.as_mut_ptr(),
             cind.as_mut_ptr(),
         );
-        if graph == std::ptr::null_mut() {
+        if graph.is_null() {
             /* if there was no compression, cleanup the compress flag */
             std::mem::take(&mut cptr);
             std::mem::take(&mut cind);
@@ -544,12 +544,7 @@ pub extern "C" fn MlevelNodeBisectionL1(ctrl: *mut ctrl_t, graph: *mut graph_t, 
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
 
-    ctrl.CoarsenTo = graph.nvtxs / 8;
-    if ctrl.CoarsenTo > 100 {
-        ctrl.CoarsenTo = 100;
-    } else if ctrl.CoarsenTo < 40 {
-        ctrl.CoarsenTo = 40;
-    }
+    ctrl.CoarsenTo = (graph.nvtxs / 8).clamp(40, 100);
 
     let cgraph = coarsen::CoarsenGraph(ctrl, graph);
     let cgraph = cgraph.as_mut().unwrap();

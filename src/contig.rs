@@ -126,7 +126,7 @@ pub extern "C" fn ComputeBFSOrdering(
     _ctrl: *mut ctrl_t,
     graph: *mut graph_t,
     bfsperm: *mut idx_t,
-) -> () {
+) {
     let graph = graph.as_mut().unwrap();
     // let ctrl = ctrl.as_mut().unwrap();
     // idx_t i, j, k, nvtxs, first, last;
@@ -411,7 +411,7 @@ pub extern "C" fn FindSepInducedComponents(
 /// This function finds all the connected components induced by the partitioning vector in
 /// `graph.where_` and tries to push them around to remove some of them.
 #[metis_func]
-pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) -> () {
+pub extern "C" fn EliminateComponents(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let graph = graph.as_mut().unwrap();
     let ctrl = ctrl.as_mut().unwrap();
     // ctrl.dbglvl |= METIS_DBG_CONTIGINFO;

@@ -250,14 +250,14 @@ pub fn InitKWayPartitioning(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         METIS_OBJTYPE_CUT | METIS_OBJTYPE_VOL => {
             options[METIS_OPTION_NCUTS as usize] = ctrl.nIparts;
             status = pmetis::METIS_PartGraphRecursive(
-                &mut graph.nvtxs,
-                &mut graph.ncon,
+                &graph.nvtxs,
+                &graph.ncon,
                 graph.xadj,
                 graph.adjncy,
                 graph.vwgt,
                 graph.vsize,
                 graph.adjwgt,
-                &mut ctrl.nparts,
+                &ctrl.nparts,
                 ctrl.tpwgts,
                 ubvec.as_mut_ptr(),
                 options.as_mut_ptr(),

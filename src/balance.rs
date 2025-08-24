@@ -513,7 +513,7 @@ pub extern "C" fn McGeneral2WayBalance(
             graph,
             std::slice::from_raw_parts(ctrl.pijbm, ctrl.nparts as usize * ncon),
             std::slice::from_raw_parts(ctrl.ubfactors, ncon),
-            &mut queues,
+            &queues,
         );
         let to = (from + 1) % 2;
 

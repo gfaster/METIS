@@ -62,12 +62,11 @@ fn strtoreal(s: &mut &str) -> Result<real_t, <real_t as FromStr>::Err> {
                     return true;
                 }
             }
-            if !decimal {
-                if b == b'.' {
+            if !decimal
+                && b == b'.' {
                     decimal = true;
                     return true;
                 }
-            }
             b.is_ascii_digit()
         })
         .count();
@@ -148,7 +147,6 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
     let _ = cur.scanstr(" ");
     if let Ok(n) = cur.scan() {
         ncon = n;
-        drop(cur)
     }
 
     // nfields = sscanf(line, "%"SCIDX" %"SCIDX" %"SCIDX" %"SCIDX, &(graph.nvtxs), &(graph.nedges), &fmt, &ncon);
@@ -170,7 +168,7 @@ pub unsafe fn ReadGraph(params: &params_t) -> *mut graph_t {
     // readew = (fmtstr[2 as usize] == '1');
     let readvs = (fmt / 100) % 10 == 1;
     let readvw = (fmt / 10) % 10 == 1;
-    let readew = (fmt / 1) % 10 == 1;
+    let readew = fmt % 10 == 1;
 
     /*println!("{:s %} {:} {:}", fmtstr, readvs, readvw, readew); */
 

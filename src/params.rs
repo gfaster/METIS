@@ -58,6 +58,12 @@ pub struct params_t {
     pub maxmemory: usize,
 }
 
+impl Default for params_t {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl params_t {
     pub fn new() -> Self {
         Self {

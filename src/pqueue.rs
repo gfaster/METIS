@@ -602,7 +602,7 @@ pub mod rs {
                 let count = CALL_NUM.get() + 1;
                 CALL_NUM.set(count);
 
-                if count % 10_000_000 == 0 {
+                if count.is_multiple_of(10_000_000) {
                     eprintln!("pqueue.check_heap has been called {count} times (that's sloooow!)")
                 }
             }
@@ -629,7 +629,7 @@ pub mod rs {
     }
 
     impl IPQueue {
-        pub fn to_dal(self) -> dal::DirectAccessList {
+        pub fn into_dal(self) -> dal::DirectAccessList {
             let ptr = self.locator.to_vec();
             let ind = self.heap.into_iter().map(|Node { val, .. }| val).collect();
             // eprintln!("ptr: {ptr:?}\nind: {ind:?}");

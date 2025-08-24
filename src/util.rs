@@ -19,6 +19,7 @@ use std::{error::Error, ffi::c_void};
 
 pub trait AsBufPtrExt<T> {
     /// polyfill for the unstable function [`NonNull::as_mut_ptr`]
+    #[allow(clippy::wrong_self_convention)]
     fn as_buf_ptr(self) -> *mut T;
 }
 
@@ -584,7 +585,7 @@ pub fn shift_csr(n: usize, a: &mut [idx_t]) {
 pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), y.len());
     assert_eq!(x.len(), z.len());
-    x.into_iter()
+    x.iter()
         .zip(y)
         .map(|(&xi, &yi)| a * xi + yi)
         .zip(z)
@@ -598,7 +599,7 @@ pub fn ivecaxpylez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
 pub fn ivecaxpygez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), y.len());
     assert_eq!(x.len(), z.len());
-    x.into_iter()
+    x.iter()
         .zip(y)
         .map(|(&xi, &yi)| a * xi + yi)
         .zip(z)
@@ -611,7 +612,7 @@ pub fn ivecaxpygez(a: idx_t, x: &[idx_t], y: &[idx_t], z: &[idx_t]) -> bool {
 /// original took length argument at beginning
 pub fn ivecle(x: &[idx_t], z: &[idx_t]) -> bool {
     assert_eq!(x.len(), z.len());
-    x.into_iter().zip(z).all(|(xi, zi)| xi <= zi)
+    x.iter().zip(z).all(|(xi, zi)| xi <= zi)
 }
 #[macro_export]
 macro_rules! ListInsert {

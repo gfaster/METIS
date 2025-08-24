@@ -148,7 +148,7 @@ fn main() {
     if cfg!(feature = "normalized") {
         println!("cargo:rustc-rerun-if-env-changed=METIS_NORM_FUNCTIONS");
         println!("cargo:rustc-link-lib=functions");
-        if let Some(path) = std::env::var("METIS_NORM_FUNCTIONS").ok() {
+        if let Ok(path) = std::env::var("METIS_NORM_FUNCTIONS") {
             println!("cargo:rustc-link-search={path}");
         }
     }
@@ -202,7 +202,7 @@ fn make_so(source: &[PathBuf]) {
         .arg("-lmetis_unported")
         .arg("-lGKlib");
     if cfg!(feature = "normalized") {
-        if let Some(path) = std::env::var("METIS_NORM_FUNCTIONS").ok() {
+        if let Ok(path) = std::env::var("METIS_NORM_FUNCTIONS") {
             cmd.arg(format!("-L{path}"));
         }
         cmd.arg("-lnormalization-functions");

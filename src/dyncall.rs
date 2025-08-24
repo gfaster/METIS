@@ -46,7 +46,8 @@ impl Library {
                 let err = unsafe { libc::dlerror() };
                 if let Some(err) = NonNull::new(err) {
                     let err = unsafe { CStr::from_ptr(err.as_ptr()) };
-                    let err = err.to_string_lossy().to_owned();
+                    // into_owned here becuase it could be invalidated
+                    let err = err.to_string_lossy().into_owned();
                     panic!("Error opening library: {err}");
                 } else {
                     panic!("Error opening library: unknown");
@@ -236,7 +237,7 @@ pub struct OverrideKey {
 }
 
 pub fn set_bin_overrides() {
-    if let Some(overrides) = std::env::var(VAR).ok() {
+    if let Ok(overrides) = std::env::var(VAR) {
         if cfg!(test) {
             println!("\nsetting overrides: `{overrides}`")
         }
@@ -445,7 +446,7 @@ impl<'a> Glob<'a> {
                 s.ends_with(g)
             }
         }
-        initial(&*self.template, s.as_ref())
+        initial(&self.template, s.as_ref())
     }
 }
 

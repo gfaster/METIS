@@ -137,19 +137,19 @@ pub fn parse_standard(
     params: &mut params_t,
 ) -> Option<ExitCode> {
     match parse_inner(args, opts, params) {
-        Ok(()) => return None,
+        Ok(()) => None,
         Err(e) if e.is_help() => {
             for line in help {
                 println!("{line}");
             }
-            return Some(ExitCode::SUCCESS);
+            Some(ExitCode::SUCCESS)
         }
         Err(e) => {
             eprintln!("ERROR: {e:?}");
             for line in shorthelp {
                 eprintln!("{line}");
             }
-            return Some(ExitCode::FAILURE);
+            Some(ExitCode::FAILURE)
         }
     }
 }

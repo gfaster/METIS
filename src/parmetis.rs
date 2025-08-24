@@ -259,11 +259,11 @@ pub extern "C" fn MlevelNestedDissectionP(
 /**************************************************************************/
 #[metis_func(no_pfx)]
 pub extern "C" fn METIS_ComputeVertexSeparator(
-    nvtxs: *mut idx_t,
+    nvtxs: *const idx_t,
     xadj: *mut idx_t,
     adjncy: *mut idx_t,
     vwgt: *mut idx_t,
-    options: *mut idx_t,
+    options: *const idx_t,
     r_sepsize: *mut idx_t,
     part: *mut idx_t,
 ) -> c_int {
@@ -517,13 +517,11 @@ pub extern "C" fn FM_2WayNodeRefine1SidedP(
                 mincutorder = nswaps as idx_t;
                 mindiff = newdiff;
                 nbad = 0;
-            } else {
-                if nbad > limit {
-                    nbad += 1;
-                    pwgts[2] +=
-                        vwgt[higain as usize] - rinfo[higain as usize].edegrees[from as usize];
-                    break; /* No further improvement, break out */
-                }
+            } else if nbad > limit {
+                nbad += 1;
+                pwgts[2] +=
+                    vwgt[higain as usize] - rinfo[higain as usize].edegrees[from as usize];
+                break; /* No further improvement, break out */
             }
 
             BNDDelete!(nbnd, bndind, bndptr, higain as usize);

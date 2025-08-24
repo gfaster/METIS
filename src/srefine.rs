@@ -104,7 +104,7 @@ pub extern "C" fn Compute2WayNodePartitionParams(ctrl: *mut ctrl_t, graph: *mut 
     let mut nbnd: usize = 0;
     for i in (0)..(nvtxs) {
         let me = where_[i as usize];
-        debug_assert!(me >= 0 && me <= 2);
+        debug_assert!((0..=2).contains(&me));
 
         pwgts[me as usize] += vwgt[i as usize];
 

@@ -432,15 +432,13 @@ pub extern "C" fn FM_2WayNodeRefine1Sided(ctrl: *mut ctrl_t, graph: *mut graph_t
                 mincut = pwgts[2];
                 mincutorder = nswaps as idx_t;
                 mindiff = newdiff;
-            } else {
-                if nswaps as idx_t - mincutorder > 3 * limit as idx_t
-                    || (nswaps as idx_t - mincutorder > limit as idx_t
-                        && (pwgts[2] as real_t) > 1.10 * mincut as real_t)
-                {
-                    pwgts[2] +=
-                        vwgt[higain as usize] - rinfo[higain as usize].edegrees[other as usize];
-                    break; /* No further improvement, break out */
-                }
+            } else if nswaps as idx_t - mincutorder > 3 * limit as idx_t
+                || (nswaps as idx_t - mincutorder > limit as idx_t
+                    && (pwgts[2] as real_t) > 1.10 * mincut as real_t)
+            {
+                pwgts[2] +=
+                    vwgt[higain as usize] - rinfo[higain as usize].edegrees[other as usize];
+                break; /* No further improvement, break out */
             }
 
             BNDDelete!(nbnd, bndind, bndptr, higain);

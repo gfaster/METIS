@@ -1,5 +1,9 @@
 use std::{
-    error::Error, fmt, io::{self, BufRead}, ops::Range, path::Path
+    error::Error,
+    fmt,
+    io::{self, BufRead},
+    ops::Range,
+    path::Path,
 };
 
 use fastrand::Rng;
@@ -416,7 +420,7 @@ impl GraphBuilder {
         self.adjncy
             .resize(self.xadj.last().copied().unwrap_or(0) as usize, -1);
         while let Some((cnt, vtx)) = remaining_vtx.pop_node() {
-            let mut list = remaining_vtx.clone().to_dal();
+            let mut list = remaining_vtx.clone().into_dal();
             eprintln!("assembling vertex {vtx}");
             for i in 0..cnt {
                 debug_assert!(remaining_vtx.length() >= 1);
@@ -538,19 +542,15 @@ impl GraphBuilder {
         };
         let mut adjwgt = orig
             .as_mut()
-            .take()
-            .map_or_else(|| Vec::with_capacity(nedges), |a| std::mem::take(a));
+            .map_or_else(|| Vec::with_capacity(nedges), std::mem::take);
         adjwgt.clear();
         adjwgt.extend((0..self.adjncy.len()).map(|_| rng.u32(1..50) as idx_t));
         for vtx in self.vtxs() {
             for (pos, &other) in self.adj(vtx as idx_t).iter().enumerate() {
-                self.adj(other)
-                    .iter()
-                    .position(|&v| v == vtx as idx_t)
-                    .map(|iadj| {
-                        adjwgt[pos + self.xadj[vtx] as usize] =
-                            adjwgt[self.xadj[other as usize] as usize + iadj]
-                    });
+                if let Some(iadj) = self.adj(other).iter().position(|&v| v == vtx as idx_t) {
+                    adjwgt[pos + self.xadj[vtx] as usize] =
+                        adjwgt[self.xadj[other as usize] as usize + iadj]
+                }
             }
         }
         match &mut self.op {
@@ -573,10 +573,13 @@ impl GraphBuilder {
     /// `ufactor` value that metis will use. See also: [`util::i2rubfactor`]
     pub fn ufactor(&self) -> i32 {
         if self.imbalance_factor != -1 {
-            return self.imbalance_factor
+            return self.imbalance_factor;
         }
         match self.op {
-            GraphOpSettings::Pmetis { common: GraphPartSettings { ncon, .. }, ..} if ncon <= 1 => PMETIS_DEFAULT_UFACTOR,
+            GraphOpSettings::Pmetis {
+                common: GraphPartSettings { ncon, .. },
+                ..
+            } if ncon <= 1 => PMETIS_DEFAULT_UFACTOR,
             GraphOpSettings::Pmetis { .. } => MCPMETIS_DEFAULT_UFACTOR,
             GraphOpSettings::Kmetis { .. } => KMETIS_DEFAULT_UFACTOR,
             GraphOpSettings::Ometis { .. } => OMETIS_DEFAULT_UFACTOR,
@@ -769,7 +772,7 @@ impl GraphBuilder {
 
     pub fn call(&mut self) -> Result<(idx_t, Vec<i32>), ()> {
         assert_eq!(self.adjncy.len(), *self.xadj.last().unwrap_or(&0) as usize);
-        let mut nvtxs = self.nvtxs() as idx_t;
+        let nvtxs = self.nvtxs() as idx_t;
         let mut part = vec![0; self.nvtxs()];
         let mut objval = 0;
         let mut options = [-1; METIS_NOPTIONS as usize];
@@ -792,18 +795,18 @@ impl GraphBuilder {
                     },
                 adjwgt,
             } => unsafe {
-                let mut nparts = *nparts as idx_t;
-                let mut ncon = *ncon as idx_t;
+                let nparts = *nparts as idx_t;
+                let ncon = *ncon as idx_t;
                 options[METIS_OPTION_NCUTS as usize] = *ncuts;
                 pmetis::METIS_PartGraphRecursive(
-                    &mut nvtxs,
-                    &mut ncon,
+                    &nvtxs,
+                    &ncon,
                     self.xadj.as_mut_ptr(),
                     self.adjncy.as_mut_ptr(),
                     vec_ptr(&mut self.vwgt),
                     std::ptr::null_mut(),
                     vec_ptr(adjwgt),
-                    &mut nparts,
+                    &nparts,
                     vec_ptr(tpwgts),
                     vec_ptr(ubvec),
                     options.as_mut_ptr(),
@@ -825,8 +828,8 @@ impl GraphBuilder {
                 contig,
                 niparts,
             } => unsafe {
-                let mut nparts = *nparts as idx_t;
-                let mut ncon = *ncon as idx_t;
+                let nparts = *nparts as idx_t;
+                let ncon = *ncon as idx_t;
                 let vsize;
                 let adjwgt;
                 options[METIS_OPTION_NCUTS as usize] = *ncuts;
@@ -846,14 +849,14 @@ impl GraphBuilder {
                 options[METIS_OPTION_MINCONN as usize] = *minconn as idx_t;
                 options[METIS_OPTION_NIPARTS as usize] = *niparts as idx_t;
                 kmetis::METIS_PartGraphKway(
-                    &mut nvtxs,
-                    &mut ncon,
+                    &nvtxs,
+                    &ncon,
                     self.xadj.as_mut_ptr(),
                     self.adjncy.as_mut_ptr(),
                     vec_ptr(&mut self.vwgt),
                     vsize,
                     adjwgt,
-                    &mut nparts,
+                    &nparts,
                     vec_ptr(tpwgts),
                     vec_ptr(ubvec),
                     options.as_mut_ptr(),
@@ -881,7 +884,7 @@ impl GraphBuilder {
                 let ret;
                 if *compute_vertex_separator {
                     ret = parmetis::METIS_ComputeVertexSeparator(
-                        &mut nvtxs,
+                        &nvtxs,
                         self.xadj.as_mut_ptr(),
                         self.adjncy.as_mut_ptr(),
                         vec_ptr(&mut self.vwgt),
@@ -891,7 +894,7 @@ impl GraphBuilder {
                     );
                 } else {
                     ret = ometis::METIS_NodeND(
-                        &mut nvtxs,
+                        &nvtxs,
                         self.xadj.as_mut_ptr(),
                         self.adjncy.as_mut_ptr(),
                         vec_ptr(&mut self.vwgt),
@@ -990,15 +993,29 @@ impl GraphBuilder {
         let fname = f.as_ref();
         let tpwgts = fname.with_extension("tpwgts");
         let mut opts = std::fs::OpenOptions::new();
-        opts.write(true).truncate(true).create(true); 
-        self.write_graph(std::io::BufWriter::new(opts.open(fname)?), fname.to_str(), tpwgts.to_str())?;
-        if self.op.common_ref().and_then(|c| c.tpwgts.as_deref()).is_some() {
+        opts.write(true).truncate(true).create(true);
+        self.write_graph(
+            std::io::BufWriter::new(opts.open(fname)?),
+            fname.to_str(),
+            tpwgts.to_str(),
+        )?;
+        if self
+            .op
+            .common_ref()
+            .and_then(|c| c.tpwgts.as_deref())
+            .is_some()
+        {
             self.write_tpwgts(std::io::BufWriter::new(opts.open(tpwgts)?))?;
         }
         Ok(())
     }
 
-    pub fn write_graph<W: io::Write>(&self, mut w: W, name: Option<&str>, tpwgts_name: Option<&str>) -> io::Result<()> {
+    pub fn write_graph<W: io::Write>(
+        &self,
+        mut w: W,
+        name: Option<&str>,
+        tpwgts_name: Option<&str>,
+    ) -> io::Result<()> {
         // command line invocation
         {
             writeln!(w, "% partition with this command:")?;
@@ -1019,7 +1036,7 @@ impl GraphBuilder {
                 GraphOpSettings::Pmetis {
                     common: _,
                     adjwgt: _,
-                } => {},
+                } => {}
                 GraphOpSettings::Kmetis {
                     common: _,
                     objtype,
@@ -1044,10 +1061,8 @@ impl GraphBuilder {
                     if *niparts != -1 {
                         write!(w, " -niparts={niparts}")?;
                     }
-                },
-                GraphOpSettings::Ometis {
-                    ..
-                } => todo!(),
+                }
+                GraphOpSettings::Ometis { .. } => todo!(),
             }
 
             {
@@ -1071,7 +1086,11 @@ impl GraphBuilder {
             let q = if file.contains(' ') { "\"" } else { "" };
             if let Some(comm) = self.op.common_ref() {
                 if let Some(_tpwgts) = comm.tpwgts.as_deref() {
-                    write!(w, r#" -tpwgts="{}""#, tpwgts_name.unwrap_or("<TPWGTS_FILE>"))?;
+                    write!(
+                        w,
+                        r#" -tpwgts="{}""#,
+                        tpwgts_name.unwrap_or("<TPWGTS_FILE>")
+                    )?;
                 }
                 if let Some(ubvec) = comm.ubvec.as_deref() {
                     write!(w, r#" -ubvec="{:.4}""#, space_sep(ubvec))?;
@@ -1096,7 +1115,11 @@ impl GraphBuilder {
             nvtxs = self.nvtxs(),
             nedges = self.adjncy.len() / 2,
             fmt = std::str::from_utf8(&fmt).unwrap(),
-            ncon = if has_vwgt { format_args!(" {ncon}") } else { format_args!("") }
+            ncon = if has_vwgt {
+                format_args!(" {ncon}")
+            } else {
+                format_args!("")
+            }
         )?;
 
         // main graph structure
@@ -1143,12 +1166,12 @@ impl GraphBuilder {
         let tpwgts = comm.tpwgts.as_deref().expect("no tpwgts to write");
         // let tpwgts = |c: usize, p: usize| tpwgts[c + p * self.ncon()];
         if self.ncon() == 1 {
-            for p in 0..comm.nparts {
-                writeln!(w, "{p} = {}", tpwgts[p])?;
+            for (p, tp) in tpwgts.iter().enumerate() {
+                writeln!(w, "{p} = {tp}")?;
             }
         } else {
             for p in 0..comm.nparts {
-                for c in 0..self.ncon() {
+                for c in 0..comm.ncon {
                     writeln!(w, "{p} : {c} = {}", tpwgts[c + self.ncon() * p])?;
                 }
             }
@@ -1276,11 +1299,10 @@ impl GraphBuilder {
 
         /* Find the connected componends induced by the partition */
         let mut ncmps: usize = 0;
-        let mut first: usize = 0;
         let mut last: usize = 1;
         // implicitly start on vertex 0
         touched[0] = true;
-        for n in (0..nvtxs).rev() {
+        for (first, n) in (0..nvtxs).rev().enumerate() {
             if first == last {
                 /* Find another starting vertex */
                 ncmps += 1;
@@ -1292,7 +1314,6 @@ impl GraphBuilder {
             }
 
             let i = cind[first] as usize;
-            first += 1;
 
             let k = perm[i];
             let j = todo[n];
@@ -1377,9 +1398,7 @@ impl GraphBuilder {
                 .as_deref()
                 .map_or(1.0 / comm.nparts as f64, |tp| tp[widx(c, p)] as f64)
         };
-        let unbalance = |c, p| {
-            pwgts(c, p) / (target(c, p) * total_pwgt[c])
-        };
+        let unbalance = |c, p| pwgts(c, p) / (target(c, p) * total_pwgt[c]);
         let acceptable = |c: usize, _p: usize| {
             // let t = target(c, p);
             let fudge = ubwgt(c) - 1.0;

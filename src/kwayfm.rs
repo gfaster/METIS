@@ -236,10 +236,8 @@ pub(crate) unsafe fn UpdateAdjacentVertexInfoAndBND(
             if myrinfo.ed - myrinfo.id >= 0 && bndptr[vid] == -1 {
                 BNDInsert!(*nbnd, bndind, bndptr, vid);
             }
-        } else {
-            if myrinfo.ed > 0 && bndptr[vid] == -1 {
-                BNDInsert!(*nbnd, bndind, bndptr, vid);
-            }
+        } else if myrinfo.ed > 0 && bndptr[vid] == -1 {
+            BNDInsert!(*nbnd, bndind, bndptr, vid);
         }
     } else if me == to {
         inc_dec!(myrinfo.id, myrinfo.ed, ewgt);
@@ -247,10 +245,8 @@ pub(crate) unsafe fn UpdateAdjacentVertexInfoAndBND(
             if myrinfo.ed - myrinfo.id < 0 && bndptr[vid] != -1 {
                 BNDDelete!(*nbnd, bndind, bndptr, vid);
             }
-        } else {
-            if myrinfo.ed <= 0 && bndptr[vid] != -1 {
-                BNDDelete!(*nbnd, bndind, bndptr, vid);
-            }
+        } else if myrinfo.ed <= 0 && bndptr[vid] != -1 {
+            BNDDelete!(*nbnd, bndind, bndptr, vid);
         }
     }
 
@@ -316,7 +312,7 @@ pub(crate) fn UpdateMovedVertexInfoAndBND(
     std::mem::swap(&mut myrinfo.id, &mut mynbrs[k].ed);
     if mynbrs[k].ed == 0 {
         myrinfo.nnbrs -= 1;
-        mynbrs[k] = mynbrs[myrinfo.nnbrs as usize].clone();
+        mynbrs[k] = mynbrs[myrinfo.nnbrs as usize];
     } else {
         mynbrs[k].pid = from as idx_t;
     }
@@ -486,20 +482,18 @@ fn UpdateQueueInfo(
                 vstatus[vid as usize] = VPQSTATUS_PRESENT;
                 ListInsert!(*nupd, updind, updptr, vid as usize);
             }
-        } else {
-            if vstatus[vid as usize] == VPQSTATUS_PRESENT {
-                if myrinfo.ed > 0 {
-                    queue.update(vid, rgain);
-                } else {
-                    queue.delete(vid);
-                    vstatus[vid as usize] = VPQSTATUS_NOTPRESENT;
-                    ListDelete!(*nupd, updind, updptr, vid as usize);
-                }
-            } else if vstatus[vid as usize] == VPQSTATUS_NOTPRESENT && myrinfo.ed > 0 {
-                queue.insert(vid, rgain);
-                vstatus[vid as usize] = VPQSTATUS_PRESENT;
-                ListInsert!(*nupd, updind, updptr, vid as usize);
+        } else if vstatus[vid as usize] == VPQSTATUS_PRESENT {
+            if myrinfo.ed > 0 {
+                queue.update(vid, rgain);
+            } else {
+                queue.delete(vid);
+                vstatus[vid as usize] = VPQSTATUS_NOTPRESENT;
+                ListDelete!(*nupd, updind, updptr, vid as usize);
             }
+        } else if vstatus[vid as usize] == VPQSTATUS_NOTPRESENT && myrinfo.ed > 0 {
+            queue.insert(vid, rgain);
+            vstatus[vid as usize] = VPQSTATUS_PRESENT;
+            ListInsert!(*nupd, updind, updptr, vid as usize);
         }
     }
 }
@@ -573,7 +567,8 @@ pub extern "C" fn Greedy_KWayCutOptimize(
 
     for i in (0)..(nparts) {
         maxpwgts[i] = (tpwgts[i] * *graph.tvwgt as f32 * ubfactor) as idx_t;
-        minpwgts[i] = (tpwgts[i] as double * *graph.tvwgt as double * (1.0 / ubfactor as double)) as idx_t;
+        minpwgts[i] =
+            (tpwgts[i] as double * *graph.tvwgt as double * (1.0 / ubfactor as double)) as idx_t;
     }
 
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
@@ -635,7 +630,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                 isum(nparts, nads, 1)
             );
         }
-        print!("\n");
+        println!();
     }
 
     let mut queue = pqueue::RPQueue::new(nvtxs);
@@ -1019,7 +1014,7 @@ pub extern "C" fn Greedy_KWayCutOptimize(
                     isum(nparts, nads, 1)
                 );
             }
-            print!("\n");
+            println!();
         }
 
         if nmoved == 0 || (omode == OMODE_REFINE && graph.mincut == oldcut) {
@@ -1090,8 +1085,9 @@ pub extern "C" fn Greedy_KWayVolOptimize(
 
     for i in (0)..(nparts) {
         maxpwgts[i as usize] = (tpwgts[i as usize] * tvwgt[0] as real_t * *ctrl.ubfactors) as idx_t;
-        minpwgts[i as usize] =
-            (tpwgts[i as usize] as double * tvwgt[0] as double * (1.0 / *ctrl.ubfactors as double)) as idx_t;
+        minpwgts[i as usize] = (tpwgts[i as usize] as double
+            * tvwgt[0] as double
+            * (1.0 / *ctrl.ubfactors as double)) as idx_t;
     }
 
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
@@ -1144,7 +1140,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
             "{}: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}, \
                 Nv-Nb[{:6} {:6}], Cut: {:5}, Vol: {:5}",
             (if omode == OMODE_REFINE { "GRV" } else { "GBV" }),
-            pwgts[(util::iargmin(&pwgts, 1)) as usize],
+            pwgts[(util::iargmin(pwgts, 1)) as usize],
             imax(nparts, pwgts, 1),
             minpwgts[0],
             maxpwgts[0],
@@ -1161,7 +1157,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 isum(nparts, nads, 1)
             );
         }
-        print!("\n");
+        println!();
     }
 
     // queue = ipqCreate(nvtxs);
@@ -1329,16 +1325,14 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                 debug_assert!(xgain + mynbrs[k as usize].gv >= 0);
 
                 let mut j = 0;
-                if xgain + mynbrs[k as usize].gv > 0 || mynbrs[k as usize].ned - myrinfo.nid > 0 {
+                if (xgain + mynbrs[k as usize].gv > 0 || mynbrs[k as usize].ned - myrinfo.nid > 0)
+                    || (mynbrs[k as usize].ned - myrinfo.nid == 0
+                        && ((iii % 2 == 0 && safetos[to as usize] == 2)
+                            || pwgts[from as usize] >= maxpwgts[from as usize]
+                            || tpwgts[from as usize] * ((pwgts[to as usize] + vwgt) as real_t)
+                                < tpwgts[to as usize] * pwgts[from as usize] as real_t))
+                {
                     j = 1;
-                } else if mynbrs[k as usize].ned - myrinfo.nid == 0 {
-                    if (iii % 2 == 0 && safetos[to as usize] == 2)
-                        || pwgts[from as usize] >= maxpwgts[from as usize]
-                        || tpwgts[from as usize] * ((pwgts[to as usize] + vwgt) as real_t)
-                            < tpwgts[to as usize] * pwgts[from as usize] as real_t
-                    {
-                        j = 1;
-                    }
                 }
                 if j == 0 {
                     continue;
@@ -1489,7 +1483,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
             print!(
                 "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
                     Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
-                pwgts[util::iargmin(&pwgts, 1) as usize],
+                pwgts[util::iargmin(pwgts, 1) as usize],
                 imax(nparts, pwgts, 1),
                 mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),
                 graph.nbnd,
@@ -1504,7 +1498,7 @@ pub extern "C" fn Greedy_KWayVolOptimize(
                     isum(nparts, nads, 1)
                 );
             }
-            print!("\n");
+            println!();
         }
 
         if nmoved == 0
@@ -1624,8 +1618,9 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 * tvwgt[j as usize] as real_t
                 * ubfactors[j as usize]) as idx_t;
             /*minpwgts[(i*ncon+j) as usize]  = ctrl.tpwgts[(i*ncon+j) as usize]*graph.tvwgt[j as usize]*(.9/ubfactors[j as usize]);*/
-            minpwgts[(i * ncon + j) as usize] =
-                (tpwgts[(i * ncon + j) as usize] as double * tvwgt[j as usize] as double * 0.2) as idx_t;
+            minpwgts[(i * ncon + j) as usize] = (tpwgts[(i * ncon + j) as usize] as double
+                * tvwgt[j as usize] as double
+                * 0.2) as idx_t;
         }
     }
 
@@ -1693,7 +1688,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                 isum(nparts, nads, 1)
             );
         }
-        print!("\n");
+        println!();
     }
 
     let mut queue = pqueue::RPQueue::new(nvtxs);
@@ -2134,7 +2129,7 @@ pub extern "C" fn Greedy_McKWayCutOptimize(
                     isum(nparts, nads, 1)
                 );
             }
-            print!("\n");
+            println!();
         }
 
         if nmoved == 0 || (omode == OMODE_REFINE && graph.mincut == oldcut) {
@@ -2240,8 +2235,9 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 * tvwgt[j as usize] as real_t
                 * ubfactors[j as usize]) as idx_t;
             /*minpwgts[(i*ncon+j) as usize]  = ctrl.tpwgts[(i*ncon+j) as usize]*graph.tvwgt[j as usize]*(.9/ubfactors[j as usize]); */
-            minpwgts[(i * ncon + j) as usize] =
-                (tpwgts[(i * ncon + j) as usize] as double * tvwgt[j as usize] as double * 0.2) as idx_t;
+            minpwgts[(i * ncon + j) as usize] = (tpwgts[(i * ncon + j) as usize] as double
+                * tvwgt[j as usize] as double
+                * 0.2) as idx_t;
         }
     }
 
@@ -2315,7 +2311,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 isum(nparts, nads, 1)
             );
         }
-        print!("\n");
+        println!();
     }
 
     let mut queue = pqueue::IPQueue::new(nvtxs);
@@ -2505,24 +2501,22 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                 to = cto;
 
                 let mut j = 0;
-                if xgain + mynbrs[k].gv > 0 || mynbrs[k].ned - myrinfo.nid > 0 {
+                if (xgain + mynbrs[k].gv > 0 || mynbrs[k].ned - myrinfo.nid > 0)
+                    || (mynbrs[k].ned - myrinfo.nid == 0
+                        && ((iii % 2 == 0 && safetos[to as usize] == 2)
+                            || mcutil::BetterBalanceKWay(
+                                ncon as idx_t,
+                                vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
+                                ubfactors.as_ptr(),
+                                -1,
+                                pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
+                                1,
+                                pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
+                                pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
+                            ) != 0))
+                {
                     j = 1;
-                } else if mynbrs[k].ned - myrinfo.nid == 0 {
-                    if (iii % 2 == 0 && safetos[to as usize] == 2)
-                        || mcutil::BetterBalanceKWay(
-                            ncon as idx_t,
-                            vwgt[cntrng!(i * ncon, ncon)].as_ptr(),
-                            ubfactors.as_ptr(),
-                            -1,
-                            pwgts[cntrng!(from * ncon, ncon)].as_ptr(),
-                            pijbm[cntrng!(from * ncon, ncon)].as_ptr(),
-                            1,
-                            pwgts[cntrng!(to * ncon, ncon)].as_ptr(),
-                            pijbm[cntrng!(to * ncon, ncon)].as_ptr(),
-                        ) != 0
-                    {
-                        j = 1;
-                    }
                 }
                 if j == 0 {
                     continue;
@@ -2751,7 +2745,7 @@ pub extern "C" fn Greedy_McKWayVolOptimize(
                     isum(nparts, nads, 1)
                 );
             }
-            print!("\n");
+            println!();
         }
 
         if nmoved == 0
@@ -2980,12 +2974,12 @@ pub unsafe fn KWayVolUpdate(
         myidx = myrinfo.nnbrs;
         // may temporarily use an extra index
         debug_assert!(myidx <= xadj[v + 1] - xadj[v]);
-        *ctrl.vnbrpool.add((myrinfo.inbr + myrinfo.nnbrs) as usize) = vnbr_t { 
+        *ctrl.vnbrpool.add((myrinfo.inbr + myrinfo.nnbrs) as usize) = vnbr_t {
             ned: 0,
 
             // these two were previously uninit
             pid: idx_t::MAX,
-            gv: idx_t::MAX
+            gv: idx_t::MAX,
         };
         myrinfo.nnbrs += 1;
     }
@@ -3219,8 +3213,8 @@ pub unsafe fn KWayVolUpdate(
      * Recompute the volume information of the 'hard' nodes, and update the
      * max volume gain for all the modified vertices and the priority queue
      *=====================================================================*/
-    for iii in (0)..(nmod) {
-        let i = modind[iii] as usize;
+    for &i in &modind[..nmod] {
+        let i = i as usize;
         let me = where_[i as usize] as usize;
 
         let (myrinfo, mynbrs) = vrinfos_mut(graph.vkrinfo, ctrl.vnbrpool, i);
@@ -3384,8 +3378,9 @@ pub extern "C" fn Greedy_KWayEdgeStats(ctrl: *mut ctrl_t, graph: *mut graph_t) {
     let ubfactor = *ctrl.ubfactors;
     for i in (0)..(nparts) {
         maxpwgts[i as usize] = (tpwgts[i as usize] * *graph.tvwgt as f32 * ubfactor) as idx_t;
-        minpwgts[i as usize] =
-            (tpwgts[i as usize] as double * *graph.tvwgt as double * (0.95 / ubfactor as double)) as idx_t;
+        minpwgts[i as usize] = (tpwgts[i as usize] as double
+            * *graph.tvwgt as double
+            * (0.95 / ubfactor as double)) as idx_t;
     }
 
     /* go and determine the positive gain valid swaps */
@@ -3494,9 +3489,9 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
     let mut perm: Vec<idx_t> = vec![0; nvtxs as usize];
 
     if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-        print!(
+        println!(
             "GRE: [{:6} {:6}]-[{:6} {:6}], Bal: {:5.3}, \
-                Nv-Nb[{:6} {:6}], Cut: {:6}\n",
+                Nv-Nb[{:6} {:6}], Cut: {:6}",
             pwgts[(util::iargmin(pwgts, 1)) as usize],
             imax(nparts, pwgts, 1),
             minpwgts[0],
@@ -3720,9 +3715,9 @@ pub extern "C" fn Greedy_KWayEdgeCutOptimize(ctrl: *mut ctrl_t, graph: *mut grap
         graph.nbnd = nbnd as idx_t;
 
         if ctrl.dbglvl & METIS_DBG_REFINE != 0 {
-            print!(
+            println!(
                 "\t[{:6} {:6}], Bal: {:5.3}, Nb: {:6}. \
-                    Nmoves: {:5}, Cut: {:6}, Vol: {:6}\n",
+                    Nmoves: {:5}, Cut: {:6}, Vol: {:6}",
                 pwgts[(util::iargmin(pwgts, 1)) as usize],
                 imax(nparts, pwgts, 1),
                 mcutil::ComputeLoadImbalance(graph, nparts as idx_t, ctrl.pijbm),

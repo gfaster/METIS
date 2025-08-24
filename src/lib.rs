@@ -1,9 +1,11 @@
 #![allow(
-    clippy::needless_range_loop,
     clippy::too_many_arguments,
     clippy::missing_safety_doc,
     unused_imports
 )]
+
+// will need to fix these manually since they're often subtle
+#![allow(clippy::needless_range_loop)]
 
 // will need to fix these all at once
 #![allow(clippy::needless_parens_on_range_literals)]
@@ -23,6 +25,12 @@
 
 // I don't like these lints
 #![allow(clippy::needless_return, clippy::let_and_return)]
+
+// I'm going to be changing mutability of arguments, so I want to catch them
+#![deny(clippy::unnecessary_mut_passed)]
+
+// mostly temporary things in porting. Will fix later.
+#![allow(clippy::type_complexity)]
 
 // #![warn(
 //     clippy::as_pointer_underscore,

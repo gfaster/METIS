@@ -22,19 +22,18 @@ pub extern "C" fn AllocateWorkSpace(ctrl: *mut ctrl_t, graph: *const graph_t) {
     let nparts = ctrl.nparts as usize;
     let ncon = ctrl.ncon as usize;
 
-    let coresize: usize;
-    match ctrl.optype {
+    let coresize = match ctrl.optype {
         METIS_OP_PMETIS => {
-            coresize = 3 * (nvtxs + 1) * size_of::<idx_t>()
+            3 * (nvtxs + 1) * size_of::<idx_t>()
                 + 5 * (nparts + 1) * ncon * size_of::<idx_t>()
                 + 5 * (nparts + 1) * ncon * size_of::<real_t>()
         }
         _ => {
-            coresize = 4 * (nvtxs + 1) * size_of::<idx_t>()
+            4 * (nvtxs + 1) * size_of::<idx_t>()
                 + 5 * (nparts + 1) * ncon * size_of::<idx_t>()
                 + 5 * (nparts + 1) * ncon * size_of::<real_t>()
         }
-    }
+    };
     ctrl.mcore = gk_mcoreCreate(coresize);
 
     ctrl.nbrpoolsize = 0;
@@ -115,7 +114,11 @@ pub extern "C" fn FreeWorkSpace(ctrl: *mut ctrl_t) {
 
     gk_mcoreDestroy(
         &mut ctrl.mcore,
-        if !cfg!(feature = "normalized") { (ctrl.dbglvl & METIS_DBG_INFO) as std::ffi::c_int } else { 0 },
+        if !cfg!(feature = "normalized") {
+            (ctrl.dbglvl & METIS_DBG_INFO) as std::ffi::c_int
+        } else {
+            0
+        },
     );
 
     ifset!(
@@ -131,7 +134,7 @@ pub extern "C" fn FreeWorkSpace(ctrl: *mut ctrl_t) {
         )
     );
 
-    if ctrl.cnbrpool as usize == ctrl.vnbrpool as usize {
+    if std::ptr::eq(ctrl.cnbrpool, ctrl.vnbrpool as *const cnbr_t) {
         ctrl.vnbrpool = std::ptr::null_mut();
     }
     gk::free_ref(&mut ctrl.cnbrpool);

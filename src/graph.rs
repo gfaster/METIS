@@ -23,18 +23,16 @@ trait ReadTransmuted {
 impl<T: Read> ReadTransmuted for T {
     fn read_idx(&mut self, buf: &mut [idx_t]) -> std::io::Result<()> {
         unsafe {
-            let len = buf.len();
             let p = buf.as_mut_ptr() as *mut u8;
-            let buf = std::slice::from_raw_parts_mut(p, len * std::mem::size_of::<idx_t>());
+            let buf = std::slice::from_raw_parts_mut(p, std::mem::size_of_val(buf));
             self.read_exact(buf)
         }
     }
 
     fn read_real(&mut self, buf: &mut [real_t]) -> std::io::Result<()> {
         unsafe {
-            let len = buf.len();
             let p = buf.as_mut_ptr() as *mut u8;
-            let buf = std::slice::from_raw_parts_mut(p, len * std::mem::size_of::<real_t>());
+            let buf = std::slice::from_raw_parts_mut(p, std::mem::size_of_val(buf));
             self.read_exact(buf)
         }
     }
@@ -49,18 +47,16 @@ trait WriteTransmuted {
 impl<T: std::io::Write> WriteTransmuted for T {
     fn write_idx(&mut self, buf: &[idx_t]) -> std::io::Result<()> {
         unsafe {
-            let len = buf.len();
             let p = buf.as_ptr() as *const u8;
-            let buf = std::slice::from_raw_parts(p, len * std::mem::size_of::<idx_t>());
+            let buf = std::slice::from_raw_parts(p, std::mem::size_of_val(buf));
             self.write_all(buf)
         }
     }
 
     fn write_real(&mut self, buf: &[real_t]) -> std::io::Result<()> {
         unsafe {
-            let len = buf.len();
             let p = buf.as_ptr() as *const u8;
-            let buf = std::slice::from_raw_parts(p, len * std::mem::size_of::<real_t>());
+            let buf = std::slice::from_raw_parts(p, std::mem::size_of_val(buf));
             self.write_all(buf)
         }
     }
@@ -90,7 +86,6 @@ pub extern "C" fn SetupGraph(
     let mut adjwgt = adjwgt;
     let mut vsize = vsize;
     let mut vwgt = vwgt;
-    let adjncy = adjncy;
 
     {
         let graph = graph.as_mut().unwrap();
@@ -112,22 +107,22 @@ pub extern "C" fn SetupGraph(
 
         /* setup the vertex weights */
         if !vwgt.is_null() {
-            (*graph).vwgt = vwgt;
-            (*graph).free_vwgt = 0;
+            graph.vwgt = vwgt;
+            graph.free_vwgt = 0;
         } else {
             vwgt = ismalloc(ncon * nvtxs, 1, c"SetupGraph: vwgt".as_ptr()) as *mut idx_t;
-            (*graph).vwgt = vwgt;
+            graph.vwgt = vwgt;
         }
 
-        (*graph).tvwgt = imalloc(ncon, c"SetupGraph: tvwgts".as_ptr()) as *mut idx_t;
-        (*graph).invtvwgt = rmalloc(ncon, c"SetupGraph: invtvwgts".as_ptr()) as *mut real_t;
+        graph.tvwgt = imalloc(ncon, c"SetupGraph: tvwgts".as_ptr()) as *mut idx_t;
+        graph.invtvwgt = rmalloc(ncon, c"SetupGraph: invtvwgts".as_ptr()) as *mut real_t;
         for i in (0)..(ncon) {
             mkslice_mut!(vwgt, ncon * nvtxs);
             // (*graph).tvwgt[i]    = isum(nvtxs, vwgt+i, ncon);
-            *(*graph).tvwgt.add(i) = vwgt[i..].iter().step_by(ncon).sum::<idx_t>();
-            *(*graph).invtvwgt.add(i) = (1.0_f64
-                / (if *(*graph).tvwgt.add(i) > 0 {
-                    *(*graph).tvwgt.add(i) as f64
+            *graph.tvwgt.add(i) = vwgt[i..].iter().step_by(ncon).sum::<idx_t>();
+            *graph.invtvwgt.add(i) = (1.0_f64
+                / (if *graph.tvwgt.add(i) > 0 {
+                    *graph.tvwgt.add(i) as f64
                 } else {
                     1.0_f64
                 })) as real_t;
@@ -136,16 +131,16 @@ pub extern "C" fn SetupGraph(
         if ctrl.objtype == METIS_OBJTYPE_VOL {
             /* Setup the vsize */
             if !vsize.is_null() {
-                (*graph).vsize = vsize;
-                (*graph).free_vsize = 0;
+                graph.vsize = vsize;
+                graph.free_vsize = 0;
             } else {
                 vsize = ismalloc(nvtxs, 1, c"SetupGraph: vsize".as_ptr()) as *mut idx_t;
-                (*graph).vsize = vsize;
+                graph.vsize = vsize;
             }
 
             /* Allocate memory for edge weights and initialize them to the sum of the vsize */
             adjwgt = imalloc(graph.nedges as usize, c"SetupGraph: adjwgt".as_ptr()) as *mut idx_t;
-            (*graph).adjwgt = adjwgt;
+            graph.adjwgt = adjwgt;
             {
                 get_graph_slices!(graph => xadj vsize adjncy);
                 get_graph_slices_mut!(graph => adjwgt);
@@ -190,10 +185,10 @@ pub extern "C" fn SetupGraph_tvwgt(graph: *mut graph_t) {
     // idx_t i;
 
     let ncon = graph.ncon as usize;
-    if graph.tvwgt == std::ptr::null_mut() {
+    if graph.tvwgt.is_null() {
         graph.tvwgt = imalloc(ncon, c"SetupGraph_tvwgt: tvwgt".as_ptr()) as *mut idx_t;
     }
-    if graph.invtvwgt == std::ptr::null_mut() {
+    if graph.invtvwgt.is_null() {
         graph.invtvwgt = rmalloc(ncon, c"SetupGraph_tvwgt: invtvwgt".as_ptr()) as *mut real_t;
     }
     get_graph_slices!(graph => vwgt);
@@ -223,7 +218,7 @@ pub extern "C" fn SetupGraph_label(graph: *mut graph_t) {
     // idx_t i;
 
     let nvtxs = graph.nvtxs as usize;
-    if graph.label == std::ptr::null_mut() {
+    if graph.label.is_null() {
         graph.label = imalloc(nvtxs, c"SetupGraph_label: label".as_ptr()) as *mut idx_t;
     }
     get_graph_slices_mut!(graph => label);
@@ -478,12 +473,11 @@ pub extern "C" fn graph_WriteToDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
         if graph.free_adjwgt != 0 {
             fpout.write_idx(adjwgt)?;
         }
-        if ctrl.objtype == METIS_OBJTYPE_VOL {
-            if graph.free_vsize != 0 {
+        if ctrl.objtype == METIS_OBJTYPE_VOL
+            && graph.free_vsize != 0 {
                 get_graph_slices!(graph => vsize);
                 fpout.write_idx(vsize)?;
             }
-        }
         Ok(())
     })();
 
@@ -560,13 +554,12 @@ pub extern "C" fn graph_ReadFromDisk(ctrl: *mut ctrl_t, graph: *mut graph_t) {
             fpin.read_idx(adjwgt)?;
         }
 
-        if ctrl.objtype == METIS_OBJTYPE_VOL {
-            if graph.free_vsize != 0 {
+        if ctrl.objtype == METIS_OBJTYPE_VOL
+            && graph.free_vsize != 0 {
                 graph.vsize = imalloc(nvtxs, c"graph_ReadFromDisk: vsize".as_ptr()) as *mut idx_t;
                 mkslice_mut!(graph->vsize, nvtxs);
                 fpin.read_idx(vsize)?;
             }
-        }
         std::mem::drop(fpin);
         graph.gID = 0;
         graph.ondisk = 0;
