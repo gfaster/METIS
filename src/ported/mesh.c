@@ -14,6 +14,7 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*****************************************************************************/
@@ -41,7 +42,9 @@
 
 */
 /*****************************************************************************/
-int METIS_MeshToDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+IFUNC(int, METIS_MeshToDual,(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+          idx_t *ncommon, idx_t *numflag,  idx_t **r_xadj, idx_t **r_adjncy));
+int c__METIS_MeshToDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
           idx_t *ncommon, idx_t *numflag,  idx_t **r_xadj, idx_t **r_adjncy)
 {
   int sigrval=0, renumber=0;
@@ -111,7 +114,9 @@ SIGTHROW:
 
 */
 /*****************************************************************************/
-int METIS_MeshToNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+IFUNC(int, METIS_MeshToNodal, (idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+          idx_t *numflag,  idx_t **r_xadj, idx_t **r_adjncy));
+int c__METIS_MeshToNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
           idx_t *numflag,  idx_t **r_xadj, idx_t **r_adjncy)
 {
   int sigrval=0, renumber=0;
@@ -159,7 +164,9 @@ SIGTHROW:
 /*****************************************************************************/
 /*! This function creates the dual of a finite element mesh */
 /*****************************************************************************/
-void CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon, 
+IFUNC(void, CreateGraphDual, (idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon, 
+          idx_t **r_xadj, idx_t **r_adjncy));
+void c__libmetis__CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon, 
           idx_t **r_xadj, idx_t **r_adjncy)
 {
   idx_t i, j, nnbrs;
@@ -202,7 +209,7 @@ void CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon
   nbrs   = imalloc(ne, "CreateGraphDual: nbrs");
 
   for (i=0; i<ne; i++) {
-    xadj[i] = FindCommonElements(i, eptr[i+1]-eptr[i], eind+eptr[i], nptr, 
+    xadj[i] = FindCommonElements(ne, nn, i, eptr[i+1]-eptr[i], eind+eptr[i], nptr, 
                   nind, eptr, ncommon, marker, nbrs);
   }
   MAKECSR(i, ne, xadj);
@@ -218,7 +225,7 @@ void CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon
   *r_adjncy = adjncy;
 
   for (i=0; i<ne; i++) {
-    nnbrs = FindCommonElements(i, eptr[i+1]-eptr[i], eind+eptr[i], nptr, 
+    nnbrs = FindCommonElements(ne, nn, i, eptr[i+1]-eptr[i], eind+eptr[i], nptr, 
                 nind, eptr, ncommon, marker, nbrs);
     for (j=0; j<nnbrs; j++)
       adjncy[xadj[i]++] = nbrs[j];
@@ -234,9 +241,13 @@ void CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon
     the ``query'' element. 
 */
 /*****************************************************************************/
-idx_t FindCommonElements(idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr, 
+IFUNC(idx_t, FindCommonElements, (idx_t ne, idx_t nn, idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr, 
+          idx_t *nind, idx_t *eptr, idx_t ncommon, idx_t *marker, idx_t *nbrs));
+idx_t c__libmetis__FindCommonElements(idx_t ne, idx_t nn, idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr, 
           idx_t *nind, idx_t *eptr, idx_t ncommon, idx_t *marker, idx_t *nbrs)
 {
+  (void)ne; // just used for Rust version
+  (void)nn; // just used for Rust version
   idx_t i, ii, j, jj, k, l, overlap;
 
   /* find all elements that share at least one node with qid */
@@ -274,7 +285,9 @@ idx_t FindCommonElements(idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr,
 /*****************************************************************************/
 /*! This function creates the (almost) nodal of a finite element mesh */
 /*****************************************************************************/
-void CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, 
+IFUNC(void, CreateGraphNodal, (idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, 
+          idx_t **r_xadj, idx_t **r_adjncy));
+void c__libmetis__CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, 
           idx_t **r_xadj, idx_t **r_adjncy)
 {
   idx_t i, j, nnbrs;
@@ -313,7 +326,7 @@ void CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind,
   nbrs   = imalloc(nn, "CreateGraphNodal: nbrs");
 
   for (i=0; i<nn; i++) {
-    xadj[i] = FindCommonNodes(i, nptr[i+1]-nptr[i], nind+nptr[i], eptr, 
+    xadj[i] = FindCommonNodes(ne, nn, i, nptr[i+1]-nptr[i], nind+nptr[i], eptr, 
                   eind, marker, nbrs);
   }
   MAKECSR(i, nn, xadj);
@@ -329,7 +342,7 @@ void CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind,
   *r_adjncy = adjncy;
 
   for (i=0; i<nn; i++) {
-    nnbrs = FindCommonNodes(i, nptr[i+1]-nptr[i], nind+nptr[i], eptr, 
+    nnbrs = FindCommonNodes(ne, nn, i, nptr[i+1]-nptr[i], nind+nptr[i], eptr, 
                 eind, marker, nbrs);
     for (j=0; j<nnbrs; j++)
       adjncy[xadj[i]++] = nbrs[j];
@@ -345,9 +358,13 @@ void CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind,
     the ``query'' node. 
 */
 /*****************************************************************************/
-idx_t FindCommonNodes(idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr, 
+IFUNC(idx_t, FindCommonNodes, (idx_t ne, idx_t nn, idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr, 
+          idx_t *eind, idx_t *marker, idx_t *nbrs));
+idx_t c__libmetis__FindCommonNodes(idx_t ne, idx_t nn, idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr, 
           idx_t *eind, idx_t *marker, idx_t *nbrs)
 {
+  (void)ne; // just for Rust version
+  (void)nn; // just for Rust version
   idx_t i, ii, j, jj, k;
 
   /* find all nodes that share at least one element with qid */
@@ -377,7 +394,8 @@ idx_t FindCommonNodes(idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr,
 /*************************************************************************/
 /*! This function creates and initializes a mesh_t structure */
 /*************************************************************************/
-mesh_t *CreateMesh(void)
+IFUNC(mesh_t *,CreateMesh, (void));
+mesh_t *c__libmetis__CreateMesh(void)
 {
   mesh_t *mesh;
 
@@ -392,7 +410,8 @@ mesh_t *CreateMesh(void)
 /*************************************************************************/
 /*! This function initializes a mesh_t data structure */
 /*************************************************************************/
-void InitMesh(mesh_t *mesh) 
+IFUNC(void, InitMesh, (mesh_t *mesh));
+void c__libmetis__InitMesh(mesh_t *mesh) 
 {
   memset((void *)mesh, 0, sizeof(mesh_t));
 }
@@ -401,7 +420,8 @@ void InitMesh(mesh_t *mesh)
 /*************************************************************************/
 /*! This function deallocates any memory stored in a mesh */
 /*************************************************************************/
-void FreeMesh(mesh_t **r_mesh) 
+IFUNC(void, FreeMesh, (mesh_t **r_mesh));
+void c__libmetis__FreeMesh(mesh_t **r_mesh) 
 {
   mesh_t *mesh = *r_mesh;
   

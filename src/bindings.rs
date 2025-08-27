@@ -70,62 +70,6 @@ extern "C" {
 
 // these don't need metis_decl attrib since they are the public API
 extern "C" {
-    pub fn METIS_MeshToDual(
-        ne: *mut idx_t,
-        nn: *mut idx_t,
-        eptr: *mut idx_t,
-        eind: *mut idx_t,
-        ncommon: *mut idx_t,
-        numflag: *mut idx_t,
-        r_xadj: *mut *mut idx_t,
-        r_adjncy: *mut *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_MeshToNodal(
-        ne: *mut idx_t,
-        nn: *mut idx_t,
-        eptr: *mut idx_t,
-        eind: *mut idx_t,
-        numflag: *mut idx_t,
-        r_xadj: *mut *mut idx_t,
-        r_adjncy: *mut *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_PartMeshNodal(
-        ne: *mut idx_t,
-        nn: *mut idx_t,
-        eptr: *mut idx_t,
-        eind: *mut idx_t,
-        vwgt: *mut idx_t,
-        vsize: *mut idx_t,
-        nparts: *mut idx_t,
-        tpwgts: *mut real_t,
-        options: *mut idx_t,
-        objval: *mut idx_t,
-        epart: *mut idx_t,
-        npart: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn METIS_PartMeshDual(
-        ne: *mut idx_t,
-        nn: *mut idx_t,
-        eptr: *mut idx_t,
-        eind: *mut idx_t,
-        vwgt: *mut idx_t,
-        vsize: *mut idx_t,
-        ncommon: *mut idx_t,
-        nparts: *mut idx_t,
-        tpwgts: *mut real_t,
-        options: *mut idx_t,
-        objval: *mut idx_t,
-        epart: *mut idx_t,
-        npart: *mut idx_t,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
     pub fn METIS_Free(ptr: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
 }
 extern "C" {
@@ -695,4 +639,21 @@ pub struct cnbr_t {
     pub ed: idx_t,
 
     pub gv__: MaybeUninit<idx_t>,
+}
+
+#[repr(C)]
+pub struct mesh_t {
+    ///The # of elements in the mesh
+    pub ne: idx_t,
+    ///The # of nodes in the mesh
+    pub nn: idx_t,
+    /// The number of element balancing constraints (element weights)
+    pub ncon: idx_t,           
+
+    /// The CSR-structure storing the nodes in the elements
+    pub eptr: *mut idx_t,
+    /// The CSR-structure storing the nodes in the elements
+    pub eind: *mut idx_t,
+    /// The weights of the elements
+    pub ewgt: *mut idx_t,
 }

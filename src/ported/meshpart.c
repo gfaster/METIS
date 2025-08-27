@@ -13,13 +13,17 @@
  */
 
 #include "metislib.h"
+#include "ifunc.h"
 
 
 /*************************************************************************
 * This function partitions a finite element mesh by partitioning its nodal
 * graph using KMETIS and then assigning elements in a load balanced fashion.
 **************************************************************************/
-int METIS_PartMeshNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+IFUNC(int, METIS_PartMeshNodal, (idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+          idx_t *vwgt, idx_t *vsize, idx_t *nparts, real_t *tpwgts, 
+          idx_t *options, idx_t *objval, idx_t *epart, idx_t *npart))
+int c__METIS_PartMeshNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
           idx_t *vwgt, idx_t *vsize, idx_t *nparts, real_t *tpwgts, 
           idx_t *options, idx_t *objval, idx_t *epart, idx_t *npart)
 {
@@ -63,7 +67,7 @@ int METIS_PartMeshNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
     raise(SIGERR);
 
   /* partition the other side of the mesh */
-  InduceRowPartFromColumnPart(*ne, eptr, eind, epart, npart, *nparts, tpwgts);
+  InduceRowPartFromColumnPart(*nn, *ne, eptr, eind, epart, npart, *nparts, tpwgts);
 
 
 SIGTHROW:
@@ -87,7 +91,11 @@ SIGTHROW:
 * This function partitions a finite element mesh by partitioning its dual
 * graph using KMETIS and then assigning nodes in a load balanced fashion.
 **************************************************************************/
-int METIS_PartMeshDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+IFUNC(int, METIS_PartMeshDual, (idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
+          idx_t *vwgt, idx_t *vsize, idx_t *ncommon, idx_t *nparts, 
+          real_t *tpwgts, idx_t *options, idx_t *objval, idx_t *epart, 
+          idx_t *npart));
+int c__METIS_PartMeshDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind, 
           idx_t *vwgt, idx_t *vsize, idx_t *ncommon, idx_t *nparts, 
           real_t *tpwgts, idx_t *options, idx_t *objval, idx_t *epart, 
           idx_t *npart) 
@@ -150,7 +158,7 @@ int METIS_PartMeshDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
   SHIFTCSR(i, *nn, nptr);
 
   /* partition the other side of the mesh */
-  InduceRowPartFromColumnPart(*nn, nptr, nind, npart, epart, *nparts, tpwgts);
+  InduceRowPartFromColumnPart(*ne, *nn, nptr, nind, npart, epart, *nparts, tpwgts);
 
   gk_free((void **)&nptr, &nind, LTERM);
 
@@ -176,9 +184,12 @@ SIGTHROW:
 /*! Induces a partitioning of the rows based on a a partitioning of the
     columns. It is used by both the Nodal and Dual routines. */
 /*************************************************************************/
-void InduceRowPartFromColumnPart(idx_t nrows, idx_t *rowptr, idx_t *rowind,
+IFUNC(void, InduceRowPartFromColumnPart,(idx_t ncols, idx_t nrows, idx_t *rowptr, idx_t *rowind,
+         idx_t *rpart, idx_t *cpart, idx_t nparts, real_t *tpwgts));
+void c__libmetis__InduceRowPartFromColumnPart(idx_t ncols, idx_t nrows, idx_t *rowptr, idx_t *rowind,
          idx_t *rpart, idx_t *cpart, idx_t nparts, real_t *tpwgts)
 {
+  (void)ncols; // only used by Rust version
   idx_t i, j, k, me;
   idx_t nnbrs, *pwgts, *nbrdom, *nbrwgt, *nbrmrk;
   idx_t *itpwgts;

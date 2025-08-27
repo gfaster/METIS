@@ -83,6 +83,8 @@ pub mod gklib_replace;
 pub mod graphio;
 pub mod params;
 pub mod scanf;
+pub mod mesh;
+pub mod meshpart;
 
 pub(crate) use gklib_replace::*;
 

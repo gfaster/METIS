@@ -25,19 +25,19 @@ void General2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 void McGeneral2WayBalance(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts);
 
 
-/* bucketsort.c - Ported */
+/* bucketsort.c - ported */
 void BucketSortKeysInc(ctrl_t *ctrl, idx_t n, idx_t max, idx_t *keys,
          idx_t *tperm, idx_t *perm);
 
 
-/* checkgraph.c - Ported */
+/* checkgraph.c - ported */
 int CheckGraph(graph_t *graph, int numflag, int verbose);
 int CheckInputGraphWeights(idx_t nvtxs, idx_t ncon, idx_t *xadj, idx_t *adjncy,
         idx_t *vwgt, idx_t *vsize, idx_t *adjwgt);
 graph_t *FixGraph(graph_t *graph);
 
 
-/* coarsen.c - Ported */
+/* coarsen.c - ported */
 graph_t *CoarsenGraph(ctrl_t *ctrl, graph_t *graph);
 graph_t *CoarsenGraphNlevels(ctrl_t *ctrl, graph_t *graph, idx_t nlevels);
 idx_t Match_RM(ctrl_t *ctrl, graph_t *graph);
@@ -133,7 +133,7 @@ void graph_WriteToDisk(ctrl_t *ctrl, graph_t *graph);
 void graph_ReadFromDisk(ctrl_t *ctrl, graph_t *graph);
 
 
-/* initpart.c - Ported */
+/* initpart.c - ported */
 void Init2WayPartition(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
 void InitSeparator(ctrl_t *ctrl, graph_t *graph, idx_t niparts);
 void RandomBisection(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
@@ -144,7 +144,7 @@ void GrowBisectionNode(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t nipa
 void GrowBisectionNode2(ctrl_t *ctrl, graph_t *graph, real_t *ntpwgts, idx_t niparts);
 
 
-/* kmetis.c - Ported */
+/* kmetis.c - ported */
 idx_t MlevelKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part);
 void InitKWayPartitioning(ctrl_t *ctrl, graph_t *graph);
 idx_t BlockKWayPartitioning(ctrl_t *ctrl, graph_t *graph, idx_t *part);
@@ -152,7 +152,7 @@ idx_t GrowMultisection(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where)
 void BalanceAndRefineLP(ctrl_t *ctrl, graph_t *graph, idx_t nparts, idx_t *where);
 
 
-/* kwayfm.c - Ported */
+/* kwayfm.c - ported */
 void Greedy_KWayOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
          real_t ffactor, idx_t omode);
 void Greedy_KWayCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter, 
@@ -173,7 +173,7 @@ void Greedy_KWayEdgeStats(ctrl_t *ctrl, graph_t *graph);
 void Greedy_KWayEdgeCutOptimize(ctrl_t *ctrl, graph_t *graph, idx_t niter);
 
 
-/* kwayrefine.c - Ported */
+/* kwayrefine.c - ported */
 void RefineKWay(ctrl_t *ctrl, graph_t *orggraph, graph_t *graph);
 void AllocateKWayPartitionMemory(ctrl_t *ctrl, graph_t *graph);
 void ComputeKWayPartitionParams(ctrl_t *ctrl, graph_t *graph);
@@ -183,7 +183,7 @@ void ComputeKWayVolGains(ctrl_t *ctrl, graph_t *graph);
 int IsBalanced(ctrl_t *ctrl, graph_t *graph, real_t ffactor);
 
 
-/* mcutil.c - Ported */
+/* mcutil.c - ported */
 int rvecle(idx_t n, real_t *x, real_t *y);
 int rvecge(idx_t n, real_t *x, real_t *y);
 int rvecsumle(idx_t n, real_t *x1, real_t *x2, real_t *y);
@@ -206,22 +206,22 @@ void ComputeLoadImbalanceVec(graph_t *graph, idx_t nparts, real_t *pijbm,
              real_t *lbvec);
 
 
-/* mesh.c */
+/* mesh.c - ported */
 void CreateGraphDual(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t ncommon,
           idx_t **r_xadj, idx_t **r_adjncy);
-idx_t FindCommonElements(idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr,
+idx_t FindCommonElements(idx_t ne, idx_t nn, idx_t qid, idx_t elen, idx_t *eind, idx_t *nptr,
           idx_t *nind, idx_t *eptr, idx_t ncommon, idx_t *marker, idx_t *nbrs);
 void CreateGraphNodal(idx_t ne, idx_t nn, idx_t *eptr, idx_t *eind, idx_t **r_xadj, 
           idx_t **r_adjncy);
-idx_t FindCommonNodes(idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr,
+idx_t FindCommonNodes(idx_t ne, idx_t nn, idx_t qid, idx_t nelmnts, idx_t *elmntids, idx_t *eptr,
           idx_t *eind, idx_t *marker, idx_t *nbrs);
 mesh_t *CreateMesh(void);
 void InitMesh(mesh_t *mesh);  
 void FreeMesh(mesh_t **mesh);
 
 
-/* meshpart.c */
-void InduceRowPartFromColumnPart(idx_t nrows, idx_t *rowptr, idx_t *rowind,
+/* meshpart.c - ported */
+void InduceRowPartFromColumnPart(idx_t ncols, idx_t nrows, idx_t *rowptr, idx_t *rowind,
          idx_t *rpart, idx_t *cpart, idx_t nparts, real_t *tpwgts);
 
 
@@ -319,7 +319,7 @@ void Compute2WayNodePartitionParams(ctrl_t *ctrl, graph_t *graph);
 void Project2WayNodePartition(ctrl_t *ctrl, graph_t *graph);
 
 
-/* stat.c */
+/* stat.c - ported */
 void ComputePartitionInfoBipartite(graph_t *, idx_t, idx_t *);
 void ComputePartitionBalance(graph_t *, idx_t, idx_t *, real_t *);
 real_t ComputeElementBalance(idx_t, idx_t, idx_t *);
@@ -329,7 +329,7 @@ real_t ComputeElementBalance(idx_t, idx_t, idx_t *);
 void InitTimers(ctrl_t *);
 void PrintTimers(ctrl_t *);
 
-/* util.c - Ported */
+/* util.c - ported */
 idx_t iargmax_strd(size_t, idx_t *, idx_t);
 idx_t iargmax_nrm(size_t n, idx_t *x, real_t *y);
 idx_t iargmax2_nrm(size_t n, idx_t *x, real_t *y);
@@ -339,7 +339,7 @@ int metis_rcode(int sigrval);
 
 
 
-/* wspace.c - won't port */
+/* wspace.c - ported */
 void AllocateWorkSpace(ctrl_t *ctrl, graph_t *graph);
 void AllocateRefinementWorkSpace(ctrl_t *ctrl, idx_t nbrpoolsize_max, idx_t nbrpoolsize);
 void FreeWorkSpace(ctrl_t *ctrl);
