@@ -1,0 +1,16 @@
+Code and patches for unifying the behavior of upstream Metis and my version.
+
+When built with the `normalized` feature (currently on by default), the output
+of the C version (build via ../metis-normalized.nix) and Rust version should be
+identical. This means that not only the graph output but also the debug output
+should be diffable.
+
+Note that these patches don't fix any major bugs in the original, which is
+notable in the cases when -minconn or -contig is enabled on certain graphs as
+there is a (logical) buffer overrun in the original. It is possible that
+differences in this when these flags are enabled are due to that buffer
+overrun. 
+
+For this reason, it is recommended have asserts disabled. While it is common to
+fail an assert, it is far less common for the output to be affected unless the
+graph has very uniform degree distribution.
