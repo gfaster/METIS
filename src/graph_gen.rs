@@ -1109,18 +1109,21 @@ impl GraphBuilder {
         let has_vwgt = self.vwgt.is_some() || ncon > 1;
         let has_adjwgt = self.adjwgt().is_some();
         let fmt = [has_vsize, has_vwgt, has_adjwgt].map(|b| b as u8 + b'0');
-        writeln!(
-            w,
-            "{nvtxs} {nedges} {fmt}{ncon}",
-            nvtxs = self.nvtxs(),
-            nedges = self.adjncy.len() / 2,
-            fmt = std::str::from_utf8(&fmt).unwrap(),
-            ncon = if has_vwgt {
-                format_args!(" {ncon}")
-            } else {
-                format_args!("")
-            }
-        )?;
+        {
+            let ncon0 = format_args!(" {ncon}");
+            writeln!(
+                w,
+                "{nvtxs} {nedges} {fmt}{ncon}",
+                nvtxs = self.nvtxs(),
+                nedges = self.adjncy.len() / 2,
+                fmt = std::str::from_utf8(&fmt).unwrap(),
+                ncon = if has_vwgt {
+                    ncon0
+                } else {
+                    format_args!("")
+                }
+            )?;
+        }
 
         // main graph structure
         for vtx in self.vtxs() {
@@ -1450,20 +1453,20 @@ impl GraphBuilder {
                     };
                 }
 
-                println!(
-                    "pwgt[{idx}] : {actual} (target: {target}, \
-                    range: {start}..{end}, error: {diff})",
-                    actual = fmt!(actual),
-                    target = fmt!(target),
-                    start = fmt!(start),
-                    end = fmt!(end),
-                    diff = fmt!(diff),
-                    idx = if comm.ncon <= 1 {
-                        format_args!("{p:3}")
-                    } else {
-                        format_args!("con {c:2} , prt {p:3}")
-                    }
-                );
+                {
+                    let idx0 = format_args!("{p:3}");
+                    let idx1 = format_args!("con {c:2} , prt {p:3}");
+                    println!(
+                        "pwgt[{idx}] : {actual} (target: {target}, \
+                            range: {start}..{end}, error: {diff})",
+                        actual = fmt!(actual),
+                        target = fmt!(target),
+                        start = fmt!(start),
+                        end = fmt!(end),
+                        diff = fmt!(diff),
+                        idx = if comm.ncon <= 1 { idx0 } else { idx1 }
+                    );
+                }
             }
             panic!("partitions are unbalanced");
         }

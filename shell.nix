@@ -74,7 +74,7 @@ in
       cloc
       valgrind
       guile
-      ocamlPackages.magic-trace linuxKernel.packages.linux_5_10.perf
+      # ocamlPackages.magic-trace linuxKernel.packages.linux_5_10.perf
     ];
     RUSTC_VERSION = overrides.toolchain.channel;
     # https://github.com/rust-lang/rust-bindgen#environment-variables
