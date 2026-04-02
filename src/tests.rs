@@ -25,6 +25,28 @@ pub(crate) enum TestGraph {
     CitDblp,
 }
 
+/// to make sure we never let these go out of sync and forget one - also makes sure idx is matches
+/// ordering
+macro_rules! define_count_and_all {
+    ($($var:ident),* $(,)?) => {
+        const COUNT: usize = {
+            // ensure all variants are covered
+            let _ : fn(Self) = const { |var__| match var__ { $(Self::$var => ()),* } };
+
+            let cnt__: usize = 0;
+            $(
+                let _ = Self::$var;
+                // ensure the ordering of variants matches indexing
+                assert!(Self::$var.idx() == cnt__);
+                let cnt__ = cnt__ + 1;
+            )*
+            cnt__
+        };
+        const ALL: [Self; Self::COUNT] = [ $(Self::$var),* ];
+
+    };
+}
+
 impl TestGraph {
     #![deny(clippy::wildcard_enum_match_arm)]
 
@@ -96,16 +118,14 @@ impl TestGraph {
         }
     }
 
-    const COUNT: usize = 7;
-
-    const ALL: [Self; Self::COUNT] = [
-        Self::Elt4,
-        Self::Youtube,
-        Self::Webbase2004,
-        Self::WebSpam,
-        Self::Luxembourg,
-        Self::Orani,
-        Self::CitDblp,
+    define_count_and_all![ 
+        Elt4,
+        Youtube,
+        Webbase2004,
+        WebSpam,
+        Luxembourg,
+        Orani,
+        CitDblp,
     ];
 }
 
@@ -113,23 +133,28 @@ impl TestGraph {
 pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usize) -> GraphBuilder {
     // This is a bit of an awkward synchronization solution, but it's the best I can think of
 
-    fn load_graph_idx(idx: usize) -> Csr {
+    fn load_graph_idx(idx: usize) -> Result<Csr, String> {
         let filename = TestGraph::rev_idx(idx).file();
         let path = Path::new("graphs").join(filename);
-        let f = std::fs::read(&path)
-            .map_err(|e| format!("Could not read graph {path}: {e}", path = path.display()))
-            .unwrap();
-        GraphBuilder::read_graph_cfg_index(std::io::Cursor::new(&f), Optype::Kmetis, 1, 1, true)
+        let f = match std::fs::read(&path) {
+            Ok(x) => x,
+            Err(e) => {
+                let err = format!("could not read graph {path}: {e}", path = path.display());
+                return Err(err)
+            },
+        };
+        let csr = GraphBuilder::read_graph_cfg_index(std::io::Cursor::new(&f), Optype::Kmetis, 1, 1, true)
             .unwrap()
-            .into_csr()
+            .into_csr();
+        Ok(csr)
     }
 
-    const fn graph_of<const N: usize>() -> fn() -> Csr {
+    const fn graph_of<const N: usize>() -> fn() -> Result<Csr, String> {
         || load_graph_idx(N)
     }
 
     // probably false sharing, but I don't care enough to fix it
-    static GRAPHS: [LazyLock<Csr, fn() -> Csr>; TestGraph::COUNT] = [
+    static GRAPHS: [LazyLock<Result<Csr, String>, fn() -> Result<Csr, String>>; TestGraph::COUNT] = [
         LazyLock::new(graph_of::<0>()),
         LazyLock::new(graph_of::<1>()),
         LazyLock::new(graph_of::<2>()),
@@ -139,7 +164,12 @@ pub(crate) fn read_graph(graph: TestGraph, op: Optype, nparts: usize, ncon: usiz
         LazyLock::new(graph_of::<6>()),
     ];
 
-    let mut ret = GraphBuilder::from_csr(GRAPHS[graph.idx()].clone(), op, nparts, ncon);
+    let csr = match &*GRAPHS[graph.idx()] {
+        Ok(csr) => csr.clone(),
+        Err(e) => panic!("{e}"),
+    };
+
+    let mut ret = GraphBuilder::from_csr(csr, op, nparts, ncon);
     // ret.random_vwgt();
     if !op.is_ometis() {
         ret.random_tpwgts();
